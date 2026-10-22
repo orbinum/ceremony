@@ -1,0 +1,23 @@
+{
+  "name": "@orbinum-ceremony/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Operator, contributor and public-verification commands",
+  "author": "Orbinum Technologies <contact@orbinum.net>",
+  "bin": {
+    "orbinum-ceremony": "./src/index.ts"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/api.ts"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@orbinum-ceremony/core": "workspace:*",
+    "@orbinum-ceremony/verifier": "workspace:*"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@orbinum-ceremony/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end ceremony: wrangler dev (coordinator) + verifier service + contributors",
+  "author": "Orbinum Technologies <contact@orbinum.net>",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@orbinum-ceremony/cli": "workspace:*",
+    "@orbinum-ceremony/core": "workspace:*",
+    "@orbinum-ceremony/verifier": "workspace:*",
+    "ethers": "6.17.0",
+    "snarkjs": "0.7.6"
+  }
+}

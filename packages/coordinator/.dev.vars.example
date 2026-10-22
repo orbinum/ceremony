@@ -1,0 +1,12 @@
+# Local secrets for `wrangler dev`: copy to .dev.vars (gitignored) and fill in.
+# A local run only: the development identity header, /admin without Access, no Turnstile
+# (and only on localhost). Never set in a deployed environment.
+ENVIRONMENT=local
+# SESSION_KEY signs the session cookie and the OAuth state: 32+ random bytes, e.g. `openssl rand -hex 32`.
+SESSION_KEY=
+# The client secret of the GitHub OAuth app whose id is GITHUB_CLIENT_ID in wrangler.jsonc.
+GITHUB_CLIENT_SECRET=
+# Authenticates the verifier both ways (dispatch, object fetch, result callback): 32+ random bytes.
+VERIFIER_HMAC_KEY=
+# Turnstile secret of this environment's widget (bot check on joining the queue; skipped locally).
+TURNSTILE_SECRET=

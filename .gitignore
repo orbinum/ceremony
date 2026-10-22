@@ -1,0 +1,30 @@
+node_modules/
+dist/
+coverage/
+.vitest/
+.DS_Store
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
+
+# Ceremony artifacts (ptau, r1cs, zkeys, logs) are large and published separately; anchored, so
+# packages/cli/src/artifacts/ (source) is not ignored
+/artifacts/
+packages/*/artifacts/
+*.ptau
+*.zkey
+*.r1cs
+!packages/*/tests/fixtures/*.zkey
+!packages/*/tests/fixtures/*.r1cs
+
+# Rust
+target/
+
+# Real-key test inputs (.github/scripts/fetch-test-inputs.sh)
+.test-inputs/
+.test-inputs.env
+
+# Internal docs, not published yet
+/docs/

@@ -1,0 +1,26 @@
+{
+  "name": "@orbinum-ceremony/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The ceremony's pure domain (no I/O), in layers: config, primitives, formats, verification, ceremony documents, online coordination",
+  "author": "Orbinum Technologies <contact@orbinum.net>",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@polkadot/util": "14.0.3",
+    "@polkadot/util-crypto": "14.0.3",
+    "canonicalize": "5.1.0",
+    "ethers": "6.17.0"
+  },
+  "devDependencies": {
+    "@polkadot/keyring": "14.0.3"
+  }
+}

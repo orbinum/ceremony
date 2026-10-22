@@ -1,0 +1,268 @@
+name: CI
+
+# Every push to main and every pull request into main. release.yml also calls this workflow
+# (`workflow_call`) on the commit it is about to release, so the release gate is this exact set
+# of jobs and cannot drift from it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+# The token only reads: nothing here writes to the repository (each job may only narrow this).
+permissions:
+  contents: read
+
+# A newer push to the same ref supersedes the older run. `github.workflow` is the calling
+# workflow's name ("CI" here, "Release" when release.yml calls it), so a push to main never
+# cancels the run the release is waiting on.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Format, lint and typecheck: the whole repository, once.
+  checks:
+    name: Format, Lint, Typecheck
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The pnpm version comes from `packageManager` in package.json.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.15.0"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  # The test suites in parallel, each with only the inputs it reads. The packages' tests do not
+  # depend on each other's, so nothing waits for another; the cli runs its files one at a time
+  # (fileParallelism: false), so it is split into shards here.
+  test:
+    name: Test ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    # The end-to-end ceremony alone takes ~8 min (wrangler dev, nine verifications, a real drand
+    # round); the bound only stops a hung run.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: core, coordinator
+            run: pnpm --filter @orbinum-ceremony/core --filter @orbinum-ceremony/coordinator test
+            inputs: true
+          - name: verifier
+            run: pnpm --filter @orbinum-ceremony/verifier test
+            inputs: true
+          - name: cli 1/3
+            run: pnpm --filter @orbinum-ceremony/cli exec vitest run --shard=1/3
+            inputs: true
+            tools: true
+          - name: cli 2/3
+            run: pnpm --filter @orbinum-ceremony/cli exec vitest run --shard=2/3
+            inputs: true
+            tools: true
+          - name: cli 3/3
+            run: pnpm --filter @orbinum-ceremony/cli exec vitest run --shard=3/3
+            inputs: true
+            tools: true
+          - name: e2e
+            run: pnpm --filter @orbinum-ceremony/e2e test
+            inputs: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.15.0"
+          cache: pnpm
+
+      # Install scripts run only for esbuild and workerd (pnpm-workspace.yaml), which
+      # `wrangler dev` needs in the end-to-end test.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Every real-key test runs here, not only locally: the suites skip them without
+      # ORBINUM_PTAU / ORBINUM_REHEARSAL_DIR, and a suite that skips them would be green by
+      # absence, indistinguishable from green by passing. The script checks each input
+      # against its pin and prints the environment; the cache key is the script, where the
+      # URLs and pins live.
+      - name: Cache test inputs
+        if: matrix.inputs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .test-inputs/*.ptau
+            .test-inputs/*.tar.gz
+          key: test-inputs-${{ hashFiles('.github/scripts/fetch-test-inputs.sh') }}
+
+      - name: Fetch test inputs
+        if: matrix.inputs
+        run: .github/scripts/fetch-test-inputs.sh >> "$GITHUB_ENV"
+
+      # The vk_hash packer, built at a pinned commit with a pinned lockfile, so the strict
+      # verification tests run here too (about a minute). Only downloaded crates are cached
+      # (cargo checks each against Cargo.lock when it extracts it); the clone, the extracted
+      # sources and the build are never restored from a cache, which a run could have written.
+      - name: Cache the vk packer dependencies
+        if: matrix.tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: vk-packer-deps-${{ hashFiles('.github/scripts/build-vk-packer.sh', '.github/scripts/pack-verifying-key.Cargo.lock') }}
+
+      - name: Build the vk packer
+        if: matrix.tools
+        run: .github/scripts/build-vk-packer.sh >> "$GITHUB_ENV"
+
+      # The independent Rust verifier and circom, pinned by SHA-256.
+      - name: Fetch the Rust verifier and circom
+        if: matrix.tools
+        run: |
+          .github/scripts/fetch-ci-tools.sh >> "$GITHUB_ENV"
+          echo "$PWD/.test-inputs/bin" >> "$GITHUB_PATH"
+
+      # The circuits repo at the release the test ceremonies announce, with its tags (the
+      # verification resolves them) and its locked node_modules (circomlib). The organisation
+      # disables deploy keys, so a fine-grained token reads it: Contents read-only, that repo
+      # only. It is not left in the clone, whose origin stays the plain HTTPS URL the
+      # verification compares with the announced repo. Install scripts never run.
+      - name: Clone the circuits repo
+        if: matrix.tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: orbinum/circuits
+          ref: v0.16.0
+          token: ${{ secrets.CIRCUITS_READ_TOKEN }}
+          persist-credentials: false
+          path: .test-inputs/circuits
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install the circuits dependencies
+        if: matrix.tools
+        run: |
+          pnpm --dir .test-inputs/circuits install --frozen-lockfile --ignore-scripts --ignore-workspace
+          echo "ORBINUM_CIRCUITS_REPO=$PWD/.test-inputs/circuits" >> "$GITHUB_ENV"
+
+      # Every input a suite reads is present, so nothing skips: a missing one fails the CI
+      # sentinel test of core, verifier or the cli. The end-to-end finalization waits for a real drand round.
+      - name: Test
+        run: ${{ matrix.run }}
+        env:
+          ORBINUM_E2E_LIVE_DRAND: "1"
+
+  security:
+    name: Security
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          run_install: false
+
+      # No pnpm cache here: `pnpm audit` only reads the lockfile, nothing is installed, and
+      # setup-node fails the job when the store it should save does not exist.
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.15.0"
+
+      # Blocking: this code verifies and coordinates the ceremony, and a known-vulnerable
+      # dependency in it is a finding. Transitive fixes go in pnpm-workspace.yaml `overrides`.
+      - name: Dependency audit
+        run: pnpm audit --audit-level=moderate
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@e76dff8a7e57d6df0c60ad8cbf5d5cba505a8fc9 # v3.99.2
+        with:
+          path: ./
+          # The pull request's base, or the previous head of the pushed branch
+          # (none on a branch's first push, when every commit is scanned).
+          base: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
+          head: HEAD
+          extra_args: --only-verified
+
+      # trufflehog above fails only on secrets it can verify live; the ceremony's own keys
+      # (session and verifier HMAC keys, OAuth, Turnstile and Access secrets) are not among them.
+      # gitleaks scans the whole history with .gitleaks.toml: its default rules plus those keys.
+      # The binary is pinned by version and SHA-256 (from the release's checksums file).
+      - name: Check for ceremony secrets (gitleaks)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${tarball}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact --no-banner .
+
+  all-checks:
+    name: All Checks Passed
+    runs-on: ubuntu-24.04
+    needs: [checks, test, security]
+    if: always()
+    steps:
+      # Reports the actual result, not just "failed": a cancelled job means
+      # something cancelled this run, which is a very different bug from a test
+      # going red, and saying "checks failed" for it sends whoever reads this
+      # straight to the wrong place.
+      - name: Check status
+        run: |
+          status=0
+          for job in checks:${{ needs.checks.result }} test:${{ needs.test.result }} security:${{ needs.security.result }}; do
+            name=${job%%:*}
+            result=${job#*:}
+            case "$result" in
+              success)   echo "✅ ${name}: passed." ;;
+              cancelled) echo "::error::${name} was cancelled — another run superseded this one."; status=1 ;;
+              skipped)   echo "::error::${name} never ran."; status=1 ;;
+              *)         echo "::error::${name} checks failed (${result})."; status=1 ;;
+            esac
+          done
+          exit $status

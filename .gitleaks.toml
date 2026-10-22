@@ -1,0 +1,40 @@
+# Secrets scan (CI: gitleaks, next to trufflehog). gitleaks' default rules, plus the ceremony's
+# own secrets, which no public detector knows: the session and verifier HMAC keys, the GitHub
+# OAuth and Turnstile secrets, the Cloudflare Access service-token secret, a contributor's CLI
+# token. Test values are exempt only when named as such (lowercase words joined by hyphens) and
+# only inside test code.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "ceremony-secret"
+description = "A ceremony secret assigned a literal value in code or config"
+regex = '''(?i)\b(?:SESSION_KEY|VERIFIER_HMAC_KEY|GITHUB_CLIENT_SECRET|TURNSTILE_SECRET|CF_ACCESS_CLIENT_SECRET|ORBINUM_CEREMONY_TOKEN)\b["']?\s*[:=]\s*["'`]?([^"'`\s]{16,})["'`]?'''
+secretGroup = 1
+keywords = [
+  "session_key",
+  "verifier_hmac_key",
+  "github_client_secret",
+  "turnstile_secret",
+  "cf_access_client_secret",
+  "orbinum_ceremony_token",
+]
+
+[[rules]]
+id = "ceremony-secret-wrangler-stdin"
+description = "A literal piped into `wrangler secret put`"
+regex = '''(?i)(?:echo|printf(?:\s+%s)?)\s+["']?([^"'\s|]{16,})["']?\s*\|\s*(?:npx\s+|pnpm\s+(?:exec\s+)?)?wrangler\s+secret\s+put|wrangler\s+secret\s+put\s+\S+[^\n]*<<<\s*["']?([^"'\s]{16,})'''
+keywords = ["wrangler"]
+
+[[allowlists]]
+description = "Named test values (lowercase words joined by hyphens) in test code only"
+targetRules = ["ceremony-secret", "generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^(?:test|e2e|fake|short|leak-me)(?:-[a-z0-9]{1,12})*$''']
+paths = ['''(^|/)tests/''', '''(^|/)vitest\.config\.ts$''']
+
+[[allowlists]]
+description = "Dependencies, build output, downloaded test inputs"
+paths = ['''(^|/)node_modules/''', '''(^|/)\.test-inputs/''', '''(^|/)\.wrangler/''']

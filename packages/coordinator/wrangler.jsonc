@@ -1,0 +1,71 @@
+/**
+ * Ceremony coordinator (docs/COORDINATOR.md). Configuration reference:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ceremony-coordinator",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "observability": { "enabled": true },
+  "upload_source_maps": true,
+  // Reachable only on its own route: a workers.dev or preview URL would bypass Access and WAF rules.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // One CeremonyDO per ceremony_id: the only writer of the queue, slot and records.
+  "durable_objects": {
+    "bindings": [{ "name": "CEREMONY", "class_name": "CeremonyDO" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["CeremonyDO"] }],
+
+  // PUBLIC: published artifacts (genesis, accepted contributions), immutable once written.
+  // PRIVATE: uploads under verification (verify/…), never served to the public (SPEC §6.1).
+  "r2_buckets": [
+    { "binding": "PUBLIC", "bucket_name": "orbinum-ceremony-public-local" },
+    { "binding": "PRIVATE", "bucket_name": "orbinum-ceremony-private-local" },
+  ],
+
+  // ENVIRONMENT is "production" unless a local run sets "local" (.dev.vars, tests): only then, and
+  // only on a loopback host, the development identity header, /admin without Access and joining
+  // without Turnstile are allowed. Each deployed environment (M7) sets its own CEREMONY_ID.
+  "vars": {
+    "CEREMONY_ID": "local",
+    "ENVIRONMENT": "production",
+    // The GitHub OAuth app of this environment; its callback is <origin>/auth/github/callback.
+    "GITHUB_CLIENT_ID": "",
+    // Where verification jobs are dispatched (POST <url>/verify, HMAC); https (plain http only on
+    // a loopback host); empty: no dispatch.
+    "VERIFIER_URL": "",
+    // Cloudflare Access application guarding /admin/* (https://<team>.cloudflareaccess.com and
+    // its audience tag). A local deployment serves /admin without them; elsewhere they are required.
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": "",
+    // Who may use /admin besides passing Access: emails and service-token common names, comma
+    // separated. Empty: nobody (outside a local run).
+    "ACCESS_OPERATORS": "",
+    // Seconds public reads (/api/status, /api/transcript, /api/receipt) are served from the edge
+    // cache (0–60).
+    "PUBLIC_CACHE_SECONDS": "5",
+  },
+
+  // Rate limits (60 s windows), per GitHub id except READ_LIMIT, AUTH_LIMIT and ARTIFACT_LIMIT
+  // (per client network: an IPv4 address, an IPv6 /64). POLL_LIMIT covers the identified reads a
+  // client polls (2 s polling of two of them fits). ARTIFACT_LIMIT leaves room for a whole mirror
+  // (`download`) while bounding a download loop. Each namespace_id is unique per account.
+  "ratelimits": [
+    { "name": "JOIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } },
+    { "name": "NONCE_LIMIT", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "UPLOAD_LIMIT", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
+    { "name": "ACTION_LIMIT", "namespace_id": "1004", "simple": { "limit": 60, "period": 60 } },
+    { "name": "READ_LIMIT", "namespace_id": "1005", "simple": { "limit": 120, "period": 60 } },
+    { "name": "POLL_LIMIT", "namespace_id": "1006", "simple": { "limit": 120, "period": 60 } },
+    { "name": "AUTH_LIMIT", "namespace_id": "1007", "simple": { "limit": 30, "period": 60 } },
+    { "name": "ARTIFACT_LIMIT", "namespace_id": "1008", "simple": { "limit": 1000, "period": 60 } },
+  ],
+
+  // Set with `wrangler secret put` (deployed) or .dev.vars (local; see .dev.vars.example).
+  "secrets": {
+    "required": ["SESSION_KEY", "GITHUB_CLIENT_SECRET", "VERIFIER_HMAC_KEY", "TURNSTILE_SECRET"],
+  },
+}

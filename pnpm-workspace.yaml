@@ -1,0 +1,13 @@
+packages:
+  - packages/*
+
+# Build scripts allowed for the coordinator's toolchain: `workerd` downloads the Workers runtime
+# binary and `esbuild` its native bindings (wrangler dev/deploy). Nothing else runs install scripts.
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
+
+# Transitive fixes: snarkjs 0.7.6 (pinned) → bfj → jsonpath → underscore ≤ 1.13.7 has a recursion
+# DoS (GHSA-qpx9-hpmf-5gmw); 1.13.8 is the patch release. Only the snarkjs CLI uses it (JSON output).
+overrides:
+  underscore: 1.13.8

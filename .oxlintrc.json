@@ -1,0 +1,788 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "import", "oxc", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
+  },
+  "rules": {
+    "import/no-cycle": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@orbinum-ceremony/*/*"],
+            "message": "Import other packages only through their barrel (package root)."
+          }
+        ]
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "artifacts",
+    "target",
+    "**/worker-configuration.d.ts"
+  ],
+  "overrides": [
+    {
+      "files": ["packages/core/src/config/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/primitives",
+                  "**/formats",
+                  "**/verification",
+                  "**/ceremony",
+                  "**/coordination",
+                  "**/primitives/**",
+                  "**/formats/**",
+                  "**/verification/**",
+                  "**/ceremony/**",
+                  "**/coordination/**"
+                ],
+                "message": "core layer order: config may not import from a later layer (primitives, formats, verification, ceremony, coordination)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/core/src/primitives/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/formats",
+                  "**/verification",
+                  "**/ceremony",
+                  "**/coordination",
+                  "**/formats/**",
+                  "**/verification/**",
+                  "**/ceremony/**",
+                  "**/coordination/**"
+                ],
+                "message": "core layer order: primitives may not import from a later layer (formats, verification, ceremony, coordination)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/core/src/formats/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/verification",
+                  "**/ceremony",
+                  "**/coordination",
+                  "**/verification/**",
+                  "**/ceremony/**",
+                  "**/coordination/**"
+                ],
+                "message": "core layer order: formats may not import from a later layer (verification, ceremony, coordination)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/core/src/verification/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["**/ceremony", "**/coordination", "**/ceremony/**", "**/coordination/**"],
+                "message": "core layer order: verification may not import from a later layer (ceremony, coordination)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/core/src/ceremony/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["**/coordination", "**/coordination/**"],
+                "message": "core layer order: ceremony may not import from a later layer (coordination)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/durable/db/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "../store",
+                  "../store/**",
+                  "../operations",
+                  "../operations/**",
+                  "../object",
+                  "../object/**"
+                ],
+                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; db may not import from a layer above it."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/durable/store/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["../operations", "../operations/**", "../object", "../object/**"],
+                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; store may not import from a layer above it."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/durable/operations/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["../object", "../object/**"],
+                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; operations may not import from a layer above it."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/actions/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["hono", "hono/*", "../routes", "../routes/**", "../http", "../http/**"],
+                "message": "actions do what an endpoint does, without HTTP: no Hono, no routes (answers are built in routes and http); actions return core results, HTTP shapes live in http/."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/routes/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/storage",
+                  "**/storage/**",
+                  "**/services",
+                  "**/services/**",
+                  "**/durable/*/**"
+                ],
+                "message": "routes only route: storage and external services are reached through actions, the Durable Object only through the durable barrel."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/text/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/files",
+                  "**/pins",
+                  "**/isolate",
+                  "**/snarkjs",
+                  "**/pipeline",
+                  "**/service",
+                  "**/files/**",
+                  "**/pins/**",
+                  "**/isolate/**",
+                  "**/snarkjs/**",
+                  "**/pipeline/**",
+                  "**/service/**"
+                ],
+                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; text may not import from a later layer (files, pins, isolate, snarkjs, pipeline, service)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/files/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/pins",
+                  "**/isolate",
+                  "**/snarkjs",
+                  "**/pipeline",
+                  "**/service",
+                  "**/pins/**",
+                  "**/isolate/**",
+                  "**/snarkjs/**",
+                  "**/pipeline/**",
+                  "**/service/**"
+                ],
+                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; files may not import from a later layer (pins, isolate, snarkjs, pipeline, service)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/pins/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/isolate",
+                  "**/snarkjs",
+                  "**/pipeline",
+                  "**/service",
+                  "**/isolate/**",
+                  "**/snarkjs/**",
+                  "**/pipeline/**",
+                  "**/service/**"
+                ],
+                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; pins may not import from a later layer (isolate, snarkjs, pipeline, service)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/isolate/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/snarkjs",
+                  "**/pipeline",
+                  "**/service",
+                  "**/snarkjs/**",
+                  "**/pipeline/**",
+                  "**/service/**"
+                ],
+                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; isolate may not import from a later layer (snarkjs, pipeline, service)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/snarkjs/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["**/pipeline", "**/service", "**/pipeline/**", "**/service/**"],
+                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; snarkjs may not import from a later layer (pipeline, service)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/pipeline/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["**/service", "**/service/**"],
+                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; pipeline may not import from a later layer (service)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/index.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["./service", "./service/**"],
+                "message": "the library barrel exports the library only: the service runs as its own process (src/service/main.ts)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/service/http/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["**/snarkjs", "**/snarkjs/**", "**/isolate", "**/isolate/**", "snarkjs"],
+                "message": "service/http only serves HTTP: verification runs through service/jobs (the pipeline), never snarkjs or isolate directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/core/src/**"],
+      "rules": {
+        "import/no-nodejs-modules": "error",
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          },
+          {
+            "name": "process",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          },
+          {
+            "name": "caches",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          },
+          {
+            "name": "console",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          },
+          {
+            "name": "setTimeout",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          },
+          {
+            "name": "setInterval",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          },
+          {
+            "name": "Buffer",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          },
+          {
+            "name": "require",
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+          }
+        ],
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "Date",
+            "property": "now",
+            "message": "core takes time as an argument, never reads the clock."
+          },
+          {
+            "object": "Math",
+            "property": "random",
+            "message": "core takes randomness as an argument."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/cli/src/io/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/args",
+                  "**/ui",
+                  "**/artifacts",
+                  "**/tools",
+                  "**/source",
+                  "**/store",
+                  "**/commands",
+                  "**/args/**",
+                  "**/ui/**",
+                  "**/artifacts/**",
+                  "**/tools/**",
+                  "**/source/**",
+                  "**/store/**",
+                  "**/commands/**"
+                ],
+                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; io may not import a later layer."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/cli/src/args/**",
+        "packages/cli/src/ui/**",
+        "packages/cli/src/artifacts/**",
+        "packages/cli/src/tools/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/source",
+                  "**/store",
+                  "**/commands",
+                  "**/source/**",
+                  "**/store/**",
+                  "**/commands/**"
+                ],
+                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; args, ui, artifacts and tools may not import source, store or commands."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/cli/src/source/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["**/store", "**/commands", "**/store/**", "**/commands/**"],
+                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; source may not import store or commands."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/cli/src/store/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": ["**/source", "**/commands", "**/source/**", "**/commands/**"],
+                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; store may not import source or commands."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/core/src/coordination/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/admission/*",
+                  "**/attestation/*",
+                  "**/finalize/*",
+                  "**/protocol/*",
+                  "**/publish/*",
+                  "**/queue/*",
+                  "**/upload/*"
+                ],
+                "message": "core/coordination: import a sibling module only through its barrel (CEREMONY_PLAN \u00a75)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/durable/object/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "../db",
+                  "../db/**",
+                  "hono",
+                  "hono/*",
+                  "**/actions",
+                  "**/routes",
+                  "**/http",
+                  "**/middleware",
+                  "**/session",
+                  "**/actions/**",
+                  "**/routes/**",
+                  "**/http/**",
+                  "**/middleware/**",
+                  "**/session/**"
+                ],
+                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; the object only delegates to operations (no SQL, no HTTP)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/services/**", "packages/coordinator/src/storage/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "hono",
+                  "hono/*",
+                  "**/durable",
+                  "**/actions",
+                  "**/routes",
+                  "**/middleware",
+                  "**/http",
+                  "**/durable/**",
+                  "**/actions/**",
+                  "**/routes/**",
+                  "**/middleware/**",
+                  "**/http/**"
+                ],
+                "message": "services, storage and session are leaves: they may not import the Worker's durable object, actions, routes, middleware or http."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/middleware/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/routes",
+                  "**/actions",
+                  "**/durable",
+                  "**/routes/**",
+                  "**/actions/**",
+                  "**/durable/**"
+                ],
+                "message": "middleware guards requests: it may not import routes, actions or the durable object."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/session/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "**/durable",
+                  "**/actions",
+                  "**/routes",
+                  "**/middleware",
+                  "**/http",
+                  "**/durable/**",
+                  "**/actions/**",
+                  "**/routes/**",
+                  "**/middleware/**",
+                  "**/http/**"
+                ],
+                "message": "session handles sign-in credentials only (cookies, CLI tokens): it may not import the Worker's durable object, actions, routes, middleware or http."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

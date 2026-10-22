@@ -1,0 +1,29 @@
+{
+  "name": "orbinum-ceremony",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orbinum Groth16 Phase-2 trusted setup ceremony",
+  "author": "Orbinum Technologies <contact@orbinum.net>",
+  "type": "module",
+  "scripts": {
+    "ceremony": "tsx packages/cli/src/index.ts",
+    "lint": "oxlint --deny-warnings",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.32.1"
+}

@@ -1,0 +1,15 @@
+/** Reused Phase 1: Hermez / Polygon zkEVM Powers of Tau. SPEC §1. */
+export const PTAU = {
+  file: "powersOfTau28_hez_final_16.ptau",
+  power: 16,
+  maxConstraints: 2 ** 16,
+  sizeBytes: 75_580_568,
+  blake2b512:
+    "6a6277a2f74e1073601b4f9fed6e1e55226917efb0f0db8a07d98ab01df1ccf43eb0e8c3159432acd4960e2f29fe84a4198501fa54c8dad9e43297453efec125",
+  // The original Hermez hosts answer 403 since September 2026 (KL-25). Any host is safe: the file
+  // is checked against `blake2b512`. Orbinum's own copy goes first once it is published (KL-25).
+  mirrors: [
+    "https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_16.ptau",
+    "https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_16.ptau",
+  ],
+} as const;

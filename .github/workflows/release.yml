@@ -1,0 +1,197 @@
+name: Release
+
+# A release is a version bump that has passed CI:
+#   - it starts on a push to main that changes package.json, where the version lives (or by
+#     hand on main, to finish a release that failed);
+#   - `verify` releases only a version with no GitHub release yet, the same in every
+#     package.json, not below the latest `vX.Y.Z` tag, and with its dated CHANGELOG section;
+#   - `ci` runs the whole CI workflow on this commit, and nothing is tagged or published unless
+#     All Checks Passed. A CI run of this exact commit that already passed (a push to main) is
+#     reused instead of running it again.
+# A push that changes package.json without a new version stays green and does nothing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "package.json"
+  workflow_dispatch:
+
+# No token rights by default: each job asks for what it needs, and only `publish` may write.
+permissions: {}
+
+# Never cancel a release in flight: a run killed between `git push origin <tag>` and the GitHub
+# release leaves a tag with no release behind it. That state is recoverable — `verify` asks for
+# the release, not the tag — but a half-finished release is still worth not creating on purpose.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify version
+    # A manual run releases main, never another branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Reads this commit's CI runs.
+      actions: read
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+      should_release: ${{ steps.check.outputs.release }}
+      tag_exists: ${{ steps.check.outputs.tag_exists }}
+      ci_passed: ${{ steps.check.outputs.ci_passed }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          # Tags are NOT fetched by `fetch-depth: 0` — that only controls
+          # history depth. Without this the checks below see no tags at all.
+          fetch-tags: true
+
+      # The GitHub release, not the tag, is the record of what shipped: a run that died between
+      # tagging and releasing is finished by the next one — only if the tag names this commit.
+      - name: Version, tag and CHANGELOG
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Could not read a semantic version from package.json (got '$VERSION')."
+            exit 1
+          fi
+          # One version for the whole repository: the CLI reports packages/cli's to the coordinator.
+          for f in packages/*/package.json; do
+            V=$(node -p "require('./$f').version")
+            if [ "$V" != "$VERSION" ]; then
+              echo "::error::$f is at $V, package.json at $VERSION: every package.json carries the same version."
+              exit 1
+            fi
+          done
+          TAG="v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "📦 Version: $VERSION"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "ℹ️  $TAG is already released — nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Exact `vX.Y.Z` tags only: the glob alone also matches `v1.2.3-rc1`.
+          LATEST=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -n 1 || true)
+          if [ -n "$LATEST" ] && [ "$(printf '%s\n%s\n' "$LATEST" "$VERSION" | sort -V | head -n 1)" != "$LATEST" ]; then
+            echo "::error::package.json is at $VERSION, below the latest release $LATEST."
+            exit 1
+          fi
+
+          # The CHANGELOG section is the release notes.
+          if ! grep -Eq "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION] - YYYY-MM-DD' section. Rename '## [Unreleased]' to '## [$VERSION] - $(date -u +%F)'."
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            TAGGED=$(git rev-parse "refs/tags/$TAG^{commit}")
+            if [ "$TAGGED" != "$GITHUB_SHA" ]; then
+              echo "::error::$TAG is tagged at $TAGGED, not at $GITHUB_SHA. Re-run the release of that commit, or delete the tag."
+              exit 1
+            fi
+            echo "⚠️  $TAG is tagged but has no GitHub release — finishing it."
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ $TAG: new version — releasing once CI passes."
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+          # A CI run on a push to main of this exact commit that passed: the same workflow file
+          # on the same code, so running it again would only repeat it.
+          PASSED=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --branch main --event push \
+            --status success --json databaseId --jq 'length')
+          if [ "$PASSED" -gt 0 ]; then
+            echo "✅ CI already passed on $GITHUB_SHA — reusing it."
+            echo "ci_passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ci_passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # The same jobs a push to main runs, on this exact commit. Reused rather than copied, so the
+  # release gate cannot drift from CI. `secrets: inherit` passes the circuits read token.
+  ci:
+    name: CI
+    needs: verify
+    if: needs.verify.outputs.should_release == 'true' && needs.verify.outputs.ci_passed != 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  # After `ci` passed, or when it was skipped because this commit's CI had already passed.
+  # `always()` lets a skipped `ci` through; every other outcome stops here.
+  publish:
+    name: Tag and Release
+    needs: [verify, ci]
+    if: >-
+      always() &&
+      needs.verify.result == 'success' &&
+      needs.verify.outputs.should_release == 'true' &&
+      (needs.ci.result == 'success' ||
+       (needs.ci.result == 'skipped' && needs.verify.outputs.ci_passed == 'true'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Create release notes
+        run: |
+          # The section for the version being released, by exact heading — matching "the first
+          # ## [" instead would pick up [Unreleased] and ship unreleased work as the notes.
+          awk -v tag="## [${{ needs.verify.outputs.version }}]" '
+            index($0, tag) == 1  { flag = 1; next }
+            flag && /^## \[/     { exit }
+            flag && /^\[[^]]+\]:/{ exit }   # link definitions end the section
+            flag
+          ' CHANGELOG.md > release_notes.md
+          [ -s release_notes.md ] || echo "- Release generated from CI." > release_notes.md
+
+      # Tags the commit only if the tag is not already there, so a retry after a failed release
+      # gets past this instead of dying on `tag already exists`. The `if:` is the fast path; the
+      # check against the remote is what makes the step correct.
+      - name: Create and push tag
+        if: needs.verify.outputs.tag_exists == 'false'
+        run: |
+          TAG="${{ needs.verify.outputs.tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "ℹ️  Tag $TAG is already on the remote — leaving it as is."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
+
+      # Last, and idempotent by design: the action updates an existing release rather than failing.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ needs.verify.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Release ${{ needs.verify.outputs.tag }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
