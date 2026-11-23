@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+### Added
+
+- **The verifier as a Cloudflare Container**, instead of a VPS: on testnet and mainnet the
+  coordinator's `VerifierContainer` Durable Object keeps each dispatched job and, from an alarm,
+  starts `packages/verifier/Dockerfile` when it is not running (`standard-3`), waits for
+  `/healthz` and posts the job, signed as any dispatch. Nothing to host: no VPS, Tunnel or Access
+  application. `VERIFIER_URL` still serves a verifier run elsewhere.
+- The verifier mirrors its inputs at startup when `INIT_SHA256` is set: init.json from the
+  coordinator's `/artifacts` must hash to the setup's `init_sha256`; the genesis keys and the ptau
+  follow, then pinned as on any host (KL-58, KL-59). `COORDINATOR_URL` var on each deployment.
+
 ## [0.2.1] - 2026-11-23
 
 ### Added

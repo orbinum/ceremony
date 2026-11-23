@@ -35,6 +35,14 @@ describe("service config", () => {
     ).toMatchObject({ port: 1, timeoutMs: 10_000, logDir: "/var/log/v" });
   });
 
+  it("takes INIT_SHA256 (mirror the inputs) only as 64 lowercase hex digits", () => {
+    const sha = "ab".repeat(32);
+    expect(loadConfig({ ...ENV, INIT_SHA256: sha }).initSha256).toBe(sha);
+    for (const bad of ["", "AB".repeat(32), "ab".repeat(31), `${sha}\n`]) {
+      expect(load({ INIT_SHA256: bad })).toThrow("INIT_SHA256: must be 64 lowercase hex digits");
+    }
+  });
+
   it.each(["127.0.0.1", "::1", "0.0.0.0", "10.1.2.3", "localhost"])(
     "takes HOST %j (an IP literal or localhost)",
     (host) => expect(loadConfig({ ...ENV, HOST: host }).host).toBe(host),

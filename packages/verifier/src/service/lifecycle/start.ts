@@ -10,7 +10,7 @@ import { IsolationError } from "../../isolate";
 import { exportVerificationKey } from "../../snarkjs";
 import { errorMessage } from "../../text";
 import type { ServiceConfig } from "../config";
-import { type Inputs, loadInputs } from "../inputs";
+import { type Inputs, loadInputs, mirrorInputs } from "../inputs";
 import { probeLogDir } from "../jobs";
 
 /**
@@ -68,6 +68,10 @@ export async function sweepStaleTmp(dir = tmpdir(), now = Date.now()): Promise<n
 /** The pinned snarkjs, LOG_DIR writable, the pinned inputs staged and pinned, and a child that runs it. */
 export async function prepare(config: ServiceConfig): Promise<Inputs> {
   await assertSnarkjsVersion();
+  if (config.initSha256) {
+    await mirrorInputs(config.coordinatorUrl, config.initSha256, config.ceremonyDir, config.ptau);
+    console.log("verifier: inputs mirrored from the coordinator");
+  }
   await probeLogDir(config.logDir);
   const swept = await sweepStaleTmp();
   if (swept > 0) console.log(`verifier: removed ${swept} directories a previous run left behind`);

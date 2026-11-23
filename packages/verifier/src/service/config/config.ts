@@ -22,6 +22,11 @@ export interface ServiceConfig {
   timeoutMs: number;
   /** This package's version, carried by every accepted record (`verified_by.verifier_version`). */
   version: string;
+  /**
+   * Set: the inputs are fetched from the coordinator's public artifacts at startup, and init.json
+   * must hash to this (a host with an empty disk, the Cloudflare Container).
+   */
+  initSha256?: string;
 }
 
 /** The package manifest, the single source of the service's version. */
@@ -109,6 +114,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig 
     ),
   );
   const version = check(packageVersion);
+  const initSha256 = env.INIT_SHA256;
+  if (initSha256 !== undefined && !/^[0-9a-f]{64}$/.test(initSha256)) {
+    problems.push("INIT_SHA256: must be 64 lowercase hex digits");
+  }
   if (problems.length > 0) throw new Error(`invalid environment: ${problems.join("; ")}`);
   const ceremonyDir = resolve(env.CEREMONY_DIR as string);
   return {
@@ -121,5 +130,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig 
     logDir: resolve(env.LOG_DIR || join(ceremonyDir, "logs")),
     timeoutMs: timeoutMs as number,
     version: version as string,
+    ...(initSha256 === undefined ? {} : { initSha256 }),
   };
 }

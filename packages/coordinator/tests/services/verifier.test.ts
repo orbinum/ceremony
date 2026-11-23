@@ -93,6 +93,23 @@ describe("dispatch to the verifier", () => {
     expect(cancelled).toBe(true);
   });
 
+  it("without VERIFIER_URL, hands the job to this ceremony's verifier container", async () => {
+    const enqueued: { name: string; spec: unknown }[] = [];
+    const VERIFIER_CONTAINER = {
+      getByName: (name: string) => ({
+        enqueue: async (spec: unknown) => void enqueued.push({ name, spec }),
+      }),
+    } as unknown as Env["VERIFIER_CONTAINER"];
+    const fetch = vi.spyOn(globalThis, "fetch");
+    const spec = { job: { circuit: "shield" } } as never;
+    await dispatch({ ...env, VERIFIER_URL: "", VERIFIER_CONTAINER }, spec);
+    expect(enqueued).toEqual([{ name: env.CEREMONY_ID, spec }]);
+    // VERIFIER_URL wins: the container is never asked.
+    fetch.mockResolvedValue(new Response(null, { status: 202 }));
+    await dispatch({ ...env, VERIFIER_URL: "https://verifier.test", VERIFIER_CONTAINER }, spec);
+    expect(enqueued).toHaveLength(1);
+  });
+
   it("never fails the upload when the verifier is unreachable or answers otherwise", async () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const spec = {} as never;

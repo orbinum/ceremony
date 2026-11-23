@@ -154,4 +154,27 @@ describe("configuration errors never leak", () => {
       expect([path, r.status, (await json(r)).error.code]).toEqual([path, 500, "internal"]);
     }
   });
+  it("needs this deployment's https origin for the verifier container, only when it is used", () => {
+    const VERIFIER_CONTAINER = {} as Env["VERIFIER_CONTAINER"];
+    const problem = [
+      "COORDINATOR_URL must be this deployment's https origin (the verifier container)",
+    ];
+    for (const url of ["", "http://ceremony.test", "https://ceremony.test/path"]) {
+      expect(problemsWith({ VERIFIER_CONTAINER, COORDINATOR_URL: url })).toEqual(problem);
+    }
+    expect(
+      problemsWith({
+        VERIFIER_CONTAINER,
+        COORDINATOR_URL: "https://ceremony.testnet.orbinum.network",
+      }),
+    ).toEqual([]);
+    expect(problemsWith({ COORDINATOR_URL: "" })).toEqual([]);
+    expect(
+      problemsWith({
+        VERIFIER_CONTAINER,
+        VERIFIER_URL: "https://verifier.test",
+        COORDINATOR_URL: "",
+      }),
+    ).toEqual([]);
+  });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@orbinum-ceremony/verifier",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Upload verification (SPEC §2.5): the pipeline shared with the cli, and the verifier service",
   "author": "Orbinum Technologies <contact@orbinum.net>",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@orbinum-ceremony/core": "workspace:*",
-    "snarkjs": "0.7.6"
+    "snarkjs": "0.7.6",
+    "tsx": "4.23.15"
   }
 }

@@ -36,10 +36,10 @@ regexes = ['''^(?:test|e2e|fake|short|leak-me)(?:-[a-z0-9]{1,12})*$''']
 paths = ['''(^|/)tests/''', '''(^|/)vitest\.config\.ts$''']
 
 [[allowlists]]
-description = "Code, not a literal: a template (`${…}`) or a call (`randomBytes(…)`) assigned to a secret's name"
+description = "Code, not a literal: a template (`${…}`), a call (`randomBytes(…)`) or the binding read (`this.env.NAME`) assigned to a secret's name"
 targetRules = ["ceremony-secret"]
 regexTarget = "secret"
-regexes = ['''^(?:\$\{|[A-Za-z_][\w.]*\()''']
+regexes = ['''^(?:\$\{|[A-Za-z_][\w.]*\()''', '''^(?:this\.)?env\.[A-Z][A-Z0-9_]*,?$''']
 
 [[allowlists]]
 description = "Turnstile site keys: public by design, handed to the page (the secret is TURNSTILE_SECRET)"
