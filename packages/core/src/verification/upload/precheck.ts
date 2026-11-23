@@ -72,7 +72,10 @@ export function precheckUpload(
   try {
     checkZkeyStructure(zkey);
     headerDelta = checkAgainstGenesis(zkey, genesis);
-    params = readMpcParams(zkey, { maxEntries: head.previous.length + 1 });
+    params = readMpcParams(zkey, {
+      maxEntries: head.previous.length + 1,
+      subgroupFrom: head.previous.length,
+    });
   } catch (error) {
     if (error instanceof FormatError) return reject("malformed", error.message);
     throw error;

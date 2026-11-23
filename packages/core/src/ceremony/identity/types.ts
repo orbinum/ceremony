@@ -1,8 +1,12 @@
 /** Who contributes and what their wallet signs: shared by the transcript and the coordinator. */
 import type { CircuitName } from "../../config";
 
-/** Wallet signature schemes. SPEC §3.6–3.7. */
-export const SCHEMES = ["eip712", "sr25519"] as const;
+/**
+ * Wallet signature schemes (SPEC §3.6–3.7): EIP-712 typed data for EVM wallets; the prefixed JCS
+ * text for SS58 accounts, signed with sr25519 (Substrate extensions) or ed25519 (a Solana wallet's
+ * key, or a Ledger account of an extension).
+ */
+export const SCHEMES = ["eip712", "sr25519", "ed25519"] as const;
 
 /** A wallet signature scheme. */
 export type Scheme = (typeof SCHEMES)[number];

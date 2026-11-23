@@ -45,11 +45,23 @@ const tag = (spec: JobSpec) => `job ${spec.job.seq}/${spec.job.circuit}/${spec.j
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** Runs one job to its report; never throws. */
-export async function runJob(ctx: JobContext, spec: JobSpec): Promise<void> {
+/**
+ * Runs one job to its report; never throws. Its deadline runs from when it was dispatched
+ * (`receivedAt`), as the coordinator's does from the upload: a job that waited out its time
+ * behind another is skipped, its turn long judged by the coordinator.
+ */
+export async function runJob(
+  ctx: JobContext,
+  spec: JobSpec,
+  receivedAt = Date.now(),
+): Promise<void> {
   const { config, inputs } = ctx;
-  const deadline = AbortSignal.timeout(JOB_DEADLINE_MS);
-  const end = Date.now() + JOB_DEADLINE_MS;
+  const end = receivedAt + JOB_DEADLINE_MS;
+  if (end - Date.now() <= REPORT_RESERVE_MS) {
+    console.warn(`${tag(spec)}: its deadline passed while it waited; skipped`);
+    return;
+  }
+  const deadline = AbortSignal.timeout(end - Date.now());
   const paths = privatePaths(config);
   const clean = (text: string) => redact(text, paths);
   const endpoint = { ...config, ceremonyId: inputs.init.ceremony_id };
@@ -65,7 +77,9 @@ export async function runJob(ctx: JobContext, spec: JobSpec): Promise<void> {
     const genesis = inputs.genesis[spec.job.circuit]?.path as string;
     work = await mkdtemp(join(tmpdir(), "orbinum-verifier-"));
     const zkey = join(work, "upload.zkey");
-    if (!(await fetchObject(endpoint, spec.job, spec.size, zkey, deadline))) {
+    // The download stops early enough to leave the report its time to reach the coordinator.
+    const fetchBy = AbortSignal.timeout(Math.max(1, end - Date.now() - REPORT_RESERVE_MS));
+    if (!(await fetchObject(endpoint, spec.job, spec.size, zkey, fetchBy))) {
       console.warn(`${tag(spec)}: the coordinator has no object (stale job, or a wrong URL)`);
       return;
     }

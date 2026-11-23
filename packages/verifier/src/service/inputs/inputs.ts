@@ -2,6 +2,7 @@
  * The pinned ptau and genesis keys, staged into private read-only copies and pinned on those
  * copies: snarkjs only ever opens the copies. SPEC §2.5, §7.
  */
+import { utimes } from "node:fs/promises";
 import { join } from "node:path";
 import {
   CEREMONY_LAYOUT,
@@ -112,6 +113,9 @@ export async function checkPins(inputs: Inputs): Promise<void> {
  * cleaner may remove them during a long pause. The new copies are pinned like the first ones.
  */
 export async function ensurePinned(inputs: Inputs): Promise<void> {
+  // In use: another instance's startup sweep only removes stages left untouched for hours.
+  const now = new Date();
+  await utimes(inputs.stage.dir, now, now).catch(() => {});
   try {
     await checkPins(inputs);
   } catch (error) {

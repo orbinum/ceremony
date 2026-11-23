@@ -1,10 +1,11 @@
 {
   "name": "@orbinum-ceremony/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "The ceremony's pure domain (no I/O), in layers: config, primitives, formats, verification, ceremony documents, online coordination",
   "author": "Orbinum Technologies <contact@orbinum.net>",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },

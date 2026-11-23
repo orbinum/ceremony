@@ -1,4 +1,9 @@
-/** The coordinator's admin API: only its own answers count, and the Access token stays on https. */
+/**
+ * The coordinator's admin API: only its own answers count, the Access token stays on https, and a
+ * call lost to the network or the coordinator's fault is sent again (every operator call is
+ * idempotent), a refusal never.
+ */
+import type { ServerResponse } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AdminRefusal, adminCall } from "../../src/io";
 import { accessHeaders } from "../../src/io/coordinator";
@@ -7,6 +12,21 @@ import { json, localServer } from "../support/http";
 
 let server: Awaited<ReturnType<typeof localServer>>;
 let elsewhere: Awaited<ReturnType<typeof localServer>>;
+/** Failures each flaky route still has to give before it answers ok. */
+const failuresLeft = new Map<string, number>();
+/** Retries without the production backoff. */
+const FAST = { attempts: 3, backoffMs: 1 };
+const callsTo = (path: string) => server.requests.filter((r) => r.path === path).length;
+
+/** Fails `n` times with `fail`, then answers ok. */
+const flaky =
+  (path: string, fail: (res: ServerResponse) => void) => (_q: unknown, res: ServerResponse) => {
+    const left = failuresLeft.get(path) ?? 0;
+    if (left > 0) {
+      failuresLeft.set(path, left - 1);
+      fail(res);
+    } else json(res, 201, { ok: true, key: "k" });
+  };
 
 beforeAll(async () => {
   elsewhere = await localServer({ "*": (_q, res) => json(res, 200, { ok: true, key: "x" }) });
@@ -18,6 +38,14 @@ beforeAll(async () => {
     "/not-ok": (_q, res) => json(res, 200, { ok: false }),
     "/refused": (_q, res) =>
       json(res, 409, { error: { code: "immutable", message: `\u001b[2K${"x".repeat(5000)}` } }),
+    "/unavailable": flaky("/unavailable", (res) =>
+      json(res, 503, { error: { code: "storage", message: "try again" } }),
+    ),
+    // What wrangler dev's ProxyWorker answers when it loses its connection to the Worker.
+    "/proxy-lost": flaky("/proxy-lost", (res) =>
+      res.writeHead(500, { "content-type": "text/plain" }).end("Error: Network connection lost."),
+    ),
+    "/dropped": flaky("/dropped", (res) => res.socket?.destroy()),
   });
 });
 afterAll(async () => {
@@ -80,5 +108,41 @@ describe("the coordinator's admin API", () => {
     expect(error.message).toMatch(/^PUT \/refused: 409 /);
     expect(error.message.includes("\u001b")).toBe(false);
     expect(error.message.length).toBeLessThan(600);
+  });
+});
+
+describe("retries", () => {
+  it.each(["/unavailable", "/proxy-lost", "/dropped"])(
+    "sends %s again until the coordinator answers",
+    async (path) => {
+      failuresLeft.set(path, 2);
+      expect(await adminCall(server.url, "PUT", path, {}, "bytes", FAST)).toEqual({
+        ok: true,
+        key: "k",
+      });
+      expect(callsTo(path)).toBe(3);
+    },
+  );
+
+  it("gives up after its attempts, with the last failure", async () => {
+    failuresLeft.set("/unavailable", 10);
+    const before = callsTo("/unavailable");
+    const error = await rejection(adminCall(server.url, "PUT", "/unavailable", {}, "x", FAST));
+    expect(error).toMatchObject({ status: 503, code: "storage" });
+    expect(callsTo("/unavailable") - before).toBe(FAST.attempts);
+    failuresLeft.delete("/unavailable");
+  });
+
+  it("never sends a refusal or a redirect again", async () => {
+    const refused = callsTo("/refused");
+    await expect(adminCall(server.url, "PUT", "/refused", {}, "x", FAST)).rejects.toThrow(
+      AdminRefusal,
+    );
+    expect(callsTo("/refused") - refused).toBe(1);
+    const redirected = callsTo("/redirect");
+    await expect(adminCall(server.url, "PUT", "/redirect", {}, "x", FAST)).rejects.toThrow(
+      /fetch failed/,
+    );
+    expect(callsTo("/redirect") - redirected).toBe(1);
   });
 });

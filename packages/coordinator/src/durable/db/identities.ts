@@ -41,12 +41,20 @@ export const walletTaken = (sql: SqlStorage, accountKey: string): boolean =>
   sql.exec("SELECT github_id FROM identities WHERE account_key = ?", accountKey).toArray().length >
   0;
 
-/** Links a wallet, with the nonce and `issued_at` of the payload its signature signs. */
+/**
+ * Links a wallet, with the nonce and `issued_at` of the payload its signature signs; a new link of
+ * the same GitHub account replaces its wallet.
+ */
 export const writeIdentity = (sql: SqlStorage, id: LinkedIdentity) =>
   sql.exec(
+    // Replaces only this account's own row: a wallet another account holds still fails (UNIQUE).
     `INSERT INTO identities
        (github_id, login, scheme, account, account_key, signature, nonce, issued_at, linked_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (github_id) DO UPDATE SET
+       login = excluded.login, scheme = excluded.scheme, account = excluded.account,
+       account_key = excluded.account_key, signature = excluded.signature,
+       nonce = excluded.nonce, issued_at = excluded.issued_at, linked_at = excluded.linked_at`,
     id.githubId,
     id.login,
     id.scheme,

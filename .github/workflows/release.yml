@@ -1,186 +1,241 @@
 name: Release
 
-# A release is a version bump that has passed CI:
-#   - it starts when CI passes on a push to main, on the commit CI tested (or by hand on main,
-#     to finish a release that failed, only if CI passed on main's tip);
-#   - `verify` releases only a version with no GitHub release yet, the same in every
-#     package.json, not below the latest `vX.Y.Z` tag, and with its dated CHANGELOG section.
-# A commit without a new version stays green and does nothing. Re-running a failed CI run
-# starts the release again when it passes.
+# One signed `vX.Y.Z` tag per release, cut from main. Each network's ceremony is its own
+# deployment (`env.<network>` in packages/coordinator/wrangler.jsonc: Worker, Durable Object,
+# buckets, secrets, domain), built from the same tag:
+#
+#   - Tag push → testnet: the tagged commit must already be green in CI on main; the client is
+#     built and the coordinator deployed with `wrangler deploy --env testnet`; GitHub release with
+#     the client bundle.
+#   - Dispatch with version=X.Y.Z → mainnet: the same tag deployed with `--env mainnet`, its
+#     bundle added to the same release. Only for a version testnet already shipped.
+#
+# The Worker's own secrets are set once per network with `wrangler secret put` (README), never
+# here. A failed run is retried with "Re-run failed jobs".
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to ship to mainnet, e.g. 0.2.0 (git tag v0.2.0, already on testnet)"
+        required: true
+        type: string
 
-# No token rights by default: each job asks for what it needs, and only `publish` may write.
+# No token rights by default: each job asks for what it needs.
 permissions: {}
 
-# Never cancel a release in flight: a run killed between `git push origin <tag>` and the GitHub
-# release leaves a tag with no release behind it. That state is recoverable — `verify` asks for
-# the release, not the tag — but a half-finished release is still worth not creating on purpose.
+# Never cancel a release in flight: a run killed between the deploy and the release leaves the
+# two out of step.
 concurrency:
   group: release
   cancel-in-progress: false
 
-# The commit to release: the one CI tested, not main's tip (`github.sha` under `workflow_run`).
-env:
-  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-
 jobs:
-  verify:
-    name: Verify version
-    # Only after CI passed on a push to main; a manual run releases main, never another branch.
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push'))
+  metadata:
+    name: Release metadata
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
-      # A manual run reads this commit's CI runs.
-      actions: read
+      contents: read # the mainnet gate reads the release assets
+      actions: read # the testnet gate reads the CI run of the tagged commit
     outputs:
-      version: ${{ steps.check.outputs.version }}
-      tag: ${{ steps.check.outputs.tag }}
-      should_release: ${{ steps.check.outputs.release }}
-      tag_exists: ${{ steps.check.outputs.tag_exists }}
-
+      version: ${{ steps.meta.outputs.version }}
+      network: ${{ steps.meta.outputs.network }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.SHA }}
           persist-credentials: false
           fetch-depth: 0
-          # Tags are NOT fetched by `fetch-depth: 0` — that only controls
-          # history depth. Without this the checks below see no tags at all.
           fetch-tags: true
 
-      # The GitHub release, not the tag, is the record of what shipped: a run that died between
-      # tagging and releasing is finished by the next one — only if the tag names this commit.
-      - name: Version, tag and CHANGELOG
-        id: check
+      - name: Version and network
+        id: meta
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Could not read a semantic version from package.json (got '$VERSION')."
-            exit 1
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            VERSION="$INPUT_VERSION"
+            NETWORK="mainnet" # mainnet is only ever a promotion
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            NETWORK="testnet" # a tag push always targets testnet
           fi
+          # The whole value, not one of its lines: it reaches shells and GITHUB_OUTPUT.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must be X.Y.Z, got '$VERSION'"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "network=$NETWORK" >> "$GITHUB_OUTPUT"
+          echo "📦 v$VERSION → $NETWORK"
+
+      # Anyone with push access can create a tag; only the release key can sign one.
+      - name: Verify the tag's GPG signature
+        env:
+          RELEASE_GPG_PUBLIC_KEY: ${{ secrets.RELEASE_GPG_PUBLIC_KEY }}
+          TAG: v${{ steps.meta.outputs.version }}
+        run: |
+          if [[ -z "$RELEASE_GPG_PUBLIC_KEY" ]]; then
+            echo "::error::the RELEASE_GPG_PUBLIC_KEY secret is not set"; exit 1
+          fi
+          echo "$RELEASE_GPG_PUBLIC_KEY" | gpg --batch --import
+          git fetch origin "+refs/tags/$TAG:refs/tags/$TAG" --force
+          git verify-tag "refs/tags/$TAG"
+
+      # Trunk-based: a release is a commit that is on main.
+      - name: Tag must be on main
+        env:
+          TAG: v${{ steps.meta.outputs.version }}
+        run: |
+          git fetch origin +refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$TAG" origin/main \
+            || { echo "::error::$TAG is not on main: tag a commit of main"; exit 1; }
+
+      # Read at the tag: a promotion's checkout is main.
+      - name: Every package.json at the version, with its CHANGELOG section
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          TAG="v$VERSION"
           # One version for the whole repository: the CLI reports packages/cli's to the coordinator.
-          for f in packages/*/package.json; do
-            V=$(node -p "require('./$f').version")
-            if [ "$V" != "$VERSION" ]; then
-              echo "::error::$f is at $V, package.json at $VERSION: every package.json carries the same version."
+          for f in package.json packages/*/package.json; do
+            V=$(git show "$TAG:$f" | node -p 'JSON.parse(require("fs").readFileSync(0)).version')
+            if [[ "$V" != "$VERSION" ]]; then
+              echo "::error::$f is at $V at $TAG: bump every package.json to $VERSION before tagging"
               exit 1
             fi
           done
-          TAG="v$VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "📦 Version: $VERSION"
+          git show "$TAG:CHANGELOG.md" | grep -Eq "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" \
+            || { echo "::error::CHANGELOG.md at $TAG has no '## [$VERSION] - YYYY-MM-DD' section"; exit 1; }
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "ℹ️  $TAG is already released — nothing to release."
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            exit 0
+      # What ships passed CI on main first: merge, wait for green, then tag. A promotion skips
+      # this; its testnet release already went through it.
+      - name: Tagged commit must have passed CI on main
+        if: steps.meta.outputs.network == 'testnet'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.meta.outputs.version }}
+        run: |
+          SHA=$(git rev-parse "$TAG^{commit}")
+          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&branch=main&event=push" \
+            --jq '.workflow_runs[0] | select(.) | "\(.status) \(.conclusion) \(.html_url)"')
+          read -r STATUS CONCLUSION URL <<< "$RUN"
+          if [[ -z "$RUN" ]]; then
+            echo "::error::no CI run on main for $TAG ($SHA): merge it to main and let CI pass before tagging"; exit 1
+          elif [[ "$STATUS" != "completed" ]]; then
+            echo "::error::CI on main for $TAG is still $STATUS ($URL): re-run this job once it is green"; exit 1
+          elif [[ "$CONCLUSION" != "success" ]]; then
+            echo "::error::CI on main for $TAG concluded '$CONCLUSION' ($URL): fix main and tag a new version"; exit 1
           fi
+          echo "✅ CI green on main for $SHA: $URL"
 
-          # Exact `vX.Y.Z` tags only: the glob alone also matches `v1.2.3-rc1`.
-          LATEST=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -n 1 || true)
-          if [ -n "$LATEST" ] && [ "$(printf '%s\n%s\n' "$LATEST" "$VERSION" | sort -V | head -n 1)" != "$LATEST" ]; then
-            echo "::error::package.json is at $VERSION, below the latest release $LATEST."
-            exit 1
-          fi
+      # Mainnet only ships a version testnet already ran.
+      - name: Mainnet requires the testnet release
+        if: steps.meta.outputs.network == 'mainnet'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          ASSET="ceremony-client-$VERSION-testnet.tar.gz"
+          gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$ASSET" \
+            || { echo "::error::release v$VERSION has no $ASSET: ship v$VERSION to testnet before mainnet"; exit 1; }
 
-          # The CHANGELOG section is the release notes.
-          if ! grep -Eq "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no '## [$VERSION] - YYYY-MM-DD' section. Rename '## [Unreleased]' to '## [$VERSION] - $(date -u +%F)'."
-            exit 1
-          fi
-
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            TAGGED=$(git rev-parse "refs/tags/$TAG^{commit}")
-            if [ "$TAGGED" != "$SHA" ]; then
-              echo "::error::$TAG is tagged at $TAGGED, not at $SHA. Re-run the release of that commit, or delete the tag."
-              exit 1
-            fi
-            echo "⚠️  $TAG is tagged but has no GitHub release — finishing it."
-            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "✅ $TAG: new version — releasing."
-            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          # A run started by CI already has its pass; a manual one needs a passed CI run of this
-          # commit on a push to main.
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            PASSED=$(gh run list --workflow ci.yml --commit "$SHA" --branch main --event push \
-              --status success --json databaseId --jq 'length')
-            if [ "$PASSED" -eq 0 ]; then
-              echo "::error::CI has not passed on $SHA. Re-run it: the release follows when it passes."
-              exit 1
-            fi
-          fi
-          echo "release=true" >> "$GITHUB_OUTPUT"
-
-  publish:
-    name: Tag and Release
-    needs: verify
-    if: needs.verify.outputs.should_release == 'true'
+  deploy:
+    name: Deploy ${{ needs.metadata.outputs.network }}
     runs-on: ubuntu-24.04
+    needs: metadata
+    # The GitHub environment of the network: its Cloudflare credentials, and for mainnet any
+    # required reviewers set on it.
+    environment: ${{ needs.metadata.outputs.network }}
     permissions:
-      contents: write
-
+      contents: write # the GitHub release
+    env:
+      VERSION: ${{ needs.metadata.outputs.version }}
+      NETWORK: ${{ needs.metadata.outputs.network }}
     steps:
-      - name: Checkout code
+      - name: Checkout the tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.SHA }}
-          fetch-depth: 0
-          fetch-tags: true
+          ref: v${{ needs.metadata.outputs.version }} # also on a promotion
+          persist-credentials: false
 
-      - name: Create release notes
+      # Without it wrangler would deploy the top-level (local) configuration.
+      - name: The network's deployment must be configured
         run: |
-          # The section for the version being released, by exact heading — matching "the first
-          # ## [" instead would pick up [Unreleased] and ship unreleased work as the notes.
-          awk -v tag="## [${{ needs.verify.outputs.version }}]" '
+          grep -Eq "^    \"$NETWORK\": \{" packages/coordinator/wrangler.jsonc \
+            || { echo "::error::wrangler.jsonc has no env.$NETWORK at v$VERSION: add it before shipping to $NETWORK"; exit 1; }
+
+      # The pnpm version comes from `packageManager` in package.json.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.15.0"
+          cache: pnpm
+
+      # As in CI: only esbuild and workerd may run install scripts (pnpm-workspace.yaml).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the client
+        run: pnpm --filter @orbinum-ceremony/client --fail-if-no-match build
+
+      # From inside dist/, so the tarball unpacks straight into a web root.
+      - name: Package the client bundle
+        run: |
+          tar -czf "ceremony-client-$VERSION-$NETWORK.tar.gz" -C packages/client/dist .
+          sha256sum "ceremony-client-$VERSION-$NETWORK.tar.gz" | tee "checksums-$VERSION-$NETWORK.txt"
+
+      # The Worker serves the bundle just built (assets) and keeps its secrets: wrangler refuses
+      # a deploy while a required one is missing.
+      - name: Deploy the coordinator (env.${{ env.NETWORK }})
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          pnpm --filter @orbinum-ceremony/coordinator exec wrangler deploy --env "$NETWORK" \
+            --message "v$VERSION" | tee deploy.log
+
+      - name: Release notes
+        run: |
+          # The section for this version, by exact heading: the first "## [" is [Unreleased].
+          awk -v tag="## [$VERSION]" '
             index($0, tag) == 1  { flag = 1; next }
             flag && /^## \[/     { exit }
             flag && /^\[[^]]+\]:/{ exit }   # link definitions end the section
             flag
-          ' CHANGELOG.md > release_notes.md
-          [ -s release_notes.md ] || echo "- Release generated from CI." > release_notes.md
-
-      # Tags the commit only if the tag is not already there, so a retry after a failed release
-      # gets past this instead of dying on `tag already exists`. The `if:` is the fast path; the
-      # check against the remote is what makes the step correct.
-      - name: Create and push tag
-        if: needs.verify.outputs.tag_exists == 'false'
-        run: |
-          TAG="${{ needs.verify.outputs.tag }}"
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "ℹ️  Tag $TAG is already on the remote — leaving it as is."
-            exit 0
+          ' CHANGELOG.md > release_notes_body.md
+          [ -s release_notes_body.md ] || echo "- Release generated from CI." > release_notes_body.md
+          if [[ "$NETWORK" == "mainnet" ]]; then
+            STATUS="Live on **mainnet** and testnet."
+          else
+            STATUS="Live on **testnet**. Ship to mainnet with \`gh workflow run release.yml -f version=$VERSION\`."
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG" "$SHA"
-          git push origin "$TAG"
+          VERSION_ID=$(grep -oE 'Current Version ID: [0-9a-f-]+' deploy.log | tail -1 | cut -d' ' -f4 || true)
+          {
+            echo "$STATUS"
+            echo ""
+            cat release_notes_body.md
+            echo ""
+            echo "## Deploy"
+            echo ""
+            echo "- $NETWORK: \`wrangler deploy --env $NETWORK\`${VERSION_ID:+, Worker version \`$VERSION_ID\`}"
+            echo "- Client: \`ceremony-client-$VERSION-$NETWORK.tar.gz\`"
+          } > release_notes.md
 
-      # Last, and idempotent by design: the action updates an existing release rather than failing.
-      - name: Create GitHub Release
+      # Idempotent: updates the existing release, so mainnet adds its bundle next to testnet's.
+      - name: Create or update the GitHub release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: ${{ needs.verify.outputs.tag }}
-          target_commitish: ${{ env.SHA }}
-          name: Release ${{ needs.verify.outputs.tag }}
+          tag_name: v${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
           body_path: release_notes.md
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            ceremony-client-${{ env.VERSION }}-${{ env.NETWORK }}.tar.gz
+            checksums-${{ env.VERSION }}-${{ env.NETWORK }}.txt

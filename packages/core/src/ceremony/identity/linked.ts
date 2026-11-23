@@ -44,14 +44,22 @@ export const linkPayloadOf = (ceremonyId: string, identity: Identity): LinkPaylo
   issued_at: identity.issued_at,
 });
 
+/** Where a linked GitHub account stands when it asks to link another wallet. */
+export interface RelinkStanding {
+  /** A contribution in the transcript names it (and so its wallet). */
+  contributed: boolean;
+  /** It holds the session in progress. */
+  inTurn: boolean;
+}
+
 /**
- * 1 GitHub = 1 wallet: linking the same key again is a no-op (null), any other key once linked
- * is refused.
+ * Why a linked account may not change its wallet now, or null. One wallet per GitHub account at
+ * any time, and across the whole transcript (`verify` checks it): the wallet is fixed once a
+ * contribution names it, and does not change during the account's own session (its attestation
+ * is signed by the wallet its contributions name).
  */
-export const checkRelink = (
-  current: LinkedIdentity,
-  accountKey: string,
-): "already-linked" | null => (current.accountKey === accountKey ? null : "already-linked");
+export const relinkRefusal = (standing: RelinkStanding): "already-linked" | "busy" | null =>
+  standing.contributed ? "already-linked" : standing.inTurn ? "busy" : null;
 
 /** `POST /api/link`: the scheme, the signed payload and its signature, nothing else. */
 export function validateLinkRequest(body: unknown): {

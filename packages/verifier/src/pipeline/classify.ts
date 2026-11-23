@@ -3,18 +3,23 @@ import { IsolationError } from "../isolate";
 
 /**
  * Errno codes that mean "the host ran out of something or failed", not "the upload is bad": file
- * descriptors, memory, disk space and quota, file-size limits, a read-only or stale filesystem.
+ * descriptors, memory and buffers, disk space and quota, file-size limits, a read-only, stale or
+ * busy filesystem, a temporary shortage. A missing or unreadable file is not on the list: our own
+ * files (the staged upload included) are re-checked before the upload is blamed.
  */
 const RESOURCE_ERRNO = [
   "EMFILE",
   "ENFILE",
   "ENOMEM",
+  "ENOBUFS",
   "ENOSPC",
   "EDQUOT",
   "EFBIG",
   "EROFS",
   "EIO",
   "ESTALE",
+  "EBUSY",
+  "EAGAIN",
 ] as const;
 const RESOURCE_CODES = new Set<string>([
   ...RESOURCE_ERRNO,

@@ -80,7 +80,8 @@ export const jobIdParam = validator(
 export const artifactKey = validator("param", (_, c) => {
   try {
     const key = decodeURIComponent(new URL(c.req.url).pathname.replace(/^\/artifacts\//, ""));
-    if (key.length > 0) return { key };
+    // R2 keys are at most 1024 bytes: a longer one is not found, not a storage error.
+    if (key.length > 0 && new TextEncoder().encode(key).length <= 1024) return { key };
   } catch {
     // A malformed escape is no key at all.
   }

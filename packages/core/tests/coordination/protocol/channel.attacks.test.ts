@@ -84,7 +84,7 @@ describe("HMAC timestamp bounds and shapes", () => {
 
   it("refuses a 16-digit timestamp beyond 2^53 at the skew check", () => {
     const ts = "9".repeat(16);
-    const mac = hmacSha256Hex(utf8(KEY), `${CID}\n${ts}\nPOST\n/verify\n{}`);
+    const mac = hmacSha256Hex(utf8(KEY), `dispatch\n${CID}\n${ts}\nPOST\n/verify\n{}`);
     expect(
       verifyRequest(KEY, CID, "POST", "/verify", "{}", { timestamp: ts, signature: mac }, NOW),
     ).toBe(false);
@@ -104,6 +104,34 @@ describe("HMAC timestamp bounds and shapes", () => {
   });
 });
 
+describe("HMAC direction", () => {
+  it("signs only the verifier's route and the coordinator's /internal, each under its own tag", () => {
+    for (const path of [
+      "/",
+      "/api/status",
+      "/admin/state",
+      "/verify/",
+      "/internalx",
+      "/x/internal/",
+    ]) {
+      expect(() => signRequest(KEY, CID, "POST", path, "{}", NOW)).toThrow(/are required/);
+      expect(verifyRequest(KEY, CID, "POST", path, "{}", hdr(SIGNED), NOW)).toBe(false);
+    }
+    const untagged = hmacSha256Hex(utf8(KEY), `${CID}\n${NOW}\nPOST\n/verify\n{}`);
+    expect(
+      verifyRequest(
+        KEY,
+        CID,
+        "POST",
+        "/verify",
+        "{}",
+        { ...hdr(SIGNED), signature: untagged },
+        NOW,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("HMAC canonical form", () => {
   it("refuses to sign a field with an embedded newline, so no field can shift", () => {
     for (const [cid, method, path] of [
@@ -116,13 +144,15 @@ describe("HMAC canonical form", () => {
       );
     }
     // A MAC for (POST, "/a", body "b\nc") cannot be re-read as another split.
-    const s = sign("POST", "/a", "b\nc");
-    expect(verifyRequest(KEY, CID, "POST", "/a\nb", "c", hdr(s), NOW)).toBe(false);
+    const s = sign("POST", "/internal/a", "b\nc");
+    expect(verifyRequest(KEY, CID, "POST", "/internal/a\nb", "c", hdr(s), NOW)).toBe(false);
   });
 
   it("does not treat a carriage return as a separator or alias another request", () => {
-    const s = sign("POST", "/verify\r", "{}");
-    expect(verifyRequest(KEY, CID, "POST", "/verify", "{}", hdr(s), NOW)).toBe(false);
+    const s = sign("POST", "/internal/verifications\r", "{}");
+    expect(verifyRequest(KEY, CID, "POST", "/internal/verifications", "{}", hdr(s), NOW)).toBe(
+      false,
+    );
   });
 
   it.each([

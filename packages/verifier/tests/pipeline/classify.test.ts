@@ -17,6 +17,9 @@ describe("classifyVerifierError", () => {
     "EROFS",
     "EIO",
     "ESTALE",
+    "ENOBUFS",
+    "EBUSY",
+    "EAGAIN",
     "ERR_WORKER_OUT_OF_MEMORY",
     "ERR_WORKER_INIT_FAILED",
   ])("treats code %s as the verifier's problem (infra: pause, nobody penalized)", (code) => {

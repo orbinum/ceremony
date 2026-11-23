@@ -134,6 +134,7 @@ describe("Turnstile on joining (outside a local run)", () => {
     const spy = siteverify((form) => ({
       success: form.get("response") === "good",
       hostname: form.get("response") === "good" ? "ceremony.example" : "x",
+      action: "join",
     }));
     const ok = await join(name, 7201, "good");
     expect([ok.status, await json(ok)]).toEqual([200, { ok: true }]);
@@ -155,13 +156,22 @@ describe("Turnstile on joining (outside a local run)", () => {
 
   it("refuses a solve for another host, a missing or oversized token, and an unreachable service", async () => {
     const name = await opened(7203);
-    const spy = siteverify(() => ({ success: true, hostname: "phishing.example" }));
+    const spy = siteverify(() => ({ success: true, hostname: "phishing.example", action: "join" }));
     expect(await refusal(await join(name, 7203, "good"))).toEqual([403, "turnstile"]);
     expect(await refusal(await join(name, 7203))).toEqual([403, "turnstile"]);
     expect(await refusal(await join(name, 7203, "x".repeat(2049)))).toEqual([403, "turnstile"]);
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRejectedValue(new Error("offline"));
     expect(await refusal(await join(name, 7203, "good"))).toEqual([403, "turnstile"]);
+    expect(await queued(name)).toEqual([]);
+  });
+
+  it("refuses a solve by a widget rendered for another action", async () => {
+    const name = await opened(7209);
+    siteverify(() => ({ success: true, hostname: "ceremony.example", action: "login" }));
+    expect(await refusal(await join(name, 7209, "good"))).toEqual([403, "turnstile"]);
+    siteverify(() => ({ success: true, hostname: "ceremony.example" }));
+    expect(await refusal(await join(name, 7209, "good"))).toEqual([403, "turnstile"]);
     expect(await queued(name)).toEqual([]);
   });
 
@@ -172,7 +182,7 @@ describe("Turnstile on joining (outside a local run)", () => {
     // oxlint-disable-next-line no-await-in-loop -- requests in order, as a burst
     for (let i = 0; i < 6; i++) await join(name, 7207, "bad", { JOIN_LIMIT: binding });
     expect(counts.size).toBe(0);
-    siteverify(() => ({ success: true, hostname: "ceremony.example" }));
+    siteverify(() => ({ success: true, hostname: "ceremony.example", action: "join" }));
     const r = await join(name, 7207, "good", { JOIN_LIMIT: binding });
     expect([r.status, await json(r)]).toEqual([200, { ok: true }]);
   });

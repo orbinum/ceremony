@@ -110,13 +110,13 @@ describe("the verifier's routes", () => {
     expect((await stub.latestJob(1, "shield"))?.status).toBe("pending");
   });
 
-  it("refuses an oversized body before checking anything", async () => {
+  it("refuses an oversized body before reading it or checking its MAC", async () => {
     const big = "x".repeat(2 * MAX_LOG_CHARS + 128 * 1024);
     const r = await raw("/internal/verifications", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-ceremony-timestamp": "1",
+        "x-ceremony-timestamp": String(Date.now()),
         "x-ceremony-signature": "ab".repeat(32),
       },
       body: big,

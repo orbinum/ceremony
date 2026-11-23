@@ -176,7 +176,7 @@
                   "../object",
                   "../object/**"
                 ],
-                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; db may not import from a layer above it."
+                "message": "durable layers: object → operations → store → db; db may not import from a layer above it."
               }
             ]
           }
@@ -196,7 +196,7 @@
               },
               {
                 "group": ["../operations", "../operations/**", "../object", "../object/**"],
-                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; store may not import from a layer above it."
+                "message": "durable layers: object → operations → store → db; store may not import from a layer above it."
               }
             ]
           }
@@ -216,7 +216,7 @@
               },
               {
                 "group": ["../object", "../object/**"],
-                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; operations may not import from a layer above it."
+                "message": "durable layers: object → operations → store → db; operations may not import from a layer above it."
               }
             ]
           }
@@ -295,7 +295,7 @@
                   "**/pipeline/**",
                   "**/service/**"
                 ],
-                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; text may not import from a later layer (files, pins, isolate, snarkjs, pipeline, service)."
+                "message": "verifier layers: text ← files ← pins ← isolate ← snarkjs ← pipeline ← service; text may not import from a later layer (files, pins, isolate, snarkjs, pipeline, service)."
               }
             ]
           }
@@ -326,7 +326,7 @@
                   "**/pipeline/**",
                   "**/service/**"
                 ],
-                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; files may not import from a later layer (pins, isolate, snarkjs, pipeline, service)."
+                "message": "verifier layers: text ← files ← pins ← isolate ← snarkjs ← pipeline ← service; files may not import from a later layer (pins, isolate, snarkjs, pipeline, service)."
               }
             ]
           }
@@ -355,7 +355,7 @@
                   "**/pipeline/**",
                   "**/service/**"
                 ],
-                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; pins may not import from a later layer (isolate, snarkjs, pipeline, service)."
+                "message": "verifier layers: text ← files ← pins ← isolate ← snarkjs ← pipeline ← service; pins may not import from a later layer (isolate, snarkjs, pipeline, service)."
               }
             ]
           }
@@ -382,7 +382,7 @@
                   "**/pipeline/**",
                   "**/service/**"
                 ],
-                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; isolate may not import from a later layer (snarkjs, pipeline, service)."
+                "message": "verifier layers: text ← files ← pins ← isolate ← snarkjs ← pipeline ← service; isolate may not import from a later layer (snarkjs, pipeline, service)."
               }
             ]
           }
@@ -402,7 +402,7 @@
               },
               {
                 "group": ["**/pipeline", "**/service", "**/pipeline/**", "**/service/**"],
-                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; snarkjs may not import from a later layer (pipeline, service)."
+                "message": "verifier layers: text ← files ← pins ← isolate ← snarkjs ← pipeline ← service; snarkjs may not import from a later layer (pipeline, service)."
               }
             ]
           }
@@ -422,7 +422,7 @@
               },
               {
                 "group": ["**/service", "**/service/**"],
-                "message": "verifier layers: text \u2190 files \u2190 pins \u2190 isolate \u2190 snarkjs \u2190 pipeline \u2190 service; pipeline may not import from a later layer (service)."
+                "message": "verifier layers: text ← files ← pins ← isolate ← snarkjs ← pipeline ← service; pipeline may not import from a later layer (service)."
               }
             ]
           }
@@ -477,35 +477,35 @@
           "error",
           {
             "name": "fetch",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           },
           {
             "name": "process",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           },
           {
             "name": "caches",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           },
           {
             "name": "console",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           },
           {
             "name": "setTimeout",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           },
           {
             "name": "setInterval",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           },
           {
             "name": "Buffer",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           },
           {
             "name": "require",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN \u00a75)."
+            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
           }
         ],
         "no-restricted-properties": [
@@ -551,7 +551,7 @@
                   "**/store/**",
                   "**/commands/**"
                 ],
-                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; io may not import a later layer."
+                "message": "cli layers: io ← {args, ui, artifacts, tools} ← {source, store} ← commands; io may not import a later layer."
               }
             ]
           }
@@ -583,7 +583,7 @@
                   "**/store/**",
                   "**/commands/**"
                 ],
-                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; args, ui, artifacts and tools may not import source, store or commands."
+                "message": "cli layers: io ← {args, ui, artifacts, tools} ← {source, store} ← commands; args, ui, artifacts and tools may not import source, store or commands."
               }
             ]
           }
@@ -603,7 +603,7 @@
               },
               {
                 "group": ["**/store", "**/commands", "**/store/**", "**/commands/**"],
-                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; source may not import store or commands."
+                "message": "cli layers: io ← {args, ui, artifacts, tools} ← {source, store} ← commands; source may not import store or commands."
               }
             ]
           }
@@ -623,7 +623,7 @@
               },
               {
                 "group": ["**/source", "**/commands", "**/source/**", "**/commands/**"],
-                "message": "cli layers: io \u2190 {args, ui, artifacts, tools} \u2190 {source, store} \u2190 commands; store may not import source or commands."
+                "message": "cli layers: io ← {args, ui, artifacts, tools} ← {source, store} ← commands; store may not import source or commands."
               }
             ]
           }
@@ -651,7 +651,7 @@
                   "**/queue/*",
                   "**/upload/*"
                 ],
-                "message": "core/coordination: import a sibling module only through its barrel (CEREMONY_PLAN \u00a75)."
+                "message": "core/coordination: import a sibling module only through its barrel (CEREMONY_PLAN §5)."
               }
             ]
           }
@@ -686,7 +686,7 @@
                   "**/middleware/**",
                   "**/session/**"
                 ],
-                "message": "durable layers: object \u2192 operations \u2192 store \u2192 db; the object only delegates to operations (no SQL, no HTTP)."
+                "message": "durable layers: object → operations → store → db; the object only delegates to operations (no SQL, no HTTP)."
               }
             ]
           }
@@ -778,6 +778,363 @@
                   "**/http/**"
                 ],
                 "message": "session handles sign-in credentials only (cookies, CLI tokens): it may not import the Worker's durable object, actions, routes, middleware or http."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/client/**"],
+      "plugins": ["typescript", "unicorn", "import", "oxc", "react"],
+      "rules": {
+        "react/rules-of-hooks": "error",
+        "react/only-export-components": [
+          "error",
+          {
+            "allowConstantExport": true
+          }
+        ],
+        "react/react-in-jsx-scope": "off",
+        "import/no-unassigned-import": [
+          "error",
+          {
+            "allow": ["**/*.css"]
+          }
+        ],
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "@orbinum-ceremony/cli",
+                  "@orbinum-ceremony/coordinator",
+                  "@orbinum-ceremony/verifier",
+                  "@orbinum-ceremony/e2e"
+                ],
+                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+              },
+              {
+                "group": [
+                  "**/api/*",
+                  "**/wallets/*",
+                  "**/contribution/*",
+                  "**/attestation/*",
+                  "**/hooks/*",
+                  "**/ui/*",
+                  "!./*"
+                ],
+                "message": "Import another client directory only through its barrel (its index.ts)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/client/src/api/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "@orbinum-ceremony/cli",
+                  "@orbinum-ceremony/coordinator",
+                  "@orbinum-ceremony/verifier",
+                  "@orbinum-ceremony/e2e"
+                ],
+                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+              },
+              {
+                "group": [
+                  "**/api/*",
+                  "**/wallets/*",
+                  "**/contribution/*",
+                  "**/attestation/*",
+                  "**/hooks/*",
+                  "**/ui/*",
+                  "!./*"
+                ],
+                "message": "Import another client directory only through its barrel (its index.ts)."
+              },
+              {
+                "group": [
+                  "**/wallets",
+                  "**/contribution",
+                  "**/attestation",
+                  "**/hooks",
+                  "**/ui",
+                  "**/pages",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/pages/**"
+                ],
+                "message": "client/api sits below wallets, contribution, attestation, hooks, ui, pages (layers: api, wallets ← contribution ← attestation ← hooks ← pages; ui for pages)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/client/src/wallets/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "@orbinum-ceremony/cli",
+                  "@orbinum-ceremony/coordinator",
+                  "@orbinum-ceremony/verifier",
+                  "@orbinum-ceremony/e2e"
+                ],
+                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+              },
+              {
+                "group": [
+                  "**/api/*",
+                  "**/wallets/*",
+                  "**/contribution/*",
+                  "**/attestation/*",
+                  "**/hooks/*",
+                  "**/ui/*",
+                  "!./*"
+                ],
+                "message": "Import another client directory only through its barrel (its index.ts)."
+              },
+              {
+                "group": [
+                  "**/api",
+                  "**/contribution",
+                  "**/attestation",
+                  "**/hooks",
+                  "**/ui",
+                  "**/pages",
+                  "**/api/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/pages/**"
+                ],
+                "message": "client/wallets sits below api, contribution, attestation, hooks, ui, pages (layers: api, wallets ← contribution ← attestation ← hooks ← pages; ui for pages)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/client/src/contribution/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "@orbinum-ceremony/cli",
+                  "@orbinum-ceremony/coordinator",
+                  "@orbinum-ceremony/verifier",
+                  "@orbinum-ceremony/e2e"
+                ],
+                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+              },
+              {
+                "group": [
+                  "**/api/*",
+                  "**/wallets/*",
+                  "**/contribution/*",
+                  "**/attestation/*",
+                  "**/hooks/*",
+                  "**/ui/*",
+                  "!./*"
+                ],
+                "message": "Import another client directory only through its barrel (its index.ts)."
+              },
+              {
+                "group": [
+                  "**/wallets",
+                  "**/attestation",
+                  "**/hooks",
+                  "**/ui",
+                  "**/pages",
+                  "**/wallets/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/pages/**"
+                ],
+                "message": "client/contribution sits below wallets, attestation, hooks, ui, pages (layers: api, wallets ← contribution ← attestation ← hooks ← pages; ui for pages)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/client/src/attestation/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "@orbinum-ceremony/cli",
+                  "@orbinum-ceremony/coordinator",
+                  "@orbinum-ceremony/verifier",
+                  "@orbinum-ceremony/e2e"
+                ],
+                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+              },
+              {
+                "group": [
+                  "**/api/*",
+                  "**/wallets/*",
+                  "**/contribution/*",
+                  "**/attestation/*",
+                  "**/hooks/*",
+                  "**/ui/*",
+                  "!./*"
+                ],
+                "message": "Import another client directory only through its barrel (its index.ts)."
+              },
+              {
+                "group": [
+                  "**/contribution",
+                  "**/hooks",
+                  "**/ui",
+                  "**/pages",
+                  "**/contribution/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/pages/**"
+                ],
+                "message": "client/attestation sits below contribution, hooks, ui, pages (layers: api, wallets ← contribution ← attestation ← hooks ← pages; ui for pages)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/client/src/ui/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "@orbinum-ceremony/cli",
+                  "@orbinum-ceremony/coordinator",
+                  "@orbinum-ceremony/verifier",
+                  "@orbinum-ceremony/e2e"
+                ],
+                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+              },
+              {
+                "group": [
+                  "**/api/*",
+                  "**/wallets/*",
+                  "**/contribution/*",
+                  "**/attestation/*",
+                  "**/hooks/*",
+                  "**/ui/*",
+                  "!./*"
+                ],
+                "message": "Import another client directory only through its barrel (its index.ts)."
+              },
+              {
+                "group": [
+                  "**/api",
+                  "**/wallets",
+                  "**/contribution",
+                  "**/attestation",
+                  "**/hooks",
+                  "**/pages",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/pages/**"
+                ],
+                "message": "client/ui sits below api, wallets, contribution, attestation, hooks, pages (layers: api, wallets ← contribution ← attestation ← hooks ← pages; ui for pages)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/client/src/hooks/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@orbinum-ceremony/*/*"],
+                "message": "Import other packages only through their barrel (package root)."
+              },
+              {
+                "group": [
+                  "@orbinum-ceremony/cli",
+                  "@orbinum-ceremony/coordinator",
+                  "@orbinum-ceremony/verifier",
+                  "@orbinum-ceremony/e2e"
+                ],
+                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+              },
+              {
+                "group": [
+                  "**/api/*",
+                  "**/wallets/*",
+                  "**/contribution/*",
+                  "**/attestation/*",
+                  "**/hooks/*",
+                  "**/ui/*",
+                  "!./*"
+                ],
+                "message": "Import another client directory only through its barrel (its index.ts)."
+              },
+              {
+                "group": ["**/ui", "**/pages", "**/ui/**", "**/pages/**"],
+                "message": "client/hooks sits below ui, pages (layers: api, wallets ← contribution ← attestation ← hooks ← pages; ui for pages)."
               }
             ]
           }

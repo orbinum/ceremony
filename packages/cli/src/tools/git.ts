@@ -29,8 +29,23 @@ export const originUrl = async (repo: string): Promise<string> =>
   (await run("git", ["-C", repo, "remote", "get-url", "origin"])).trim();
 
 /** A tree path that stays inside the export: no empty, `.`, `..` or `.git` component. */
+/** Code points HFS+ ignores in names, so `.g\u200Cit` is `.git` on a Mac. */
+const HFS_IGNORED = /[\u200C-\u200F\u202A-\u202E\u206A-\u206F\uFEFF]/g;
+
+/**
+ * `.git` in every spelling git's own `verify_path` refuses: any case, HFS+-ignored code points,
+ * trailing dots or spaces (NTFS drops them), and the NTFS short name `git~1`.
+ */
+const isGitDir = (part: string) => {
+  const name = part
+    .replace(HFS_IGNORED, "")
+    .replace(/[. ]+$/, "")
+    .toLowerCase();
+  return name === ".git" || name === "git~1";
+};
+
 const safePath = (path: string) =>
-  path.split("/").every((p) => p !== "" && p !== "." && p !== ".." && p.toLowerCase() !== ".git");
+  path.split("/").every((p) => p !== "" && p !== "." && p !== ".." && !isGitDir(p));
 
 /**
  * Exports the tree at `commit` into `dest`, every blob byte-for-byte as committed (no checkout, no

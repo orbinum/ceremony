@@ -32,6 +32,16 @@ describe("configuration values", () => {
     }
   });
 
+  it("takes the verifier's Access service token whole or not at all", () => {
+    const problem = ["VERIFIER_ACCESS_CLIENT_ID and VERIFIER_ACCESS_CLIENT_SECRET go together"];
+    expect(problemsWith({ VERIFIER_ACCESS_CLIENT_ID: "id.access" })).toEqual(problem);
+    expect(problemsWith({ VERIFIER_ACCESS_CLIENT_SECRET: "s3cret" })).toEqual(problem);
+    expect(
+      problemsWith({ VERIFIER_ACCESS_CLIENT_ID: "id.access", VERIFIER_ACCESS_CLIENT_SECRET: "s" }),
+    ).toEqual([]);
+    expect(problemsWith({})).toEqual([]);
+  });
+
   it("refuses keys below 32 UTF-8 bytes, and missing keys", () => {
     for (const v of ["", "x".repeat(31), undefined, "é".repeat(15)]) {
       expect(problemsWith({ SESSION_KEY: v } as Partial<Env>)).toEqual([
@@ -76,8 +86,22 @@ describe("configuration values", () => {
     );
   });
 
-  it("accepts the same key for sessions and verifier requests (MAC inputs are domain-separated)", () => {
-    expect(problemsWith({ VERIFIER_HMAC_KEY: env.SESSION_KEY })).toEqual([]);
+  // The MAC inputs are domain-separated, but one secret for both would still let the verifier's
+  // host mint session tokens.
+  it("refuses the same key for sessions and verifier requests, as HMAC sees it", () => {
+    const same = ["SESSION_KEY and VERIFIER_HMAC_KEY must differ"];
+    expect(problemsWith({ VERIFIER_HMAC_KEY: env.SESSION_KEY })).toEqual(same);
+    // A trailing zero byte pads to the same HMAC key.
+    expect(problemsWith({ VERIFIER_HMAC_KEY: `${env.SESSION_KEY}\u0000` })).toEqual(same);
+  });
+
+  it("refuses an ENVIRONMENT other than local, testnet or production", () => {
+    for (const ENVIRONMENT of ["staging", "Production", "", "local "]) {
+      expect([ENVIRONMENT, problemsWith({ ENVIRONMENT })]).toEqual([
+        ENVIRONMENT,
+        ["ENVIRONMENT must be one of local, testnet, production"],
+      ]);
+    }
   });
 
   // The Worker fetches the operator signing keys from this domain.

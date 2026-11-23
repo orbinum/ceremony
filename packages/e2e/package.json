@@ -1,11 +1,12 @@
 {
   "name": "@orbinum-ceremony/e2e",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "End-to-end ceremony: wrangler dev (coordinator) + verifier service + contributors",
   "author": "Orbinum Technologies <contact@orbinum.net>",
   "type": "module",
   "scripts": {
+    "stack": "tsx scripts/stack.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },

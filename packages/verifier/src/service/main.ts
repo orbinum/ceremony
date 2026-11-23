@@ -31,7 +31,10 @@ try {
 }
 const pinned = inputs;
 const ceremonyId = pinned.init.ceremony_id;
-const queue = createQueue((spec) => runJob({ config, inputs: pinned }, spec), JOB_DEADLINE_MS);
+const queue = createQueue(
+  (spec, receivedAt) => runJob({ config, inputs: pinned }, spec, receivedAt),
+  JOB_DEADLINE_MS,
+);
 const server = createVerifierServer(
   { hmacKey: config.hmacKey, ceremonyId },
   jobSinkOf(pinned, queue),

@@ -30,6 +30,24 @@ const CLIENT = { name: "orbinum-ceremony-e2e", version: "0.0.0", commit: "0e2e0e
 /** How long one upload may take to be verified before the test gives up. */
 const RESULT_TIMEOUT_MS = 10 * 60_000;
 
+/**
+ * `fetch`, sent again (up to 3 times) when the answer is wrangler dev's own: its ProxyWorker drops
+ * its connection to the Worker now and then and fails a request with a body instead of retrying
+ * it (a plain-text 500, never one of the coordinator's JSON answers). Production has no ProxyWorker.
+ */
+async function send(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    // oxlint-disable-next-line no-await-in-loop -- one attempt after the other
+    const response = await fetch(url, init);
+    const proxyLost =
+      response.status === 500 &&
+      !response.headers.get("content-type")?.includes("json") &&
+      // oxlint-disable-next-line no-await-in-loop -- read only to recognize the dev server's error
+      (await response.clone().text()).includes("Network connection lost");
+    if (!proxyLost || attempt === 3) return response;
+  }
+}
+
 /** An answer: its status and JSON body (an `{ error: { code } }` for a refusal). */
 export interface Answer {
   status: number;
@@ -76,7 +94,7 @@ export class Contributor {
     body?: unknown,
     headers: Record<string, string> = {},
   ): Promise<Answer> {
-    const response = await fetch(`${this.base}${path}`, {
+    const response = await send(`${this.base}${path}`, {
       method,
       headers: {
         ...this.identity,
@@ -166,9 +184,14 @@ export class Contributor {
       await contribute(inPath, outPath, name, entropy);
     }
     const output = new Uint8Array(await readFile(outPath));
-    // The flipped byte lies in the h_k the zkey carries; claiming the changed h_k gets the upload
-    // past the pre-checks, so only snarkjs's verify can refuse it.
-    if (tamper.flip) output[output.length - 100] = (output[output.length - 100] ?? 0) ^ 1;
+    // The flipped byte lies in the new entry's transcript, which h_k covers but which is no point
+    // (the pre-checks would refuse an off-curve one): the entry ends with type, parameter length
+    // and the name parameter (tag, length, name). Claiming the changed h_k gets the upload past
+    // the pre-checks, so only snarkjs's verify can refuse it (g2_sp no longer hashes to it).
+    if (tamper.flip) {
+      const at = output.length - (2 + new TextEncoder().encode(name).length) - 8 - 32;
+      output[at] = (output[at] ?? 0) ^ 1;
+    }
     const claim = {
       inputSha256: head.sha256,
       outputSha256: tamper.wrongOutputHash ? "00".repeat(32) : sha256Hex(output),
@@ -181,7 +204,7 @@ export class Contributor {
 
   /** Uploads `output` for `circuit` with `claim`; resolves with the answer. */
   async upload(circuit: CircuitName, output: Uint8Array, claim: unknown): Promise<Answer> {
-    const upload = await fetch(`${this.base}/api/session/upload/${circuit}`, {
+    const upload = await send(`${this.base}/api/session/upload/${circuit}`, {
       method: "PUT",
       headers: { ...this.identity, [CLAIM_HEADER]: JSON.stringify(claim) },
       body: output,

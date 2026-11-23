@@ -19,6 +19,7 @@ import {
   sha256Hex,
   slotView,
   step,
+  transcriptOf,
 } from "@orbinum-ceremony/core";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { runContribute } from "../../../src/api";
@@ -151,6 +152,9 @@ async function coordinator(script: Script = {}) {
     "/artifacts/genesis/init.json": (_q, res) =>
       void file(CEREMONY_LAYOUT.init).then((b) => res.end(b)),
     "/artifacts/genesis/shield.genesis.zkey": (_q, res) => res.end(genesis),
+    // No contribution recorded yet: the genesis is the head.
+    "/artifacts/transcript.json": (_q, res) =>
+      json(res, 200, transcriptOf(ceremony.init.ceremony_id, ceremony.announcementSha256, [])),
     "/api/queue/me": (_q, res) => json(res, 200, slotView(state, ID)),
     "/api/queue/leave": holder("leave"),
     "/api/session/claim": holder("claim"),

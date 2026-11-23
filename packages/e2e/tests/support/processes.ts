@@ -4,6 +4,7 @@
  * with SIGTERM then SIGKILL, and a child that exits during startup fails at once.
  */
 import { type ChildProcess, spawn } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { join } from "node:path";
 
@@ -105,14 +106,25 @@ async function startService(
   throw new Error(`${opts.what} did not start:\n${stderr}`);
 }
 
-/** `wrangler dev` of the coordinator with local R2 and Durable Object storage. */
+/**
+ * `wrangler dev` of the coordinator with local R2 and Durable Object storage. The devtools port is
+ * given too: left to wrangler, two stacks starting at once both take 9229 and one fails to bind.
+ */
 export const startCoordinator = (opts: {
   port: number;
+  inspectorPort: number;
   persist: string;
   envFile: string;
   vars: Record<string, string>;
-}): Promise<Service> =>
-  startService(
+}): Promise<Service> => {
+  // wrangler refuses a missing assets directory. Without a client build, a placeholder page keeps
+  // the single-page fallback (any unknown path is the page) as it is deployed.
+  const dist = join(COORDINATOR_DIR, "..", "client", "dist");
+  mkdirSync(dist, { recursive: true });
+  if (!existsSync(join(dist, "index.html"))) {
+    writeFileSync(join(dist, "index.html"), "<!doctype html><title>e2e</title>\n");
+  }
+  return startService(
     WRANGLER,
     [
       "dev",
@@ -120,6 +132,8 @@ export const startCoordinator = (opts: {
       "127.0.0.1",
       "--port",
       String(opts.port),
+      "--inspector-port",
+      String(opts.inspectorPort),
       "--persist-to",
       opts.persist,
       "--env-file",
@@ -139,6 +153,7 @@ export const startCoordinator = (opts: {
       what: "wrangler dev",
     },
   );
+};
 
 /**
  * The verifier service as deployed (`node --import tsx src/service/main.ts`, configured by its

@@ -1,0 +1,128 @@
+/* The page's styles: Orbinum's (the Hub's tokens, square edges, mono type). Fonts are served from
+   this origin (the CSP allows no other). */
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource-variable/jetbrains-mono";
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border);
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  strong {
+    color: var(--accent);
+    letter-spacing: -0.03em;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+  }
+}
+
+@layer components {
+  /* The brand title: Instrument Sans, heavy, a gradient that reads on both themes. */
+  .wordmark {
+    font-family: var(--font-sans);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    background: linear-gradient(
+      135deg,
+      var(--accent) 0%,
+      color-mix(in srgb, var(--accent) 63%, var(--bg)) 100%
+    );
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .glass-card {
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    border: 1px solid var(--border);
+    transition: border-color 0.3s ease;
+  }
+
+  .glass-card:hover {
+    border-color: var(--muted);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary:not(:disabled):hover {
+    background: color-mix(in srgb, var(--accent) 88%, var(--bg));
+  }
+
+  .btn-primary:not(:disabled):active {
+    transform: scale(0.98);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    transition: all 0.2s ease;
+  }
+
+  .btn-ghost:not(:disabled):hover {
+    background: var(--overlay-hover);
+    border-color: var(--muted);
+  }
+}
+
+/* Status tints (color-mix cannot live in @theme). */
+.bg-success-mix {
+  background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
+}
+.bg-error-mix {
+  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface));
+}
+.bg-warning-mix {
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
+}
+.border-success-mix {
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+.border-error-mix {
+  border-color: color-mix(in srgb, var(--color-error) 25%, transparent);
+}
+.border-warning-mix {
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+/* Shown only under the dark or the light theme (the logo). */
+.only-light {
+  display: none;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .only-dark {
+    display: none;
+  }
+  :root:not([data-theme="dark"]) .only-light {
+    display: revert;
+  }
+}
+[data-theme="light"] .only-dark {
+  display: none;
+}
+[data-theme="light"] .only-light {
+  display: revert;
+}

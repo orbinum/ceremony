@@ -2,7 +2,9 @@
  * The coordinator's operator API (`/admin/*`, behind Cloudflare Access), as `publish-init` and
  * `publish-final` use it. Only to the configured origin, never through a redirect (which would
  * carry the Access secret elsewhere or turn a login page into a success), and an answer counts
- * only if it is the coordinator's own `{ ok: true }`. COORDINATOR §3.
+ * only if it is the coordinator's own `{ ok: true }`. Every call they make is idempotent (the same
+ * file again is `unchanged`, the same setup again is configured, a sealed ceremony is checked by
+ * the caller), so one lost to the network or the coordinator's fault is sent again. COORDINATOR §3.
  */
 import {
   asObject,
@@ -14,6 +16,16 @@ import {
 import { readCapped } from "./http";
 
 const TIMEOUT_MS = 10 * 60_000;
+/** Attempts of one call, and the wait before the second (doubled before each next one). */
+export const ADMIN_RETRY = { attempts: 3, backoffMs: 2_000 };
+/** Socket failures after which the request may not have reached the coordinator. */
+const TRANSIENT_SOCKET = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
 const MAX_ANSWER_BYTES = 64 * 1024;
 const MAX_ERROR_CHARS = 512;
 
@@ -50,8 +62,42 @@ function codeOf(text: string): string | undefined {
   }
 }
 
-/** One admin call; resolves with the answer's fields once the coordinator said `ok: true`. */
+/**
+ * Worth another attempt: a rate limit or a server-side failure, or a dropped socket. Never a
+ * refusal, a redirect (also a `TypeError`) or the call's own timeout.
+ */
+const isTransient = (error: unknown) =>
+  error instanceof AdminRefusal
+    ? error.status === 429 || error.status >= 500
+    : error instanceof TypeError &&
+      TRANSIENT_SOCKET.has((error.cause as { code?: string } | undefined)?.code ?? "");
+
+/**
+ * One admin call; resolves with the answer's fields once the coordinator said `ok: true`.
+ * Transient failures are retried (`ADMIN_RETRY`); only idempotent calls may use it.
+ */
 export async function adminCall(
+  origin: string,
+  method: "PUT" | "POST",
+  path: string,
+  headers: Record<string, string>,
+  body: Uint8Array | string,
+  retry = ADMIN_RETRY,
+): Promise<Record<string, unknown>> {
+  for (let attempt = 1, wait = retry.backoffMs; ; attempt++, wait *= 2) {
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- one attempt after the other, with backoff
+      return await adminCallOnce(origin, method, path, headers, body);
+    } catch (error) {
+      if (attempt >= retry.attempts || !isTransient(error)) throw error;
+      console.error(`${method} ${path}: ${(error as Error).message}; trying again`);
+    }
+    // oxlint-disable-next-line no-await-in-loop -- backoff between attempts
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+}
+
+async function adminCallOnce(
   origin: string,
   method: "PUT" | "POST",
   path: string,

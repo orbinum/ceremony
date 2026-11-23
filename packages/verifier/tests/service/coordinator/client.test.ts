@@ -281,6 +281,14 @@ describe("coordinator client", () => {
       expect(calls).toHaveLength(1);
     });
 
+    it("retries a 429 like a 5xx: a throttle is not the coordinator's judgement of the report", async () => {
+      answers.push(ok('{"error":{"code":"rate-limited"}}', {}, 429), ok('{"ok":true}'));
+      const done = postReport(EP, REPORT);
+      await vi.runAllTimersAsync();
+      await expect(done).resolves.toBeUndefined();
+      expect(calls).toHaveLength(2);
+    });
+
     it("stops retrying once the job's deadline passes", async () => {
       answers.push(fail(), fail());
       const deadline = new AbortController();

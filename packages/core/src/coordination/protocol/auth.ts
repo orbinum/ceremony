@@ -1,13 +1,16 @@
 /**
  * Coordinator ↔ verifier request authentication, both directions: HMAC-SHA-256 with the shared
- * key over `ceremony_id \n timestamp \n method \n path \n body`, the timestamp in epoch ms within
- * the skew. The ceremony id keeps a request for one ceremony from verifying for another under a
- * reused key. Every request it guards is idempotent, so a replay inside the window is harmless.
- * COORDINATOR §5.
+ * key over `direction \n ceremony_id \n timestamp \n method \n path \n body`, the timestamp in
+ * epoch ms within the skew. The direction (`dispatch` to the verifier, `callback` to the
+ * coordinator) follows from the path, and no other path can be signed, so a request made for one
+ * side never verifies on the other even if a route is added or renamed. The ceremony id keeps a
+ * request for one ceremony from verifying for another under a reused key. Every request it guards
+ * is idempotent, so a replay inside the window is harmless. COORDINATOR §5.
  */
 import { REQUEST_AUTH } from "../../config";
 import { hmacSha256Hex, keyBytes, timingSafeEqual } from "../../primitives/hashing";
 import { CEREMONY_ID } from "../../primitives/schema";
+import { VERIFIER_PATHS } from "./paths";
 
 /** Header carrying the timestamp (epoch ms). */
 export const TIMESTAMP_HEADER = "x-ceremony-timestamp";
@@ -32,12 +35,25 @@ export const authHeadersWellFormed = (
   typeof signature === "string" &&
   /^[0-9a-f]{64}$/.test(signature);
 
+/** Whether `timestamp` (epoch ms, as the header carries it) is within the skew of `now`. */
+export const timestampFresh = (timestamp: string, now: number): boolean =>
+  Math.abs(now - Number(timestamp)) <= REQUEST_AUTH.skewMs;
+
+/** Who a request to `path` goes to: the verifier's one route, or the coordinator's `/internal`. */
+function directionOf(path: string): "dispatch" | "callback" | null {
+  if (path === VERIFIER_PATHS.verify) return "dispatch";
+  return path.startsWith("/internal/") ? "callback" : null;
+}
+
 /**
  * Each field but the body ends at a newline in the MAC input, so none may contain one; the
- * ceremony id is a ceremony id.
+ * ceremony id is a ceremony id; the path is one of the two sides'.
  */
 const unambiguous = (ceremonyId: string, method: string, path: string) =>
-  CEREMONY_ID.test(ceremonyId) && !/\n/.test(method) && !/\n/.test(path);
+  CEREMONY_ID.test(ceremonyId) &&
+  !/\n/.test(method) &&
+  !/\n/.test(path) &&
+  directionOf(path) !== null;
 
 const mac = (
   key: Uint8Array,
@@ -46,7 +62,7 @@ const mac = (
   method: string,
   path: string,
   body: string,
-) => hmacSha256Hex(key, `${ceremonyId}\n${ts}\n${method}\n${path}\n${body}`);
+) => hmacSha256Hex(key, `${directionOf(path)}\n${ceremonyId}\n${ts}\n${method}\n${path}\n${body}`);
 
 /** The two headers that authenticate a request of ceremony `ceremonyId` made at `now`. */
 export function signRequest(
@@ -59,7 +75,9 @@ export function signRequest(
 ): Record<string, string> {
   const k = keyBytes(key, HMAC_KEY);
   if (!unambiguous(ceremonyId, method, path)) {
-    throw new Error("a ceremony id, and a method and path without a newline, are required");
+    throw new Error(
+      "a ceremony id, and a method and a verifier or /internal path without a newline, are required",
+    );
   }
   const ts = String(now);
   return {
@@ -82,7 +100,7 @@ export function verifyRequest(
   const { timestamp, signature } = headers;
   if (!authHeadersWellFormed(timestamp, signature)) return false;
   if (!unambiguous(ceremonyId, method, path)) return false;
-  if (Math.abs(now - Number(timestamp)) > REQUEST_AUTH.skewMs) return false;
+  if (!timestampFresh(timestamp as string, now)) return false;
   return timingSafeEqual(
     signature as string,
     mac(k, ceremonyId, timestamp as string, method, path, body),

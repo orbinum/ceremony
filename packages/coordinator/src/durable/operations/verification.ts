@@ -103,11 +103,12 @@ async function settle(
 /** Applies a verifier report, idempotently by job. */
 export async function report(store: Store, incoming: VerifierReport): Promise<Applied> {
   if (!db.readJob(store.sql, incoming.job)) return refuse("unknown-job");
+  // Received now: the tick's own commit (its publication) must not make a timely result late.
+  const at = Date.now();
   await tick(store);
   const job = db.readJob(store.sql, incoming.job) as Job;
   if (job.status === "stale") return { ok: true, status: "stale" };
   if (job.status === "done") return { ok: true, status: "duplicate" };
-  const at = Date.now();
 
   let outcome: VerificationResult["result"] = reconcileReport(job, incoming);
   let contribution: ContributionRecord | undefined;
@@ -128,7 +129,7 @@ export async function report(store: Store, incoming: VerifierReport): Promise<Ap
   const index = indexOf(job);
   if (store.promoting.has(index)) return refuse("storage");
   store.promoting.add(index);
-  store.receivedAt = at;
+  store.receivedAt.set(index, at);
   let committed = false;
   try {
     await promote(store, job, incoming);
@@ -144,7 +145,7 @@ export async function report(store: Store, incoming: VerifierReport): Promise<Ap
     console.error(error);
     return refuse("storage");
   } finally {
-    store.receivedAt = null;
+    store.receivedAt.delete(index);
     // Nobody may download a copy the transcript does not record (checked against the records, so
     // a commit that failed after writing them keeps its copies).
     if (!committed) await unpublishUnrecorded(store, job);

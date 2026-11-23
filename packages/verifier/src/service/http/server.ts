@@ -12,15 +12,21 @@ import {
   SIGNATURE_HEADER,
   TIMESTAMP_HEADER,
   validateJobSpec,
+  timestampFresh,
   VERIFIER_PATHS,
   verifyRequest,
 } from "@orbinum-ceremony/core";
 import { errorMessage } from "../../text";
 
+/**
+ * What became of a submission: queued, a retry of the same dispatch (acknowledged, not run
+ * twice), another spec under an attempt already taken (refused, logged), or a full queue.
+ */
+export type Submission = "queued" | "duplicate" | "conflict" | "full";
+
 /** What the server hands jobs to. */
 export interface JobSink {
-  /** Queues a job; `false` when the same attempt was already taken. */
-  submit(spec: JobSpec): boolean;
+  submit(spec: JobSpec): Submission;
   /** Whether the pins hold and the queue is moving. */
   healthy(): boolean;
 }
@@ -81,6 +87,8 @@ function dispatch(req: IncomingMessage, res: ServerResponse, auth: DispatchAuth,
   ) {
     return reply(res, 401, { error: "bad signature" });
   }
+  // A stale or future request is refused before its body is read.
+  if (!timestampFresh(timestamp, Date.now())) return reply(res, 401, { error: "bad signature" });
   const length = req.headers["content-length"];
   if (length !== undefined && !(Number(length) <= MAX_JOB_SPEC_BYTES)) {
     return reply(res, 413, { error: "body too large" });
@@ -102,7 +110,12 @@ function dispatch(req: IncomingMessage, res: ServerResponse, auth: DispatchAuth,
         return reply(res, 400, { error: "invalid job spec" });
       }
       // A repeated dispatch of the same attempt is acknowledged, not run twice.
-      jobs.submit(spec);
+      const submitted = jobs.submit(spec);
+      if (submitted === "conflict") {
+        console.error(`dispatch refused: ${jobKey(spec.job)} was dispatched with another spec`);
+        return reply(res, 409, { error: "conflicting dispatch" });
+      }
+      if (submitted === "full") return reply(res, 503, { error: "busy" });
       return reply(res, 202, { accepted: jobKey(spec.job) });
     })
     .catch((error: unknown) =>

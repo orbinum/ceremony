@@ -1,6 +1,6 @@
 /** Private copies of untrusted inputs, made once and used for every check. SPEC §7. */
 import { createWriteStream } from "node:fs";
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -62,6 +62,8 @@ export async function createStage(prefix = "orbinum-stage-", root?: string): Pro
             createWriteStream(target, { flags: "wx", mode: 0o400 }),
           );
         }
+        // A source that shrank while it was copied ends the stream early, without an error.
+        if ((await stat(target)).size !== size) throw new Error(`${name}: changed while copied`);
         return target;
       } finally {
         await handle.close();

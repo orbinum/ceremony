@@ -92,8 +92,9 @@ export function setupInput(openAt: number, closeAt: number, o: SetupOptions = {}
   return { announcement: serializeJson(announcement), init, genesisSizes: sizes };
 }
 
-/** Small genesis bytes per circuit, as tests publish them. */
+/** Small genesis and r1cs bytes per circuit, as tests publish them. */
 const genesisBytes = (c: CircuitName) => new TextEncoder().encode(`genesis of ${c}`);
+const r1csBytes = (c: CircuitName) => new TextEncoder().encode(`r1cs of ${c}`);
 
 /**
  * A setup whose genesis files are small byte strings, published in the bucket with `ceremony.json`
@@ -101,11 +102,18 @@ const genesisBytes = (c: CircuitName) => new TextEncoder().encode(`genesis of ${
  */
 export async function publishedSetup(openAt: number, closeAt: number): Promise<SetupInput> {
   const init = structuredClone(INIT);
-  for (const c of init.circuits) c.genesis_sha256 = sha256Hex(genesisBytes(c.name));
   for (const c of init.circuits) {
-    // oxlint-disable-next-line no-await-in-loop -- three small writes
+    c.genesis_sha256 = sha256Hex(genesisBytes(c.name));
+    c.r1cs_sha256 = sha256Hex(r1csBytes(c.name));
+  }
+  for (const c of init.circuits) {
+    // oxlint-disable-next-line no-await-in-loop -- six small writes
     await env.PUBLIC.put(CEREMONY_LAYOUT.zkey(c.name, 0), genesisBytes(c.name), {
       sha256: c.genesis_sha256,
+    });
+    // oxlint-disable-next-line no-await-in-loop -- six small writes
+    await env.PUBLIC.put(CEREMONY_LAYOUT.r1cs(c.name), r1csBytes(c.name), {
+      sha256: c.r1cs_sha256,
     });
   }
   const input = setupInput(openAt, closeAt, { init });

@@ -297,7 +297,7 @@ describe("spellings and what reaches the transcript", () => {
     expect(await refusal(r2)).toEqual([409, "wallet-taken"]);
   });
 
-  it("keeps the signed login across a GitHub rename, and refuses another wallet under the new login", async () => {
+  it("keeps the signed login across a GitHub rename; another wallet replaces it, with the new login", async () => {
     const w = Wallet.createRandom();
     const id = nextIdentity();
     const p = await fresh(id, w.address, "old-name");
@@ -316,16 +316,20 @@ describe("spellings and what reaches the transcript", () => {
     });
     expect(same.status).toBe(200);
     expect((await stubOf(ceremonyName).linked(id))?.login).toBe("old-name");
+    // The stored link still verifies with the stored (old) login.
+    const rec = await recordFor(id);
+    expect(rec.identity?.github_login).toBe("old-name");
+    // No contribution names it yet: a new wallet signed under the new login replaces it.
     const w2 = Wallet.createRandom();
     const p3 = await fresh(id, w2.address, "new-name");
     const other = await c2("POST", "/api/link", id, {
       login: "new-name",
       body: { scheme: "eip712", payload: p3, signature: await signLinkEvm(w2, p3) },
     });
-    expect(await refusal(other)).toEqual([409, "already-linked"]);
-    // The stored link still verifies with the stored (old) login.
-    const rec = await recordFor(id);
-    expect(rec.identity?.github_login).toBe("old-name");
+    expect(other.status).toBe(200);
+    const relinked = await stubOf(ceremonyName).linked(id);
+    expect([relinked?.account, relinked?.login]).toEqual([w2.address, "new-name"]);
+    expect((await recordFor(id)).identity?.github_login).toBe("new-name");
   });
 
   it("refuses a nonce once the ceremony is FINALIZED", async () => {
@@ -337,6 +341,40 @@ describe("spellings and what reaches the transcript", () => {
     });
     const r = await request("POST", "/api/link/nonce", nextIdentity(), { ceremony: n2 });
     expect(await refusal(r)).toEqual([409, "finalized"]);
+  });
+});
+
+describe("changing the linked wallet", () => {
+  it("is refused during the account's turn, and once a contribution names its wallet", async () => {
+    const n = freshId("relink-turn");
+    const stub = stubOf(n);
+    await stub.configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
+    await runDurableObjectAlarm(stub);
+    const id = 9101;
+    await linkDirect(stub, id);
+    expect(await stub.changeRefusal(id)).toBeNull();
+    for (const path of ["/api/queue/join", "/api/session/claim"]) {
+      // oxlint-disable-next-line no-await-in-loop -- in order
+      expect((await request("POST", path, id, { ceremony: n })).status).toBe(200);
+    }
+    expect(await stub.changeRefusal(id)).toBe("busy");
+    await expect(linkDirect(stub, id)).rejects.toThrow("link refused: busy");
+
+    const done = await withContribution(9102);
+    expect(await done.stub.changeRefusal(9102)).toBe("already-linked");
+    await expect(linkDirect(done.stub, 9102)).rejects.toThrow("link refused: already-linked");
+    expect((await done.stub.linked(9102))?.account).toBe(done.wallet.address);
+  });
+
+  it("never takes a wallet another account holds, nor drops that account's link", async () => {
+    const n = freshId("relink-taken");
+    const stub = stubOf(n);
+    await stub.configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
+    const held = await linkDirect(stub, 9201);
+    await linkDirect(stub, 9202);
+    await expect(linkDirect(stub, 9202, held)).rejects.toThrow("link refused: wallet-taken");
+    expect((await stub.linked(9201))?.account).toBe(held.address);
+    expect((await stub.linked(9202))?.account).not.toBe(held.address);
   });
 });
 

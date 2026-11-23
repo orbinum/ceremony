@@ -10,6 +10,7 @@ Multi-party Groth16 Phase-2 ceremony for the Orbinum shielded-pool circuits (`tr
 | `packages/cli`         | Commands: `init`, `announce`, `publish-init`, `contribute-local`, `contribute`, `download`, `finalize`, `publish-final`, `verify` |
 | `packages/verifier`    | Upload verification: the pipeline the cli uses, and the verifier service                                                          |
 | `packages/coordinator` | Cloudflare Worker + Durable Object (`wrangler.jsonc`); Phase 3, in progress                                                       |
+| `packages/client`      | Contributor web client (Vite + React): sign-in, wallet link, queue, in-browser contribution, attestation; Phase 5, in progress    |
 | `packages/e2e`         | A whole ceremony through `wrangler dev` + the verifier service (test only)                                                        |
 
 The full target architecture is in the plan, §5.1. The independent verifier (Rust + arkworks) has its own repository: [orbinum/ceremony-verifier](https://github.com/orbinum/ceremony-verifier).
@@ -52,6 +53,20 @@ The strict (non-local) verification tests also need groth16-proofs' `pack-verify
 ```
 
 CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `typecheck` and every test with those inputs (the end-to-end ceremony and the strict verification included), plus a blocking `pnpm audit` and a secrets scan, on every pull request into `main` and every push to `main`. That includes the checks that rebuild the r1cs from a circuits clone (`ORBINUM_CIRCUITS_REPO`, read with the `CIRCUITS_READ_TOKEN` secret) and the independent Rust verifier (`ORBINUM_RUST_VERIFIER`); `.github/scripts/fetch-ci-tools.sh` fetches the verifier and circom pinned by SHA-256.
+
+## Web client
+
+`packages/client` (Vite + React) is served by the coordinator from its own origin. To work on it, start a local ceremony (the e2e stack, with the same inputs as the e2e tests) and the dev server, which sends `/api`, `/auth` and `/artifacts` to that coordinator:
+
+```bash
+set -a; . ./.test-inputs.env; set +a
+pnpm --filter @orbinum-ceremony/e2e stack        # prints the coordinator's URL
+ORBINUM_DEV_COORDINATOR=<url> ORBINUM_DEV_GITHUB_ID=4242 pnpm --filter @orbinum-ceremony/client dev
+```
+
+A turn runs in the page: each circuit's head is downloaded and checked (hash, csHash), snarkjs contributes in a fresh Web Worker (`contribution/worker.ts`, entropy drawn there), the output passes the verifier's own pre-checks before it is uploaded, and the linked wallet signs the attestation at the end. `pnpm --filter @orbinum-ceremony/client test` runs the unit tests (core's fixture keys, a fake coordinator).
+
+Without a GitHub OAuth app, `ORBINUM_DEV_GITHUB_ID` (and `ORBINUM_DEV_GITHUB_LOGIN`) signs every request in as that identity; the coordinator honours it only in a local run on a loopback host. Wallets are picked in a dialog with three families, as in the Orbinum app: Substrate extensions (`window.injectedWeb3`: Talisman, SubWallet, polkadot-js; sr25519 or ed25519 accounts), Solana wallets (Wallet Standard: Phantom, Solflare…; ed25519) and EVM wallets (EIP-6963, falling back to `window.ethereum`). Every signature goes through the picked wallet, and the attestation is signed by the wallet the account was linked with.
 
 ## Verifier service
 
@@ -131,4 +146,17 @@ Verification is strict: a security check that cannot run (no `--circuits-repo`, 
 
 One version for the whole repository, the same in every `package.json` (the CLI reports `packages/cli`'s to the coordinator). Releases follow [Semantic Versioning](https://semver.org); changes go under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
 
-To release, bump `version` in every `package.json` and rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD`. After the merge into `main`, `.github/workflows/release.yml` checks the version and its CHANGELOG section, runs the whole CI on that commit (or reuses a CI run of that commit that already passed), and tags and publishes `vx.y.z` only if All Checks Passed. CI needs the `CIRCUITS_READ_TOKEN` secret: a fine-grained token limited to `orbinum/circuits` with Contents read-only (the organisation disables deploy keys).
+Each network's ceremony is its own deployment of the coordinator (which serves the client): `env.testnet` and `env.mainnet` in `packages/coordinator/wrangler.jsonc`, each with its own Worker, Durable Object, buckets, secrets and domain. One tag ships one version to them, testnet first (`.github/workflows/release.yml`):
+
+| Action                                         | Result                                                                                                          |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Push a signed tag `vX.Y.Z`                     | **Testnet**: client built, `wrangler deploy --env testnet` (`ceremony.testnet.orbinum.network`), GitHub release |
+| `gh workflow run release.yml -f version=X.Y.Z` | **Mainnet**: the same tag, `wrangler deploy --env mainnet`; only a version testnet already shipped              |
+
+1. Bump `version` in every `package.json` and rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`; merge into `main` and wait for CI to pass there.
+2. Tag that commit of `main` with the release key and push it: `git tag -s vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`.
+3. Check testnet, then ship to mainnet with the command above.
+
+A run fails before deploying when the tag is not signed by the release key, not on `main`, not the version of every `package.json`, has no CHANGELOG section, its commit's CI did not pass on `main`, or (mainnet) testnet never shipped it. A failed run is retried with "Re-run failed jobs".
+
+Secrets: `RELEASE_GPG_PUBLIC_KEY` (the release key's public part); `CLOUDFLARE_API_TOKEN` (Workers Scripts edit, on this account) and `CLOUDFLARE_ACCOUNT_ID` in the GitHub environments `testnet` and `mainnet` (required reviewers on `mainnet`); `CIRCUITS_READ_TOKEN` for CI (a fine-grained token limited to `orbinum/circuits`, Contents read-only; the organisation disables deploy keys). The Worker's own secrets (`SESSION_KEY`, `VERIFIER_HMAC_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`, optional `VERIFIER_ACCESS_CLIENT_ID`/`_SECRET`) are set once per network with `wrangler secret put <NAME> --env <network>`; a deploy is refused while one is missing. Mainnet is not live yet: `env.mainnet` in `wrangler.jsonc` needs its empty values filled (OAuth app, Access, verifier, Turnstile site key), its first deploy by hand (`wrangler deploy --env mainnet --secrets-file …`, a new Worker cannot inherit secrets) and "Soon" removed from the client's network selector.

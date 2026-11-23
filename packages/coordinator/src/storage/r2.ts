@@ -91,7 +91,14 @@ export async function streamExact(
   bucket: R2Bucket,
   key: string,
   body: ReadableStream<Uint8Array>,
-  expected: { size: number; sha256: string; contentType: string; ifAbsent: boolean },
+  expected: {
+    size: number;
+    sha256: string;
+    contentType: string;
+    /** Write only a new object, or only over the version with this etag. */
+    ifAbsent: boolean;
+    ifEtag?: string;
+  },
 ): Promise<WriteResult> {
   let bytes = 0;
   const counted = body.pipeThrough(
@@ -108,7 +115,11 @@ export async function streamExact(
     bucket.put(key, toBucket.pipeThrough(new FixedLengthStream(expected.size)), {
       sha256: expected.sha256,
       httpMetadata: { contentType: expected.contentType },
-      ...(expected.ifAbsent ? conditional : {}),
+      ...(expected.ifAbsent
+        ? conditional
+        : expected.ifEtag
+          ? { onlyIf: { etagMatches: expected.ifEtag } }
+          : {}),
     }),
     toHash.pipeTo(digest).then(async () => toHex(await digest.digest)),
   ]);

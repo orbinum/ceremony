@@ -3,6 +3,7 @@
  * verifier service, and an operator directory with the rehearsal's frozen inputs. The schedule is
  * announced only once both services answer, so the contribution window is not spent starting them.
  */
+import { randomBytes } from "node:crypto";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,7 +18,13 @@ import {
 } from "@orbinum-ceremony/core";
 import { freePorts, type Service, startCoordinator, startVerifier } from "./processes";
 
-const HMAC_KEY = "e2e-verifier-key-of-at-least-32-bytes";
+/**
+ * Fresh per process: the stack may run for hours (`pnpm --filter e2e stack`), and a published key
+ * would let any local user on the machine sign requests to it. The development identity header
+ * still lets any local user act as anyone: run the stack on a single-user machine.
+ */
+const HMAC_KEY = randomBytes(32).toString("hex");
+const SESSION_KEY = randomBytes(32).toString("hex");
 
 /** A running stack with its ceremony published and open. */
 export interface Stack {
@@ -68,12 +75,12 @@ export async function startStack(
       await cp(join(source, "genesis", name), join(operator, "genesis", name));
     }
 
-    const [coordinatorPort, verifierPort] = await freePorts(2);
+    const [coordinatorPort, verifierPort, inspectorPort] = await freePorts(3);
     const envFile = join(work, ".dev.vars");
     await writeFile(
       envFile,
       [
-        "SESSION_KEY=e2e-session-key-of-at-least-32-bytes",
+        `SESSION_KEY=${SESSION_KEY}`,
         "GITHUB_CLIENT_SECRET=unused",
         `VERIFIER_HMAC_KEY=${HMAC_KEY}`,
         "TURNSTILE_SECRET=unused",
@@ -82,6 +89,7 @@ export async function startStack(
     );
     const coordinator = await startCoordinator({
       port: coordinatorPort as number,
+      inspectorPort: inspectorPort as number,
       persist: join(work, "state"),
       envFile,
       vars: {

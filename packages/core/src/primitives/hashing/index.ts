@@ -11,5 +11,5 @@ export {
   type StreamingHasher,
 } from "./digest";
 export { canonicalJson } from "./jcs";
-export { hmacSha256Hex, keyBytes, timingSafeEqual } from "./mac";
+export { hmacKeyForm, hmacSha256Hex, keyBytes, timingSafeEqual } from "./mac";
 export { signToken, verifyToken } from "./token";

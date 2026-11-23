@@ -4,4 +4,4 @@ export { configured } from "./config";
 export { browserOnly, contributor, identity } from "./identity";
 export { operator } from "./operator";
 export { sameOrigin } from "./origin";
-export { verifierAuth } from "./verifier-auth";
+export { verifierAuth, verifierHeaders } from "./verifier-auth";

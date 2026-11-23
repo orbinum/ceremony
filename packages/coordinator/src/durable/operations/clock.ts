@@ -12,10 +12,10 @@ const HOLD_MS = 60_000;
 /** How soon the alarm looks again while the clock is held. */
 const HELD_ALARM_MS = 1000;
 
-/** The receipt the clock holds at, if a promotion holds it now. */
+/** The receipt the clock holds at, if a promotion holds it now (the earliest of those in flight). */
 function heldAt(store: Store, now: number): number | null {
-  const at = store.receivedAt;
-  return at !== null && now - at < HOLD_MS ? at : null;
+  const live = [...store.receivedAt.values()].filter((at) => now - at < HOLD_MS);
+  return live.length > 0 ? Math.min(...live) : null;
 }
 
 /** The time queue events are applied at. */

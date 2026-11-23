@@ -36,5 +36,25 @@ regexes = ['''^(?:test|e2e|fake|short|leak-me)(?:-[a-z0-9]{1,12})*$''']
 paths = ['''(^|/)tests/''', '''(^|/)vitest\.config\.ts$''']
 
 [[allowlists]]
+description = "Code, not a literal: a template (`${…}`) or a call (`randomBytes(…)`) assigned to a secret's name"
+targetRules = ["ceremony-secret"]
+regexTarget = "secret"
+regexes = ['''^(?:\$\{|[A-Za-z_][\w.]*\()''']
+
+[[allowlists]]
+description = "Turnstile site keys: public by design, handed to the page (the secret is TURNSTILE_SECRET)"
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = ['''"TURNSTILE_SITE_KEY":\s*"0x4[\w-]+"''']
+paths = ['''(^|/)wrangler\.jsonc$''']
+
+[[allowlists]]
+description = "The client's API getters imported or called next to cliToken"
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^get[A-Z][A-Za-z0-9]*$''']
+paths = ['''^packages/client/src/''']
+
+[[allowlists]]
 description = "Dependencies, build output, downloaded test inputs"
 paths = ['''(^|/)node_modules/''', '''(^|/)\.test-inputs/''', '''(^|/)\.wrangler/''']

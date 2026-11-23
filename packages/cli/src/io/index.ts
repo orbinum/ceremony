@@ -21,6 +21,7 @@ export {
   ContributorRefusal,
   contributorCall,
   fetchAnnounced,
+  fetchPublic,
 } from "./contributor";
-export { downloadFirst } from "./download";
+export { downloadFirst, redirectRefusal } from "./download";
 export { fetchJson } from "./http";

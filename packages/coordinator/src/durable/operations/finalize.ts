@@ -30,8 +30,31 @@ async function unpublished(store: Store, files: { key: string; sha256: string }[
   return problems;
 }
 
+/** How long a final-file write holds finalization off; every exit releases it sooner. */
+const FINAL_WRITE_HOLD_MS = 15 * 60_000;
+
+/**
+ * A final file is about to be written: finalization waits until it lands, so the sealed record and
+ * the bucket never disagree. Each write holds on its own. Taken before the write is judged, so a seal that wins sees no hold and
+ * the write is then judged as FINALIZED. ponytail: in memory, an evicted object forgets holds.
+ */
+export function holdFinalWrite(store: Store): string {
+  const hold = crypto.randomUUID();
+  store.writingFinals.set(hold, Date.now() + FINAL_WRITE_HOLD_MS);
+  return hold;
+}
+
+/** The write that took `hold` ended (another write of the same file keeps its own). */
+export function releaseFinalWrite(store: Store, hold: string): void {
+  store.writingFinals.delete(hold);
+}
+
+const writingFinals = (store: Store) =>
+  [...store.writingFinals.values()].some((until) => until > Date.now());
+
 /** Seals the ceremony with the operator's beacon and finals, or refuses with every problem. */
 export async function finalize(store: Store, request: FinalizeRequest): Promise<Outcome> {
+  if (writingFinals(store)) return refuse("busy");
   const first = checked(store, request);
   if (!first.ok) return first;
   let problems: string[];
@@ -44,6 +67,7 @@ export async function finalize(store: Store, request: FinalizeRequest): Promise<
   }
   if (problems.length > 0) return refuse("not-finalizable", problems);
   // The heads awaited I/O: decide again on the ceremony as it is now.
+  if (writingFinals(store)) return refuse("busy");
   const r = checked(store, request);
   if (!r.ok) return r;
   await commit(store, r.result.state, r.result.effects, r.beacon, () =>

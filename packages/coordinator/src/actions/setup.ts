@@ -37,8 +37,8 @@ const finalCircuitOf = (key: string) =>
   );
 
 /**
- * Why a file may not be written now: a final file before the close or for a circuit the ceremony
- * does not have, and anything once it is sealed (FINALIZED is read-only), except a final file
+ * Why a file may not be written now: a setup file once the setup is frozen, a final file before
+ * the close or for a circuit the ceremony does not have, and anything once it is sealed (FINALIZED is read-only), except a final file
  * with exactly the hash its sealed final record pins: a replacement that raced the handover can
  * then be put right, and nothing else ever can.
  */
@@ -49,8 +49,11 @@ async function writeRefusal(env: Env, key: string, sha256: string): Promise<Resu
     const pinned = finalFiles(await stub.finals()).find((f) => f.key === key);
     return pinned?.sha256 === sha256 ? null : refuse("finalized");
   }
-  if (!isFinalFileKey(key)) return null;
   const setup = await stub.setup();
+  // Setup files are published before the setup freezes (an unchanged one was answered already).
+  if (!isFinalFileKey(key)) {
+    return setup ? refuse("invalid-transition", "setup files are frozen once configured") : null;
+  }
   if (!setup || !state) return refuse("not-configured");
   if (state.phase !== "CLOSED" || state.slot !== null) {
     return refuse(
@@ -77,16 +80,21 @@ export async function publishFile(
   const { key, sha256, size, body } = input;
   const existing = await headObject(env.PUBLIC, key);
   if (existing && holds(existing, sha256)) return succeed({ key, unchanged: true });
-  const replace = existing !== null && isFinalFileKey(key);
+  const final = isFinalFileKey(key);
+  const replace = existing !== null && final;
   if (existing && !replace) return IMMUTABLE(key);
-  const why = await writeRefusal(env, key, sha256);
-  if (why) return why;
+  // A final file is held before it is judged: finalization waits for it to land.
+  const hold = final ? await ceremony(env).holdFinalWrite() : null;
   try {
+    const why = await writeRefusal(env, key, sha256);
+    if (why) return why;
     const r = await streamExact(env.PUBLIC, key, body, {
       size,
       sha256,
       contentType: contentTypeOf(key),
       ifAbsent: !replace,
+      // A replacement lands only over the version just seen: two operators' puts cannot interleave.
+      ...(replace && existing ? { ifEtag: existing.etag } : {}),
     });
     if (r === "conflict") return IMMUTABLE(key);
     return r === "stored" ? succeed({ key }, 201) : succeed({ key, unchanged: true });
@@ -99,12 +107,16 @@ export async function publishFile(
       return refuse("storage", "the file could not be stored; try again");
     }
     throw error;
+  } finally {
+    if (hold !== null) await ceremony(env).releaseFinalWrite(hold);
   }
 }
 
 /**
  * Problems with the published files the setup describes: `ceremony.json` and `init.json` exactly
- * the configured texts, and each genesis of the size and hash the setup names.
+ * the configured texts, each genesis of the size and hash the setup names, each r1cs of its pinned
+ * hash and, outside a local rehearsal, the ptau of its pinned size. Setup files freeze with the
+ * setup, so a missing or wrong one could never be put right afterwards.
  */
 async function publishedProblems(bucket: R2Bucket, input: SetupInput, setup: Setup) {
   const problems: string[] = [];
@@ -124,9 +136,24 @@ async function publishedProblems(bucket: R2Bucket, input: SetupInput, setup: Set
     else if (object.size !== setup.genesisSizes[c.name] || !holds(object, c.genesis_sha256)) {
       problems.push(`${c.name}: published genesis differs from the setup`);
     }
+    // oxlint-disable-next-line no-await-in-loop -- three heads
+    const r1cs = await headObject(bucket, CEREMONY_LAYOUT.r1cs(c.name));
+    if (!r1cs) problems.push(`${c.name}: r1cs not published`);
+    else if (!holds(r1cs, c.r1cs_sha256)) problems.push(`${c.name}: published r1cs differs`);
+  }
+  // The ptau is pinned by BLAKE2b-512, which R2 does not check: its size is what is checked here.
+  if (setup.announcement.network !== "local") {
+    const ptau = await headObject(bucket, CEREMONY_LAYOUT.ptau);
+    if (ptau?.size !== setup.init.ptau.size) problems.push("ptau not published at its size");
   }
   return problems;
 }
+
+/**
+ * The network a deployment runs: a testnet coordinator never freezes a mainnet (or a `local`,
+ * check-skipping) ceremony, nor production a testnet one. A local run rehearses any network.
+ */
+const NETWORK_OF: Record<string, string> = { production: "mainnet", testnet: "testnet" };
 
 /** Freezes the setup, once, if it is valid and describes the published files. */
 export async function configureCeremony(env: Env, input: SetupInput): Promise<Result> {
@@ -135,6 +162,10 @@ export async function configureCeremony(env: Env, input: SetupInput): Promise<Re
     setup = parseSetup(input, env.CEREMONY_ID);
   } catch (error) {
     return refuse("malformed-setup", (error as Error).message);
+  }
+  const network = NETWORK_OF[env.ENVIRONMENT];
+  if (network && setup.announcement.network !== network) {
+    return refuse("malformed-setup", `a ${env.ENVIRONMENT} coordinator runs ${network} ceremonies`);
   }
   const problems = await publishedProblems(env.PUBLIC, input, setup);
   if (problems.length > 0) return refuse("malformed-setup", problems.join("; "));

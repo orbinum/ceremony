@@ -6,7 +6,12 @@
  * canonical: δ a valid point in its only spelling, every L and H element below q.
  */
 import { readSections, type SectionTable, uniqueSection } from "../../formats/binfile";
-import { checkCanonicalFq, g1LemToUncompressed, g2LemToUncompressed } from "../../formats/bn254";
+import {
+  checkG1Points,
+  checkG2Subgroup,
+  g1LemToUncompressed,
+  g2LemToUncompressed,
+} from "../../formats/bn254";
 import { ZKEY_SECTION } from "../../formats/mpc";
 import { toHex } from "../../primitives/encoding";
 import { FormatError } from "../../primitives/errors";
@@ -35,8 +40,15 @@ export function genesisLayoutOf(genesis: Uint8Array): GenesisLayout {
   const sections = readSections(genesis, "zkey");
   const groth16 = sectionBytes(genesis, sections, ZKEY_SECTION.groth16Header);
   const view = new DataView(groth16.buffer, groth16.byteOffset, groth16.byteLength);
-  const n8q = view.getUint32(0, true);
-  const n8r = view.getUint32(4 + n8q, true);
+  let n8q: number;
+  let n8r: number;
+  try {
+    n8q = view.getUint32(0, true);
+    n8r = view.getUint32(4 + n8q, true);
+  } catch {
+    // A header too short for its own sizes: the same error as any other bad layout.
+    throw new FormatError("genesis: unexpected Groth16 header layout");
+  }
   // n8q, q, n8r, r, nVars, nPublic, domainSize, then α1, β1 (G1), β2, γ2 (G2), δ1 (G1), δ2 (G2).
   const deltaFrom = 4 + n8q + 4 + n8r + 12 + 2 * (2 * n8q) + 2 * (4 * n8q);
   const deltaTo = deltaFrom + 2 * n8q + 4 * n8q;
@@ -81,12 +93,14 @@ export function checkAgainstGenesis(zkey: Uint8Array, genesis: GenesisLayout): s
       throw new FormatError(`section ${type} size differs from the genesis`);
     }
   }
-  // snarkjs' pairing tolerates a limb ≥ q, but `contribute` and `beacon` do not: one accepted
-  // spelling would break every key built on it.
+  // snarkjs' pairing tolerates a limb ≥ q and judges points only by pairings, while `contribute`,
+  // `beacon` and the independent verifier read them strictly: one accepted spelling or off-curve
+  // point would break every key built on it.
   const deltaSplit = deltaFrom + (deltaTo - deltaFrom) / 3; // δ1 is 2 Fq, δ2 4 Fq
   const delta1 = g1LemToUncompressed(groth16.subarray(deltaFrom, deltaSplit));
   g2LemToUncompressed(groth16.subarray(deltaSplit, deltaTo));
-  checkCanonicalFq(sectionBytes(zkey, sections, ZKEY_SECTION.l), "section 8 (L)");
-  checkCanonicalFq(sectionBytes(zkey, sections, ZKEY_SECTION.h), "section 9 (H)");
+  checkG2Subgroup(groth16.subarray(deltaSplit, deltaTo));
+  checkG1Points(sectionBytes(zkey, sections, ZKEY_SECTION.l), "section 8 (L)");
+  checkG1Points(sectionBytes(zkey, sections, ZKEY_SECTION.h), "section 9 (H)");
   return toHex(delta1);
 }

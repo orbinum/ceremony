@@ -9,7 +9,7 @@ import { fail } from "../http";
 import { verifyTurnstile } from "../services";
 import { networkOf } from "./network";
 
-type Limiter = { [K in keyof Env]: Env[K] extends RateLimit ? K : never }[keyof Env];
+type Limiter = { [K in keyof Env]-?: Env[K] extends RateLimit ? K : never }[keyof Env];
 
 /** The caller's GitHub id (after `identity`). */
 const byIdentity = (c: Context<AppEnv>) => String(c.get("githubId"));
@@ -39,7 +39,10 @@ export const rateLimit = (
     return success ? next() : fail(c, "rate-limited", "too many requests");
   });
 
-/** A Turnstile token in `X-Turnstile-Token`, solved on this host. A local run has no widget. */
+/**
+ * A Turnstile token in `X-Turnstile-Token`, solved on this host by the page's join widget (action
+ * `join`). A local run has no widget.
+ */
 export const turnstile = createMiddleware<AppEnv>(async (c, next) => {
   if (isLocal(c.env, c.req.url)) return next();
   const ok = await verifyTurnstile({
@@ -47,6 +50,7 @@ export const turnstile = createMiddleware<AppEnv>(async (c, next) => {
     token: c.req.header("x-turnstile-token"),
     ip: c.req.header("cf-connecting-ip"),
     hostname: new URL(c.req.url).hostname,
+    action: "join",
   });
   return ok ? next() : fail(c, "turnstile", "bot check failed");
 });

@@ -7,7 +7,7 @@ import { FormatError } from "../../primitives/errors";
 import { fromUtf8, toHex } from "../../primitives/encoding";
 import { createBlake2b512 } from "../../primitives/hashing";
 import { type ByteReader, readSections, sectionReader, uniqueSection } from "../binfile";
-import { g1LemToUncompressed, g2LemToUncompressed } from "../bn254";
+import { checkG2Subgroup, g1LemToUncompressed, g2LemToUncompressed } from "../bn254";
 import { ZKEY_SECTION } from "./zkey";
 
 /** What produced an entry: a contributor's secret, or the public beacon. */
@@ -40,6 +40,11 @@ export interface MpcParams {
 interface ReadMpcOptions {
   /** Refuses files declaring more entries than this, before parsing them. */
   maxEntries?: number;
+  /**
+   * Entries from this index on also have g2_spx checked against the G2 subgroup (~2 ms each): an
+   * upload's new entry. Every point of every entry is always on its curve.
+   */
+  subgroupFrom?: number;
 }
 
 const G1 = 64;
@@ -60,7 +65,7 @@ function readName(r: ByteReader): string {
   }
 }
 
-function readEntry(r: ByteReader): MpcEntry {
+function readEntry(r: ByteReader, subgroup: boolean): MpcEntry {
   const deltaAfter = r.bytesOf(G1);
   const g1S = r.bytesOf(G1);
   const g1Sx = r.bytesOf(G1);
@@ -69,6 +74,7 @@ function readEntry(r: ByteReader): MpcEntry {
   const type = r.u32();
   const kind = Object.hasOwn(KIND, type) ? KIND[type] : undefined;
   if (!kind) throw new FormatError("unknown MPC entry type");
+  if (subgroup) checkG2Subgroup(g2Spx);
 
   const delta = g1LemToUncompressed(deltaAfter);
   const hash = createBlake2b512()
@@ -114,7 +120,8 @@ export function readMpcParams(zkey: Uint8Array, options: ReadMpcOptions = {}): M
   );
   if (count > max) throw new FormatError(`declares ${count} entries, at most ${max} allowed`);
 
-  const entries = Array.from({ length: count }, () => readEntry(r));
+  const from = options.subgroupFrom ?? count;
+  const entries = Array.from({ length: count }, (_, i) => readEntry(r, i >= from));
   if (r.pos !== r.end) throw new FormatError("trailing bytes in MPC section");
   return { csHash, entries };
 }

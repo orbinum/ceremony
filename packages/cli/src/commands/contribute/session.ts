@@ -2,26 +2,40 @@
  * The coordinator as `contribute` talks to it (SPEC §4.1–4.4): every answer validated before
  * anything uses it (it becomes paths and terminal text), transient failures (network, 429, 5xx)
  * retried with backoff, the slot kept alive, the session ended even while a verification is in
- * flight, and the head checked against the ceremony's own announcement.
+ * flight, and the head checked against the ceremony's own announcement and published transcript.
  */
 import {
   asArray,
   asObject,
   asOneOf,
   asSafeInt,
+  type CeremonyAnnouncement,
   CEREMONY_LAYOUT,
   CEREMONY_STATES,
+  checkTranscriptIntegrity,
   CIRCUIT_ORDER,
   type CircuitName,
+  contributionsOf,
   CONTRIBUTOR_PATHS,
   fromUtf8,
+  type InitRecord,
   MAX_DOCUMENT_BYTES,
+  MAX_TRANSCRIPT_BYTES,
+  type MpcParams,
   normalizeHex,
   parseAnnouncement,
   parseInit,
+  parseJsonText,
   REJECT_REASONS,
+  validateTranscript,
 } from "@orbinum-ceremony/core";
-import { type Contributor, ContributorRefusal, contributorCall, fetchAnnounced } from "../../io";
+import {
+  type Contributor,
+  ContributorRefusal,
+  contributorCall,
+  fetchAnnounced,
+  fetchPublic,
+} from "../../io";
 
 /** How long transient failures are retried, counted from the first one. */
 const RETRY_FOR_MS = 60_000;
@@ -33,6 +47,9 @@ const HEARTBEAT_FAILURES = 4;
 const FINISH_POLL_MS = 2_000;
 /** Ending a session waits at most this long for a verification in flight to settle. */
 const FINISH_FOR_MS = 15 * 60_000;
+/** A published transcript behind the head is waited for this long (it is written after commit). */
+const TRANSCRIPT_LAG_MS = 60_000;
+const TRANSCRIPT_POLL_MS = 5_000;
 
 const SLOT_STATUSES = ["todo", "verifying", "accepted", "skipped"] as const;
 const RESULTS = ["pending", "valid", "rejected", "ambiguous", "infra", "stale"] as const;
@@ -243,20 +260,135 @@ export function tokenLifeMs(token: string, now: number): number {
   }
 }
 
+/** The ceremony as its anchors define it: what heads and the published transcript must match. */
+export interface Anchors {
+  announcement: CeremonyAnnouncement;
+  announcementSha256: string;
+  init: InitRecord;
+  /** Each circuit's csHash. */
+  csHashes: Map<CircuitName, string>;
+}
+
 /**
- * The csHash of each circuit, from the ceremony's own anchors: `ceremony.json` must hash to the
- * officially announced SHA-256, and `init.json` to the hash it pins. A head that is not the
- * announced circuit's is refused before anything is contributed to it.
+ * The ceremony from its own anchors: `ceremony.json` must hash to the officially announced
+ * SHA-256, and `init.json` to the hash it pins. A head that is not the announced circuit's is
+ * refused before anything is contributed to it.
  */
-export async function anchoredCsHashes(
+export async function anchoredCeremony(
   who: Contributor,
   announcementSha256: string,
-): Promise<Map<CircuitName, string>> {
+): Promise<Anchors> {
   const doc = async (key: string, sha256: string) =>
     fromUtf8(await fetchAnnounced(who.origin, `/artifacts/${key}`, sha256, MAX_DOCUMENT_BYTES));
   const announcement = parseAnnouncement(
     await doc(CEREMONY_LAYOUT.announcement, announcementSha256),
   );
   const init = parseInit(await doc(CEREMONY_LAYOUT.init, announcement.init_sha256));
-  return new Map(init.circuits.map((c) => [c.name, c.cs_hash]));
+  return {
+    announcement,
+    announcementSha256,
+    init,
+    csHashes: new Map(init.circuits.map((c) => [c.name, c.cs_hash])),
+  };
+}
+
+/** One accepted contribution as the published transcript records it. */
+export interface Recorded {
+  hash: string;
+  name: string;
+  /** The key it produced. */
+  sha256: string;
+}
+
+/**
+ * The accepted contributions of `circuit` in the published `transcript.json`, once it is
+ * anchored in the announcement and passes core's integrity checks.
+ */
+async function recordedContributions(
+  who: Contributor,
+  anchors: Anchors,
+  circuit: CircuitName,
+): Promise<Recorded[]> {
+  const path = `/artifacts/${CEREMONY_LAYOUT.transcript}`;
+  const bytes = await fetchPublic(who.origin, path, MAX_TRANSCRIPT_BYTES);
+  const transcript = validateTranscript(parseJsonText(fromUtf8(bytes), path));
+  const failed = checkTranscriptIntegrity(
+    transcript,
+    anchors.announcement,
+    anchors.announcementSha256,
+    anchors.init,
+  ).filter((c) => c.problems.length > 0);
+  if (failed.length > 0) {
+    // Check ids only: they come from the anchored announcement, not from the coordinator.
+    throw new Error(`the published transcript fails: ${failed.map((c) => c.id).join("; ")}`);
+  }
+  return contributionsOf(transcript.records, circuit).map((r) => ({
+    hash: r.contribution_hash,
+    name: r.zkey_name,
+    sha256: r.output_sha256,
+  }));
+}
+
+/**
+ * Why a head whose MPC entries are `entries` is not the one the transcript `recorded` ends with
+ * (same contributions, hash and name, in order), or null.
+ */
+export function headMismatch(
+  entries: readonly Pick<MpcParams["entries"][number], "hash" | "name">[],
+  recorded: readonly Pick<Recorded, "hash" | "name">[],
+): string | null {
+  const forked = recorded.findIndex(
+    (r, i) =>
+      i < entries.length && (entries[i]?.hash !== r.hash || (entries[i]?.name ?? "") !== r.name),
+  );
+  if (forked !== -1) return `forks from the published transcript at #${forked + 1}`;
+  if (entries.length < recorded.length) {
+    return `is stale: ${entries.length} contributions, the published transcript records ${recorded.length}`;
+  }
+  if (entries.length > recorded.length) {
+    return `has ${entries.length} contributions, the published transcript records only ${recorded.length}`;
+  }
+  return null;
+}
+
+/**
+ * Refuses a head that is not the end of the circuit's chain in the published transcript (a fork
+ * or a stale head, or other bytes than the key it records last: the genesis pinned by `init.json`
+ * before any), failing closed when that transcript cannot be fetched or checked. A transcript
+ * only behind the head may still be catching up, and is waited for a while.
+ */
+export async function assertRecordedHead(
+  who: Contributor,
+  anchors: Anchors,
+  circuit: CircuitName,
+  head: { entries: MpcParams["entries"]; sha256: string },
+  signal?: AbortSignal,
+): Promise<void> {
+  const { entries } = head;
+  const genesis = anchors.init.circuits.find((c) => c.name === circuit)?.genesis_sha256;
+  const deadline = Date.now() + TRANSCRIPT_LAG_MS;
+  for (;;) {
+    let recorded: Recorded[];
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- polls until the transcript catches up
+      recorded = await recordedContributions(who, anchors, circuit);
+    } catch (error) {
+      throw new Error(`${circuit}: cannot check the head: ${(error as Error).message}`, {
+        cause: error,
+      });
+    }
+    const mismatch = headMismatch(entries, recorded);
+    if (mismatch === null) {
+      if (head.sha256 === (recorded.at(-1)?.sha256 ?? genesis)) return;
+      throw new Error(`${circuit}: refusing the head, which is not the key the transcript records`);
+    }
+    const behind =
+      entries.length > recorded.length &&
+      headMismatch(entries.slice(0, recorded.length), recorded) === null;
+    if (!behind || Date.now() + TRANSCRIPT_POLL_MS > deadline) {
+      throw new Error(`${circuit}: refusing the head, which ${mismatch}`);
+    }
+    // oxlint-disable-next-line no-await-in-loop -- polls until the transcript catches up
+    await sleep(TRANSCRIPT_POLL_MS, signal);
+  }
 }

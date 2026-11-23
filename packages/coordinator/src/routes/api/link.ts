@@ -1,4 +1,7 @@
-/** `/api/link`: the caller's linked wallet, a link nonce, and a link (SPEC §3.4). */
+/**
+ * `/api/link`: who is signed in and their linked wallet (all a link payload names but the nonce),
+ * a link nonce, and a link (SPEC §3.4).
+ */
 import { Hono } from "hono";
 import { linkedWallet, linkWallet } from "../../actions";
 import { ceremony } from "../../durable";
@@ -13,7 +16,7 @@ const MAX_LINK_BYTES = 64 * 1024;
 export const link = new Hono<AppEnv>()
   .use(identity, noStore)
   .get("/", rateLimit("POLL_LIMIT"), async (c) =>
-    c.json(await linkedWallet(c.env, c.get("githubId"))),
+    c.json(await linkedWallet(c.env, { githubId: c.get("githubId"), login: c.get("login") })),
   )
   .post("/nonce", rateLimit("NONCE_LIMIT"), async (c) => {
     const r = await ceremony(c.env).issueNonce(c.get("githubId"));

@@ -78,13 +78,13 @@ describe("request authentication binds what it signs", () => {
   });
 
   it("refuses a request whose path absorbs part of the body", () => {
-    const s = signRequest(KEY, CID, "POST", "/a", "b\nc", NOW);
+    const s = signRequest(KEY, CID, "POST", "/internal/a", "b\nc", NOW);
     const h = { timestamp: s[TIMESTAMP_HEADER], signature: s[SIGNATURE_HEADER] };
-    expect(verifyRequest(KEY, CID, "POST", "/a", "b\nc", h, NOW)).toBe(true);
-    expect(verifyRequest(KEY, CID, "POST", "/a\nb", "c", h, NOW)).toBe(false);
-    const m = signRequest(KEY, CID, "POST", "/a", "\nx", NOW);
+    expect(verifyRequest(KEY, CID, "POST", "/internal/a", "b\nc", h, NOW)).toBe(true);
+    expect(verifyRequest(KEY, CID, "POST", "/internal/a\nb", "c", h, NOW)).toBe(false);
+    const m = signRequest(KEY, CID, "POST", "/internal/a", "\nx", NOW);
     const hm = { timestamp: m[TIMESTAMP_HEADER], signature: m[SIGNATURE_HEADER] };
-    expect(verifyRequest(KEY, CID, "POST\n/a", "", "x", hm, NOW)).toBe(false);
+    expect(verifyRequest(KEY, CID, "POST\n/internal/a", "", "x", hm, NOW)).toBe(false);
   });
 
   it("refuses a MAC truncated to a prefix, or extended", () => {

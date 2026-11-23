@@ -18,7 +18,7 @@ export type Endpoint = Pick<ServiceConfig, "coordinatorUrl" | "hmacKey"> & { cer
 /** Bound on one request, response headers and body included. */
 export const REQUEST_TIMEOUT_MS = 30_000;
 /**
- * Tries per call without a deadline. With one (every job's call), network errors and 5xx are
+ * Tries per call without a deadline. With one (every job's call), network errors, 5xx and 429 are
  * retried until it passes: a coordinator answering 503 for a while must not lose the result.
  */
 export const MAX_ATTEMPTS = 5;
@@ -66,9 +66,15 @@ function send(ep: Endpoint, method: string, path: string, body: string, signal?:
 }
 
 /**
- * `send`, retried on network errors and 5xx until `signal` aborts (without one, `MAX_ATTEMPTS`
- * tries); returns the first other response, or the last 5xx when out of tries.
+ * `send`, retried on network errors, 5xx and 429 until `signal` aborts (without one, `MAX_ATTEMPTS`
+ * tries); returns the first other response, or the last transient one when out of tries.
  */
+/**
+ * A failure of the moment, retried until the deadline: a server error, or a throttle (429), which
+ * the coordinator answers before it judges the request at all.
+ */
+const transient = (status: number) => status >= 500 || status === 429;
+
 async function request(
   ep: Endpoint,
   method: string,
@@ -81,7 +87,7 @@ async function request(
     try {
       // oxlint-disable-next-line no-await-in-loop -- retries are sequential by design
       const response = await send(ep, method, path, body, signal);
-      if (response.status < 500 || lastTry(i)) return response;
+      if (!transient(response.status) || lastTry(i)) return response;
       // oxlint-disable-next-line no-await-in-loop -- releases the connection before retrying
       await response.body?.cancel();
     } catch (error) {
@@ -146,9 +152,9 @@ export async function fetchObject(
 }
 
 /**
- * Posts a result. Network errors and 5xx are retried until the deadline (the callback is
- * idempotent); a 4xx is final: the coordinator refused the report itself, and repeating it would
- * not change that.
+ * Posts a result. Network errors, 5xx and 429 are retried until the deadline (the callback is
+ * idempotent); any other 4xx is final: the coordinator refused the report itself, and repeating it
+ * would not change that.
  */
 export async function postReport(
   ep: Endpoint,

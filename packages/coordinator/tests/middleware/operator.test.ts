@@ -87,8 +87,14 @@ describe("Access tokens (verifyAccess)", () => {
     expect(await verifyAccess(await token({ ...good(t), aud: AUD }), t, AUD, NOW)).toBe(
       "ops@orbinum.io",
     );
-    const service = { ...good(t), email: undefined, common_name: "publish-init.service" };
-    expect(await verifyAccess(await token(service), t, AUD, NOW)).toBe("publish-init.service");
+    const service = {
+      ...good(t),
+      email: undefined,
+      common_name: "0123456789abcdef0123456789abcdef.access",
+    };
+    expect(await verifyAccess(await token(service), t, AUD, NOW)).toBe(
+      "0123456789abcdef0123456789abcdef.access",
+    );
   });
 
   it("refuses every token that is not exactly that", async () => {

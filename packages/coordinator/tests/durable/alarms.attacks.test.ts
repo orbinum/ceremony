@@ -105,8 +105,10 @@ describe("alarms delivered at least once", () => {
     await stub.apply({ type: "claim", githubId: 1 });
     const before = await snapshot(stub);
     await runInDurableObject(stub, (instance) => {
-      (instance as unknown as { store: { receivedAt: number | null } }).store.receivedAt =
-        Date.now();
+      (instance as unknown as { store: { receivedAt: Map<string, number> } }).store.receivedAt.set(
+        "shield/1",
+        Date.now(),
+      );
     });
     await runInDurableObject(stub, (instance) => (instance as { alarm(): Promise<void> }).alarm());
     const at = await alarmOf(stub);
@@ -114,7 +116,9 @@ describe("alarms delivered at least once", () => {
     expect((at ?? 0) - Date.now()).toBeLessThanOrEqual(1000);
     expect(await snapshot(stub)).toEqual(before);
     await runInDurableObject(stub, (instance) => {
-      (instance as unknown as { store: { receivedAt: number | null } }).store.receivedAt = null;
+      (
+        instance as unknown as { store: { receivedAt: Map<string, number> } }
+      ).store.receivedAt.clear();
     });
   });
 });
