@@ -17,6 +17,10 @@ const INELIGIBLE: Record<GithubIneligibility, string> = {
 };
 
 /** A sign-in outcome as one sentence, or null when there is nothing to say. */
+/** Before the operator publishes the ceremony, nobody can sign in (its admission rules come with it). */
+export const NOT_ANNOUNCED =
+  "The ceremony has not been announced yet. Sign-in opens once it is; check back soon.";
+
 export function signInText(o: SignInOutcome): string | null {
   switch (o.auth) {
     case "ok":
@@ -31,9 +35,9 @@ export function signInText(o: SignInOutcome): string | null {
         : "This GitHub account cannot join.";
     }
     case "error":
-      return o.reason === "state"
-        ? "Sign-in expired or came from another tab. Try again."
-        : "Sign-in failed. Try again later.";
+      if (o.reason === "state") return "Sign-in expired or came from another tab. Try again.";
+      if (o.reason === "not-configured") return NOT_ANNOUNCED;
+      return "Sign-in failed. Try again later.";
   }
 }
 

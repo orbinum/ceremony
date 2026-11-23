@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The client's not-found page (any path the page does not have) and an error page for a render
   failure, in the page's style, with the way back; never the error itself.
 
+### Fixed
+
+- Before the ceremony is published, the page says it is not announced yet (status, and the
+  sign-in step instead of its button) rather than letting a sign-in end in "Sign-in failed": the
+  coordinator admits accounts only against a published ceremony's rules.
+
 ## [0.2.0] - 2026-11-23
 
 ### Added

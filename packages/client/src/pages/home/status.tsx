@@ -1,6 +1,6 @@
 /** The ceremony at a glance: its phase in words, how many have contributed, the line, its window. */
 import type { CeremonyState } from "@orbinum-ceremony/core";
-import { getSchedule, getStatus, type Schedule, type Status } from "../../api";
+import { getSchedule, type Schedule, type Status } from "../../api";
 import { usePoll } from "../../hooks";
 
 const PHASE: Record<CeremonyState, { label: string; dot: string }> = {
@@ -10,6 +10,8 @@ const PHASE: Record<CeremonyState, { label: string; dot: string }> = {
   CLOSED: { label: "Closed", dot: "bg-muted" },
   FINALIZED: { label: "Finalized", dot: "bg-accent" },
 };
+
+const NOT_ANNOUNCED = { label: "Not announced yet", dot: "bg-muted" };
 
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -25,10 +27,10 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-export function CeremonyStatus() {
-  const { data: status } = usePoll<Status>(getStatus, 15_000);
+/** `announced` false: the coordinator has no ceremony yet (nothing to show but that). */
+export function CeremonyStatus({ status, announced }: { status?: Status; announced: boolean }) {
   const { data: schedule } = usePoll<Schedule>(getSchedule, 3_600_000);
-  const phase = status && PHASE[status.phase];
+  const phase = announced ? status && PHASE[status.phase] : NOT_ANNOUNCED;
   return (
     <dl className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
       <Stat label="Status">

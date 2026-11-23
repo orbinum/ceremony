@@ -7,11 +7,11 @@ import { CEREMONY_LAYOUT } from "@orbinum-ceremony/core";
 import { useEffect } from "react";
 import { type Config, getSlot, leaveQueue, type Me } from "../../api";
 import { usePoll, useTurn } from "../../hooks";
-import { Step, type StepState } from "../../ui";
+import { Notice, Step, type StepState } from "../../ui";
 import { CliOption } from "./cli";
 import { QueueStep } from "./queue";
 import { ContributeStep, SignStep } from "./turn";
-import { shortAccount } from "./text";
+import { NOT_ANNOUNCED, shortAccount } from "./text";
 import { WalletStep } from "./wallet";
 
 const TITLES = [
@@ -30,7 +30,8 @@ const ABOUT = [
   "Your wallet signs what you contributed, for the public record.",
 ] as const;
 
-function SignIn() {
+function SignIn({ announced }: { announced: boolean }) {
+  if (!announced) return <Notice tone="info">{NOT_ANNOUNCED}</Notice>;
   return (
     <>
       <p>
@@ -162,6 +163,7 @@ function Linked(props: { me: Me; config: Config | undefined; reloadMe: () => voi
 export function Journey(props: {
   me: Me | null;
   config: Config | undefined;
+  announced: boolean;
   reloadMe: () => void;
 }) {
   const { me } = props;
@@ -174,7 +176,7 @@ export function Journey(props: {
         state={me ? "done" : "current"}
         summary={me ? `Signed in as @${me.login}` : ABOUT[0]}
       >
-        {!me && <SignIn />}
+        {!me && <SignIn announced={props.announced} />}
       </Step>
       <Step n={2} title={TITLES[1]} state={me ? "current" : "upcoming"} summary={ABOUT[1]}>
         {me && <WalletStep me={me} onLinked={props.reloadMe} />}

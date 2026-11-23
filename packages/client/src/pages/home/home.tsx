@@ -3,7 +3,7 @@
  * guided steps, beside how it works.
  */
 import { useState } from "react";
-import { getConfig, getMe, signInOutcomeOf, signOut } from "../../api";
+import { ApiError, getConfig, getMe, getStatus, signInOutcomeOf, signOut } from "../../api";
 import { usePoll } from "../../hooks";
 import { Button, Logo, Notice, ThemeToggle } from "../../ui";
 import { About } from "./about";
@@ -26,6 +26,8 @@ export function Home() {
   const outcome = useSignInOutcome();
   const { data: me, error, reload } = usePoll(getMe, 60_000);
   const { data: config } = usePoll(getConfig, 3_600_000);
+  const { data: status, error: statusError } = usePoll(getStatus, 15_000);
+  const announced = !(statusError instanceof ApiError && statusError.code === "not-configured");
 
   return (
     <>
@@ -60,9 +62,10 @@ export function Home() {
           </p>
         </section>
 
-        <CeremonyStatus />
+        <CeremonyStatus status={status} announced={announced} />
 
-        {outcome && <Notice tone="error">{outcome}</Notice>}
+        {/* Before the announcement, the sign-in step already says why. */}
+        {outcome && announced && <Notice tone="error">{outcome}</Notice>}
         {error !== undefined && <Notice tone="error">{errorText(error)}</Notice>}
 
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -70,7 +73,9 @@ export function Home() {
             <h2 className="mb-6 text-[10px] font-medium uppercase tracking-widest text-muted">
               How to contribute
             </h2>
-            {me !== undefined && <Journey me={me} config={config} reloadMe={reload} />}
+            {me !== undefined && (
+              <Journey me={me} config={config} announced={announced} reloadMe={reload} />
+            )}
           </section>
           <About />
         </div>
