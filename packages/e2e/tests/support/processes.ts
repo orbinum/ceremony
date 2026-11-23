@@ -4,7 +4,7 @@
  * with SIGTERM then SIGKILL, and a child that exits during startup fails at once.
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { join } from "node:path";
 
@@ -117,8 +117,13 @@ export const startCoordinator = (opts: {
   envFile: string;
   vars: Record<string, string>;
 }): Promise<Service> => {
-  // wrangler refuses a missing assets directory; the stack serves the API, the page is not needed.
-  mkdirSync(join(COORDINATOR_DIR, "..", "client", "dist"), { recursive: true });
+  // wrangler refuses a missing assets directory. Without a client build, a placeholder page keeps
+  // the single-page fallback (any unknown path is the page) as it is deployed.
+  const dist = join(COORDINATOR_DIR, "..", "client", "dist");
+  mkdirSync(dist, { recursive: true });
+  if (!existsSync(join(dist, "index.html"))) {
+    writeFileSync(join(dist, "index.html"), "<!doctype html><title>e2e</title>\n");
+  }
   return startService(
     WRANGLER,
     [
