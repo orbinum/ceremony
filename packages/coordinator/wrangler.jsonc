@@ -100,9 +100,10 @@
         "ENVIRONMENT": "testnet",
         "GITHUB_CLIENT_ID": "Ov23li2sBLCtW89N1Mth",
         "VERIFIER_URL": "",
-        "ACCESS_TEAM_DOMAIN": "",
-        "ACCESS_AUD": "",
-        "ACCESS_OPERATORS": "",
+        "ACCESS_TEAM_DOMAIN": "https://orbinum.cloudflareaccess.com",
+        "ACCESS_AUD": "28660a96a902d23d7173df1e6399799abbd96f945f6bf3cda7feb46c59dc5a80",
+        // The CLI's service token (ceremony-testnet-operator) and one operator's browser login.
+        "ACCESS_OPERATORS": "358ba5af7ab3f3f3d34dc2e2bec4faed.access,nome.ahumada@outlook.com",
         "PUBLIC_CACHE_SECONDS": "5",
         "TURNSTILE_SITE_KEY": "0x4AAAAAAFkHdw3xFCBHaCin",
       },

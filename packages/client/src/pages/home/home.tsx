@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { getConfig, getMe, signInOutcomeOf, signOut } from "../../api";
 import { usePoll } from "../../hooks";
-import { Button, Notice, ThemeToggle } from "../../ui";
+import { Button, Logo, Notice, ThemeToggle } from "../../ui";
 import { About } from "./about";
 import { Journey } from "./journey";
 import { NetworkSelector } from "./network";
@@ -31,16 +31,7 @@ export function Home() {
     <>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 sm:h-16 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <img
-            src="/orbinum-horizontal-white.svg"
-            alt="Orbinum"
-            className="only-dark h-6 w-auto sm:h-7"
-          />
-          <img
-            src="/orbinum-horizontal-black.svg"
-            alt="Orbinum"
-            className="only-light h-6 w-auto sm:h-7"
-          />
+          <Logo />
           <NetworkSelector network={config?.network} />
         </div>
         <div className="flex min-w-0 items-center gap-2 text-xs sm:gap-3">

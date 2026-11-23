@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-23
+
+### Added
+
+- Cloudflare Access for testnet's `/admin`: the `ceremony.testnet` application, a Service Auth
+  policy for the CLI's service token and an operator's email; `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`
+  and `ACCESS_OPERATORS` set in `env.testnet`.
+- The client's not-found page (any path the page does not have) and an error page for a render
+  failure, in the page's style, with the way back; never the error itself.
+
 ## [0.2.0] - 2026-11-23
 
 ### Added
