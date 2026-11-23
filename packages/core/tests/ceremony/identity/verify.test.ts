@@ -3,7 +3,7 @@
  */
 import { Keyring } from "@polkadot/keyring";
 import { u8aToHex, u8aWrapBytes } from "@polkadot/util";
-import { cryptoWaitReady } from "@polkadot/util-crypto";
+import { cryptoWaitReady, encodeAddress } from "@polkadot/util-crypto";
 import { TypedDataEncoder, Wallet } from "ethers";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
@@ -14,6 +14,7 @@ import {
   type LinkPayload,
   linkTypedData,
   sr25519Message,
+  ss58Address,
   verifyAttestation,
   verifyLink,
 } from "../../../src/ceremony/identity";
@@ -104,6 +105,49 @@ describe("sr25519 signatures", () => {
   it("refuse a link signature as an attestation", () => {
     const sig = u8aToHex(pair.sign(sr25519Message("link", link(pair.address))));
     expect(verifyAttestation("sr25519", attestation(pair.address), sig)).toBe(false);
+  });
+});
+
+describe("ed25519 signatures (Solana wallets, Ledger accounts)", () => {
+  let ed: ReturnType<Keyring["addFromUri"]>;
+  let sr: ReturnType<Keyring["addFromUri"]>;
+  beforeAll(async () => {
+    await cryptoWaitReady();
+    ed = new Keyring({ type: "ed25519" }).addFromUri("//Solana");
+    sr = new Keyring({ type: "sr25519" }).addFromUri("//Solana");
+  });
+
+  it("verify bare (solana:signMessage) and <Bytes>-wrapped (signRaw), for the signing account", () => {
+    const p = link(ed.address);
+    const message = sr25519Message("link", p);
+    expect(verifyLink("ed25519", p, u8aToHex(ed.sign(message)))).toBe(true);
+    expect(verifyLink("ed25519", p, u8aToHex(ed.sign(u8aWrapBytes(message))))).toBe(true);
+    expect(verifyLink("ed25519", { ...p, github_id: 8 }, u8aToHex(ed.sign(message)))).toBe(false);
+  });
+
+  it("refuse a signature of the other SS58 scheme, whichever way round", () => {
+    const pe = link(ed.address);
+    const ps = link(sr.address);
+    expect(verifyLink("sr25519", pe, u8aToHex(ed.sign(sr25519Message("link", pe))))).toBe(false);
+    expect(verifyLink("ed25519", ps, u8aToHex(sr.sign(sr25519Message("link", ps))))).toBe(false);
+  });
+
+  it("refuse a link signature as an attestation", () => {
+    const sig = u8aToHex(ed.sign(sr25519Message("link", link(ed.address))));
+    expect(verifyAttestation("ed25519", attestation(ed.address), sig)).toBe(false);
+  });
+});
+
+describe("SS58 addresses of a public key", () => {
+  it("are those @polkadot encodes, for the Orbinum prefix and others", async () => {
+    await cryptoWaitReady();
+    for (const uri of ["//Alice", "//Bob", "//Solana"]) {
+      const pair = new Keyring({ type: "ed25519", ss58Format: 42 }).addFromUri(uri);
+      expect(ss58Address(pair.publicKey)).toBe(pair.address);
+      expect(ss58Address(pair.publicKey, 0)).toBe(encodeAddress(pair.publicKey, 0));
+      expect(accountKey("ed25519", ss58Address(pair.publicKey))).toBe(u8aToHex(pair.publicKey));
+    }
+    expect(() => ss58Address(new Uint8Array(31))).toThrow(/32-byte/);
   });
 });
 

@@ -71,10 +71,19 @@ describe("an upload against its genesis (SPEC §2.5, §7)", () => {
     expect(precheckUpload(bytes, claim, head, LAYOUT)).toMatchObject({ reason: "malformed" });
   });
 
-  it("lets δ differ (a contribution changes only δ in the header)", () => {
+  it("lets δ differ from the genesis, but not leave the curve", () => {
+    // Another key's δ passes the layout check (continuity or pairings judge it later)…
+    const other = editSection(loadZkey("2"), 2, (s) => {
+      s.set(
+        sectionOf(loadZkey("1"), 2).subarray(LAYOUT.deltaFrom, LAYOUT.deltaTo),
+        LAYOUT.deltaFrom,
+      );
+      return s;
+    });
+    expect(() => checkAgainstGenesis(other, LAYOUT)).not.toThrow();
+    // …a flipped byte does not: it is no longer a point.
     const { bytes } = tampered(2, LAYOUT.deltaFrom + 5, 7);
-    // Past the layout check, the changed δ is caught by continuity or pairings, not here.
-    expect(() => checkAgainstGenesis(bytes, LAYOUT)).not.toThrow();
+    expect(() => checkAgainstGenesis(bytes, LAYOUT)).toThrow(/not on the curve/);
   });
 
   it("refuses as a genesis a file whose Groth16 header is not laid out as snarkjs writes it", () => {
@@ -158,7 +167,8 @@ describe("canonical δ, L and H (one spelling per key)", () => {
 
   it.each([
     ["an L element (section 8)", 8, 0, /section 8 \(L\): field element out of range at 0/],
-    ["an H element (section 9)", 9, 64 + 32, /section 9 \(H\): field element out of range at 96/],
+    // Reported at the point holding the element (each G1 point is 64 bytes).
+    ["an H element (section 9)", 9, 64 + 32, /section 9 \(H\): field element out of range at 64/],
   ])("rejects %s raised by q as malformed", (_, section, offset, detail) => {
     const { bytes, claim } = plusQ(section, offset);
     const r = precheckUpload(bytes, claim, head, LAYOUT);

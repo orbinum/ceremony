@@ -2,6 +2,7 @@
 export { ADMIN_PATHS, CONTENT_SHA256_HEADER } from "./admin";
 export {
   authHeadersWellFormed,
+  timestampFresh,
   checkHmacKey,
   SIGNATURE_HEADER,
   signedRequestInit,

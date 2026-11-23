@@ -74,8 +74,14 @@ export function applyResult(
       }
       break;
     case "ambiguous":
+      // A free re-upload, but not an endless one: it counts toward the session's infra bound.
       entry.status = "todo";
       entry.attempts -= 1;
+      entry.infra += 1;
+      if (slot.circuits.reduce((n, c) => n + c.infra, 0) >= ctx.rules.infraPerSession) {
+        release(ctx, ctx.s.phase === "CLOSED" ? "closed" : "infra");
+        return;
+      }
       break;
     case "infra":
       entry.status = "todo";

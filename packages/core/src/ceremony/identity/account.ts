@@ -12,8 +12,12 @@ import type { Scheme } from "./types";
 const EVM_ACCOUNT = /^0x[0-9a-fA-F]{40}$/;
 const SS58_ACCOUNT = /^[1-9A-HJ-NP-Za-km-z]{46,48}$/;
 
-/** Signature sizes in bytes: ECDSA r‖s‖v (65, or 64 in EIP-2098 compact form) and sr25519 (64). */
-const SIGNATURE_BYTES: Record<Scheme, readonly number[]> = { eip712: [65, 64], sr25519: [64] };
+/** Signature sizes in bytes: ECDSA r‖s‖v (65, or 64 in EIP-2098 compact form), sr25519 and ed25519. */
+const SIGNATURE_BYTES: Record<Scheme, readonly number[]> = {
+  eip712: [65, 64],
+  sr25519: [64],
+  ed25519: [64],
+};
 
 function isChecksummed(address: string): boolean {
   const body = address.slice(2);
@@ -28,7 +32,7 @@ function isChecksummed(address: string): boolean {
 
 /** An account of `scheme`, as the wallet reports it. */
 export function asAccount(value: unknown, path: string, scheme: Scheme): string {
-  if (scheme === "sr25519") return asString(value, path, 48, SS58_ACCOUNT);
+  if (scheme !== "eip712") return asString(value, path, 48, SS58_ACCOUNT);
   const account = asString(value, path, 42, EVM_ACCOUNT);
   if (!isChecksummed(account)) throw new FormatError(`${path}: bad EIP-55 checksum`);
   return account;

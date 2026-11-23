@@ -303,19 +303,20 @@ describe("verification outcomes (SPEC §2.5 contract)", () => {
     expect(refusal(r.s, { type: "join", githubId: ALICE }, t)).toBe("banned");
   });
 
-  it("does not consume the turn on `ambiguous`", () => {
+  it("gives the attempt back on `ambiguous`, but only up to the session's infra bound", () => {
     let { s, t } = claimed();
-    for (let i = 0; i < 3; i++) {
-      s = run(upload(s, t), t, { type: "verified", circuit: "shield", outcome: "ambiguous" }).s;
-    }
-    // The attempt is given back, but every upload keeps its own id.
+    s = run(upload(s, t), t, { type: "verified", circuit: "shield", outcome: "ambiguous" }).s;
+    // The attempt is given back, and the upload keeps its own id.
     expect(s.slot?.circuits[0]).toEqual({
       circuit: "shield",
       status: "todo",
       attempts: 0,
-      uploads: 3,
-      infra: 0,
+      uploads: 1,
+      infra: 1,
     });
+    // The second ends the session, as a second infra would: no endless free re-uploads.
+    const r = run(upload(s, t), t, { type: "verified", circuit: "shield", outcome: "ambiguous" });
+    expect(r.s.slot).toBeNull();
   });
 
   it("pauses on `infra` with the slot frozen, without penalizing, and resumes", () => {

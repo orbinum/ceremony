@@ -1,10 +1,10 @@
 /** Linked identities and the requests that bind or sign with them. SPEC §3.4–3.5. */
 import { describe, expect, it } from "vitest";
 import {
-  checkRelink,
   contributorOf,
   type LinkedIdentity,
   linkPayloadOf,
+  relinkRefusal,
   validateAttestationRequest,
   validateLinkRequest,
 } from "../../../src/ceremony/identity";
@@ -48,9 +48,11 @@ describe("linked identities", () => {
     expect(linkPayloadOf("c", identity)).toEqual(PAYLOAD);
   });
 
-  it("allows relinking the same key only", () => {
-    expect(checkRelink(LINKED, LINKED.accountKey)).toBeNull();
-    expect(checkRelink(LINKED, "0x" + "cd".repeat(20))).toBe("already-linked");
+  it("lets an account change its wallet until a contribution names it, never during its turn", () => {
+    expect(relinkRefusal({ contributed: false, inTurn: false })).toBeNull();
+    expect(relinkRefusal({ contributed: false, inTurn: true })).toBe("busy");
+    expect(relinkRefusal({ contributed: true, inTurn: false })).toBe("already-linked");
+    expect(relinkRefusal({ contributed: true, inTurn: true })).toBe("already-linked");
   });
 
   it("reads a link request exactly: scheme, payload, signature", () => {

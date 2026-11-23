@@ -77,6 +77,10 @@ describe("a final record against the transcript", () => {
       "final-delta: δ = γ",
       "its csHash differs from init.json",
     ]);
+    // Not ok, yet no failing check named: still a failure.
+    expect(checkIndependent({ ...verdict, failures: [] }, records, circuit)).toEqual([
+      "the independent verifier did not pass",
+    ]);
   });
 });
 

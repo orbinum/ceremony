@@ -37,42 +37,17 @@ function bigIntToBe(v: bigint, out: Uint8Array, offset: number): void {
   }
 }
 
-/** Fq as 32 little-endian bytes, for comparisons on stored elements without decoding them. */
-const FQ_LE = (() => {
-  const out = new Uint8Array(FQ_BYTES);
-  let v = BN254_FQ;
-  for (let i = 0; i < FQ_BYTES; i++, v >>= 8n) out[i] = Number(v & 0xffn);
-  return out;
-})();
-
-/** Whether the 32-byte little-endian value at `bytes[offset]` is below Fq. */
-function belowFq(bytes: Uint8Array, offset: number): boolean {
-  for (let i = FQ_BYTES - 1; i >= 0; i--) {
-    const b = bytes[offset + i] as number;
-    const q = FQ_LE[i] as number;
-    if (b !== q) return b < q;
-  }
-  return false;
-}
-
 /**
- * Throws `FormatError` unless `bytes` is a whole number of stored Fq elements, each below Fq: the
- * only spelling a key has. Linear in the size, without allocating.
+ * Fq element in Montgomery little-endian (zkey storage) → its canonical value. A stored value ≥ Fq
+ * is refused: it would decode to the same point under another spelling.
  */
-export function checkCanonicalFq(bytes: Uint8Array, what: string): void {
-  if (bytes.length % FQ_BYTES !== 0)
-    throw new FormatError(`${what}: not a sequence of Fq elements`);
-  for (let at = 0; at < bytes.length; at += FQ_BYTES) {
-    if (!belowFq(bytes, at)) throw new FormatError(`${what}: field element out of range at ${at}`);
-  }
-}
-
-/**
- * Fq element in Montgomery little-endian (zkey storage) → canonical big-endian at `out[offset]`.
- * A stored value ≥ Fq is refused: it would decode to the same point under another spelling.
- */
-export function fqLemToBe(lem: Uint8Array, out: Uint8Array, offset: number): void {
+export function fqLemToBigInt(lem: Uint8Array): bigint {
   const m = leToBigInt(lem);
   if (m >= BN254_FQ) throw new FormatError("field element out of range");
-  bigIntToBe((m * R_INV) % BN254_FQ, out, offset);
+  return (m * R_INV) % BN254_FQ;
+}
+
+/** Fq element in Montgomery little-endian → canonical big-endian at `out[offset]`. */
+export function fqLemToBe(lem: Uint8Array, out: Uint8Array, offset: number): void {
+  bigIntToBe(fqLemToBigInt(lem), out, offset);
 }

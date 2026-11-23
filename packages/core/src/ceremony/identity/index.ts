@@ -3,14 +3,16 @@ export { asAccount, asStoredSignature, asWalletSignature, evmAccountKey } from "
 export { attestationTypedData, eip712Domain, linkTypedData, type TypedData } from "./eip712";
 export { ethersTypedData } from "./ethers";
 export {
-  checkRelink,
   contributorOf,
   type LinkedIdentity,
   linkPayloadOf,
+  type RelinkStanding,
+  relinkRefusal,
   validateAttestationRequest,
   validateLinkRequest,
 } from "./linked";
 export { sr25519Message } from "./sr25519";
+export { ORBINUM_SS58_PREFIX, ss58Address } from "./ss58";
 export {
   type AttestationPayload,
   type AttestedContribution,

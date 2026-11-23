@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  asTag,
   acceptanceWindow,
   buildAnnouncement,
   checkVerifyMode,
@@ -94,6 +95,30 @@ describe("announcement rules", () => {
     expect(windowState(ANNOUNCEMENT, OPEN)).toBe("open");
     expect(windowState(ANNOUNCEMENT, CLOSE)).toBe("closed");
     expect(acceptanceWindow(ANNOUNCEMENT)).toEqual({ from: OPEN, to: CLOSE + VERIFY_DEADLINE_MS });
+  });
+});
+
+describe("release tags", () => {
+  it("takes what git takes as a tag name, and refuses what would name something else", () => {
+    for (const tag of ["v0.16.0", "release/1.2", "v1.0.0-rc.1"]) expect(asTag(tag, "t")).toBe(tag);
+    for (const tag of [
+      "HEAD",
+      "refs/tags/v1",
+      "abcdef1",
+      "../heads/main",
+      "v1..2",
+      "v1@{0}",
+      "/v1",
+      "v1/",
+      "a//b",
+      ".hidden",
+      "dir/.hidden",
+      "v1.lock",
+      "v1.lock/x",
+      "v1.",
+    ]) {
+      expect(() => asTag(tag, tag)).toThrow(/not a tag name|does not match/);
+    }
   });
 });
 
