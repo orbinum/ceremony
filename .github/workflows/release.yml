@@ -43,10 +43,12 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       network: ${{ steps.meta.outputs.network }}
     steps:
+      # Credentials kept: the private repository's tag and main are fetched again below. This job
+      # runs only its own shell steps, with a read-only token.
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          persist-credentials: true
           fetch-depth: 0
           fetch-tags: true
 
