@@ -1,7 +1,7 @@
 name: CI
 
-# Every push to main and every pull request into main. A pass on a push to main starts
-# release.yml on the same commit.
+# Every push to main and every pull request into main. A release (release.yml) ships only a
+# tagged commit whose push run here passed on main.
 on:
   push:
     branches: [main]
@@ -13,13 +13,13 @@ permissions:
   contents: read
 
 # A newer push to a pull request supersedes its older run. A run on main is never cancelled: a
-# release starts only from a commit whose run here passed, so every main commit needs one.
+# release ships only a commit whose run here passed, so every main commit needs one.
 concurrency:
   group: ci-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Format, lint and typecheck: the whole repository, once.
+  # Format, lint and typecheck: the whole repository, once; and the client's build and tests.
   checks:
     name: Format, Lint, Typecheck
     runs-on: ubuntu-24.04
@@ -53,6 +53,14 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      # --fail-if-no-match: a filter that matches nothing would otherwise pass silently.
+      - name: Build client
+        run: pnpm --filter @orbinum-ceremony/client --fail-if-no-match build
+
+      # The client's unit tests need no real input (core's fixtures are in the repository).
+      - name: Test client
+        run: pnpm --filter @orbinum-ceremony/client --fail-if-no-match test
 
   # The test suites in parallel, each with only the inputs it reads. The packages' tests do not
   # depend on each other's, so nothing waits for another; the cli runs its files one at a time
@@ -106,6 +114,27 @@ jobs:
           node-version: "22.15.0"
           cache: pnpm
 
+      # The circuits repo at the release the test ceremonies announce, with its tags (the
+      # verification resolves them) and its locked node_modules (circomlib). The organisation
+      # disables deploy keys, so a fine-grained token reads it: Contents read-only, that repo
+      # only. It is not left in the clone, whose origin stays the plain HTTPS URL the
+      # verification compares with the announced repo. It is checked out by the commit the tests
+      # pin (v0.16.0, packages/cli/tests/support/ceremony.ts; a test keeps the two equal), never by
+      # a ref name someone could move. The token reaches only this step; pull-request code already
+      # runs earlier in the job (pnpm/action-setup, the pnpm cache), so what keeps it from a
+      # pull request is that forks never get secrets (KL-53).
+      - name: Clone the circuits repo
+        if: matrix.tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: orbinum/circuits
+          ref: efe10bf3ef1d928c9c209fee4077750334410cfe # v0.16.0
+          token: ${{ secrets.CIRCUITS_READ_TOKEN }}
+          persist-credentials: false
+          path: .test-inputs/circuits
+          fetch-depth: 0
+          fetch-tags: true
+
       # Install scripts run only for esbuild and workerd (pnpm-workspace.yaml), which
       # `wrangler dev` needs in the end-to-end test.
       - name: Install dependencies
@@ -130,9 +159,10 @@ jobs:
         run: .github/scripts/fetch-test-inputs.sh >> "$GITHUB_ENV"
 
       # The vk_hash packer, built at a pinned commit with a pinned lockfile, so the strict
-      # verification tests run here too (about a minute). Only downloaded crates are cached
-      # (cargo checks each against Cargo.lock when it extracts it); the clone, the extracted
-      # sources and the build are never restored from a cache, which a run could have written.
+      # verification tests run here too (about a minute). Only the registry and downloaded
+      # crates are cached, written only by runs on main (a pull request's cache stays in its
+      # own scope); cargo checks checksums when it downloads a crate, not when it reuses a cached
+      # one. The clone, the extracted sources and the build are never restored from a cache.
       - name: Cache the vk packer dependencies
         if: matrix.tools
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -154,27 +184,13 @@ jobs:
           .github/scripts/fetch-ci-tools.sh >> "$GITHUB_ENV"
           echo "$PWD/.test-inputs/bin" >> "$GITHUB_PATH"
 
-      # The circuits repo at the release the test ceremonies announce, with its tags (the
-      # verification resolves them) and its locked node_modules (circomlib). The organisation
-      # disables deploy keys, so a fine-grained token reads it: Contents read-only, that repo
-      # only. It is not left in the clone, whose origin stays the plain HTTPS URL the
-      # verification compares with the announced repo. Install scripts never run.
-      - name: Clone the circuits repo
-        if: matrix.tools
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: orbinum/circuits
-          ref: v0.16.0
-          token: ${{ secrets.CIRCUITS_READ_TOKEN }}
-          persist-credentials: false
-          path: .test-inputs/circuits
-          fetch-depth: 0
-          fetch-tags: true
-
+      # The clone is data: no install scripts, no .pnpmfile.cjs (pnpm loads it at startup, whatever
+      # --ignore-scripts says), and no switch to the pnpm version its package.json names.
       - name: Install the circuits dependencies
         if: matrix.tools
         run: |
-          pnpm --dir .test-inputs/circuits install --frozen-lockfile --ignore-scripts --ignore-workspace
+          pnpm --dir .test-inputs/circuits install --frozen-lockfile --ignore-scripts --ignore-workspace \
+            --ignore-pnpmfile --config.manage-package-manager-versions=false
           echo "ORBINUM_CIRCUITS_REPO=$PWD/.test-inputs/circuits" >> "$GITHUB_ENV"
 
       # Every input a suite reads is present, so nothing skips: a missing one fails the CI
@@ -221,6 +237,8 @@ jobs:
           base: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
           head: HEAD
           extra_args: --only-verified
+          # The action runs a container image by this tag (default `latest`): pinned to the action.
+          version: 3.99.2
 
       # trufflehog above fails only on secrets it can verify live; the ceremony's own keys
       # (session and verifier HMAC keys, OAuth, Turnstile and Access secrets) are not among them.
