@@ -4,7 +4,7 @@
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   appWith,
   call,
@@ -36,6 +36,13 @@ describe("/artifacts/*", () => {
       const r = await raw(path);
       expect([path, r.status]).toEqual([path, 404]);
     }
+  });
+
+  it("answers a key longer than R2 allows as not found, not as a storage failure", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await refusal(await raw(`/artifacts/${"a".repeat(1025)}`))).toEqual([404, "not-found"]);
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 
   it("sends nosniff and the sandbox CSP on files and on errors", async () => {

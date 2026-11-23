@@ -121,6 +121,29 @@ describe("dispatch to the verifier", () => {
     );
   });
 
+  it("sends the verifier's Access service token over https only, and only when set", async () => {
+    const token = {
+      VERIFIER_ACCESS_CLIENT_ID: "id.access",
+      VERIFIER_ACCESS_CLIENT_SECRET: "s3cret",
+    };
+    const sent: (RequestInit | undefined)[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      sent.push(init);
+      return new Response(null, { status: 202 });
+    });
+    await dispatch({ ...env, VERIFIER_URL: "https://verifier.test", ...token }, {} as never);
+    await dispatch({ ...env, VERIFIER_URL: "http://127.0.0.1:8788", ...token }, {} as never);
+    await dispatch({ ...env, VERIFIER_URL: "https://verifier.test" }, {} as never);
+    expect(sent.map((i) => headerOf(i, "cf-access-client-id"))).toEqual([
+      "id.access",
+      undefined,
+      undefined,
+    ]);
+    expect(headerOf(sent[0], "cf-access-client-secret")).toBe("s3cret");
+    // The HMAC signature is still there next to the token.
+    expect(sent.every((i) => headerOf(i, "x-ceremony-signature"))).toBe(true);
+  });
+
   it("sends nothing without a verifier", async () => {
     const fetch = vi.spyOn(globalThis, "fetch");
     await dispatch({ ...env, VERIFIER_URL: "" }, {} as never);

@@ -4,7 +4,7 @@
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { isLocal } from "../../src/env";
+import { ENVIRONMENTS, isLocal } from "../../src/env";
 import {
   appWith,
   freshId,
@@ -79,6 +79,12 @@ const NOT_LOCAL: [string | undefined, string][] = [
   ...NON_LOOPBACK_HOSTS.map((h) => ["local", h] as [string, string]),
 ];
 
+/** An unknown ENVIRONMENT never reaches a route: the configuration gate answers first. */
+const refusedAs = (env: string | undefined, status: number, code: string) =>
+  (ENVIRONMENTS as readonly (string | undefined)[]).includes(env)
+    ? [status, code]
+    : [500, "internal"];
+
 describe("local privileges are unreachable outside a local run", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -92,8 +98,7 @@ describe("local privileges are unreachable outside a local run", () => {
       expect([ENVIRONMENT, base, ...(await refusal(r))]).toEqual([
         ENVIRONMENT,
         base,
-        401,
-        "unauthenticated",
+        ...refusedAs(ENVIRONMENT, 401, "unauthenticated"),
       ]);
     }
   });
@@ -111,8 +116,7 @@ describe("local privileges are unreachable outside a local run", () => {
       expect([ENVIRONMENT, base, ...(await refusal(r))]).toEqual([
         ENVIRONMENT,
         base,
-        403,
-        "forbidden",
+        ...refusedAs(ENVIRONMENT, 403, "forbidden"),
       ]);
     }
     // No Access domain configured: nothing was fetched.
@@ -146,8 +150,7 @@ describe("local privileges are unreachable outside a local run", () => {
         expect([ENVIRONMENT, base, ...(await refusal(r))]).toEqual([
           ENVIRONMENT,
           base,
-          403,
-          "turnstile",
+          ...refusedAs(ENVIRONMENT, 403, "turnstile"),
         ]);
       }
       // No token was sent: siteverify is never asked.

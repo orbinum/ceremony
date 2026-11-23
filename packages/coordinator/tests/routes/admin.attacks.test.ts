@@ -34,6 +34,7 @@ import {
   stubOf,
   validReport,
 } from "../support";
+import { configureCeremony } from "../../src/actions";
 
 const putFile = (
   id: string,
@@ -226,6 +227,38 @@ describe("configure and state", () => {
     // The setup is frozen: another valid one (other schedule) is refused.
     const other = setupInput(Date.now() - 500, Date.now() + 3_600_000);
     expect(await stubOf(id).configure(other)).toEqual({ ok: false, refusal: "already-configured" });
+    // So are setup files it does not have yet: nothing new joins the setup after it freezes.
+    expect(await putRefusal(id, CEREMONY_LAYOUT.ptau, new Uint8Array([1, 2, 3]))).toEqual([
+      409,
+      "invalid-transition",
+    ]);
+  });
+
+  it("freezes a setup only once its r1cs files are published with their pinned hashes", async () => {
+    const id = freshId("admin-attacks-r1cs");
+    const setup = await publishedSetup(Date.now() - 1000, Date.now() + 86_400_000);
+    const key = CEREMONY_LAYOUT.r1cs("shield");
+    await env.PUBLIC.put(key, new TextEncoder().encode("another circuit"));
+    const configure = () =>
+      call("POST", "/admin/configure", undefined, { ceremony: id, body: setup });
+    const r = await configure();
+    expect([r.status, (await json(r)).error.message]).toEqual([
+      400,
+      expect.stringContaining("shield: published r1cs differs"),
+    ]);
+    await env.PUBLIC.delete(key);
+    expect((await json(await configure())).error.message).toContain("shield: r1cs not published");
+  });
+
+  it("freezes only a setup of the deployment's network", async () => {
+    const id = freshId("admin-attacks-network");
+    const setup = await publishedSetup(Date.now() - 1000, Date.now() + 86_400_000);
+    for (const ENVIRONMENT of ["testnet", "production"]) {
+      // oxlint-disable-next-line no-await-in-loop -- one deployment at a time
+      const r = await configureCeremony({ ...env, ENVIRONMENT, CEREMONY_ID: id }, setup);
+      expect([ENVIRONMENT, r.ok]).toEqual([ENVIRONMENT, false]);
+    }
+    expect(await stubOf(id).setup()).toBeNull();
   });
 
   it("refuses invalid transitions: resume when OPEN, close twice, pause or resume after CLOSED", async () => {
@@ -301,6 +334,21 @@ describe("POST /admin/finalize", () => {
     expect((await putFile(id, CEREMONY_LAYOUT.finalVk("shield"), vk)).status).toBe(201);
     expect((await finalize(id, request)).status).toBe(200);
     expect((await stub.snapshot())?.phase).toBe("FINALIZED");
+  });
+
+  it("does not seal while a final file is still being written", async () => {
+    const { id, stub, request } = await closedCeremony(true);
+    const { zkey, vk } = finalBytes("shield");
+    await putFile(id, CEREMONY_LAYOUT.finalZkey("shield"), zkey);
+    await putFile(id, CEREMONY_LAYOUT.finalVk("shield"), vk);
+    // Two writes of the same file: the first to end does not release the other's hold.
+    const first = await stub.holdFinalWrite();
+    const second = await stub.holdFinalWrite();
+    expect(await refusal(await finalize(id, request))).toEqual([409, "busy"]);
+    await stub.releaseFinalWrite(first);
+    expect(await refusal(await finalize(id, request))).toEqual([409, "busy"]);
+    await stub.releaseFinalWrite(second);
+    expect((await finalize(id, request)).status).toBe(200);
   });
 });
 

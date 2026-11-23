@@ -5,7 +5,7 @@ import type { AppEnv } from "../../env";
 import { sameOrigin } from "../../middleware";
 import { cliToken } from "./cli-token";
 import { link } from "./link";
-import { receipt, status, transcript } from "./public";
+import { config, receipt, status, transcript } from "./public";
 import { queue } from "./queue";
 import { session } from "./session";
 import { upload } from "./upload";
@@ -13,6 +13,7 @@ import { upload } from "./upload";
 /** The `/api` router. */
 export const api = new Hono<AppEnv>()
   .use(sameOrigin)
+  .route("/config", config)
   .route("/cli-token", cliToken)
   .route("/link", link)
   .route("/queue", queue)

@@ -10,9 +10,16 @@ import { browserOnly, contributor, rateLimit, turnstile } from "../../middleware
 export const queue = new Hono<AppEnv>()
   // A CLI waits for and leaves its turn with its token (SPEC §4.4); joining stays with the browser.
   .use(contributor)
-  // The bot check first: a script without a solve never spends the identity's quota.
-  .post("/join", browserOnly, turnstile, rateLimit("JOIN_LIMIT"), async (c) =>
-    respond(c, await ceremony(c.env).apply({ type: "join", githubId: c.get("githubId") })),
+  // A coarse per-identity limit bounds the bot check's outbound calls; the bot check comes before
+  // the join quota, so a script without a solve never spends it.
+  .post(
+    "/join",
+    browserOnly,
+    rateLimit("ACTION_LIMIT"),
+    turnstile,
+    rateLimit("JOIN_LIMIT"),
+    async (c) =>
+      respond(c, await ceremony(c.env).apply({ type: "join", githubId: c.get("githubId") })),
   )
   .post("/leave", rateLimit("ACTION_LIMIT"), async (c) =>
     respond(c, await ceremony(c.env).apply({ type: "leave", githubId: c.get("githubId") })),

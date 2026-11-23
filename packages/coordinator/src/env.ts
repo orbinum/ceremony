@@ -2,7 +2,24 @@
  * The Worker's bindings and request variables, when a run counts as local, and the configuration
  * checks a deployment must pass before it serves anything. COORDINATOR §3.
  */
-import { asCeremonyId, keyBytes, LOOPBACK_HOSTS, MIN_KEY_BYTES } from "@orbinum-ceremony/core";
+import {
+  asCeremonyId,
+  hmacKeyForm,
+  keyBytes,
+  LOOPBACK_HOSTS,
+  MIN_KEY_BYTES,
+} from "@orbinum-ceremony/core";
+
+declare global {
+  /**
+   * Optional secrets, outside `wrangler.jsonc`'s required list: the Cloudflare Access service
+   * token of the application in front of the verifier's Tunnel (KL-45). Set both or neither.
+   */
+  interface Env {
+    VERIFIER_ACCESS_CLIENT_ID?: string;
+    VERIFIER_ACCESS_CLIENT_SECRET?: string;
+  }
+}
 
 /**
  * Hono context of every route: the bindings and, once authenticated, the GitHub identity, what
@@ -19,6 +36,9 @@ export interface AppEnv {
  * machine by a loopback name. Only then are the development identity, `/admin` without Access and
  * joining without Turnstile allowed (KL-29); a deployment can never be both.
  */
+/** The deployments there are: tests and `wrangler dev`, the public rehearsal, mainnet. */
+export const ENVIRONMENTS = ["local", "testnet", "production"] as const;
+
 export const isLocal = (env: Env, url: string): boolean =>
   env.ENVIRONMENT === "local" && LOOPBACK_HOSTS.includes(new URL(url).hostname);
 
@@ -56,6 +76,19 @@ export function configProblems(env: Env): string[] {
       problems.push(`${name} must be at least ${MIN_KEY_BYTES} bytes`);
     }
   }
+  // One secret for both would let the verifier's host mint session and CLI tokens; compared as
+  // HMAC uses them, where a trailing zero byte or a long key's digest is the same key.
+  if (
+    env.SESSION_KEY &&
+    env.VERIFIER_HMAC_KEY &&
+    hmacKeyForm(env.SESSION_KEY) === hmacKeyForm(env.VERIFIER_HMAC_KEY)
+  ) {
+    problems.push("SESSION_KEY and VERIFIER_HMAC_KEY must differ");
+  }
+  // What the deployment is decides local privileges and which network it may run: no other value.
+  if (!(ENVIRONMENTS as readonly string[]).includes(env.ENVIRONMENT)) {
+    problems.push(`ENVIRONMENT must be one of ${ENVIRONMENTS.join(", ")}`);
+  }
   const seconds = env.PUBLIC_CACHE_SECONDS;
   if (!/^[0-9]{1,3}$/.test(seconds ?? "") || Number(seconds) > MAX_PUBLIC_CACHE_SECONDS) {
     problems.push(`PUBLIC_CACHE_SECONDS must be 0–${MAX_PUBLIC_CACHE_SECONDS}`);
@@ -69,6 +102,9 @@ export function configProblems(env: Env): string[] {
   }
   if (env.VERIFIER_URL && !isVerifierUrl(env.VERIFIER_URL)) {
     problems.push("VERIFIER_URL must be https (plain http only on a loopback host)");
+  }
+  if (!env.VERIFIER_ACCESS_CLIENT_ID !== !env.VERIFIER_ACCESS_CLIENT_SECRET) {
+    problems.push("VERIFIER_ACCESS_CLIENT_ID and VERIFIER_ACCESS_CLIENT_SECRET go together");
   }
   return problems;
 }

@@ -42,6 +42,16 @@ export class CeremonyDO extends DurableObject<Env> {
     return op.finalize(this.store, request);
   }
 
+  /** A final file is about to be written: finalization waits for it. */
+  async holdFinalWrite() {
+    return op.holdFinalWrite(this.store);
+  }
+
+  /** The write of a final file ended. */
+  async releaseFinalWrite(hold: string) {
+    op.releaseFinalWrite(this.store, hold);
+  }
+
   /** The queue state (null before `configure`). */
   async snapshot() {
     return op.snapshot(this.store);
@@ -87,9 +97,19 @@ export class CeremonyDO extends DurableObject<Env> {
     return op.linked(this.store, githubId);
   }
 
+  /** Why this linked account may not change its wallet now, or null. */
+  async changeRefusal(githubId: number) {
+    return op.changeRefusal(this.store, githubId);
+  }
+
   /** Checks an upload before its bytes move; returns the private key to stream it to. */
   async prepareUpload(upload: UploadRequest) {
     return op.prepareUpload(this.store, upload);
+  }
+
+  /** The upload streaming to `key` failed: its job may take another. */
+  async releaseUpload(key: string) {
+    op.releaseUpload(this.store, key);
   }
 
   /** The bytes are under `key`: the job waits for the verifier. */

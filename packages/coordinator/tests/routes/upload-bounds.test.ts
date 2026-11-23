@@ -154,6 +154,22 @@ describe("upload bounds (SPEC §2.5)", () => {
     expect([busy.status, (await json(busy)).error.code]).toEqual([409, "busy"]);
   });
 
+  it("streams one upload per job at a time, refusing a second before its bytes move", async () => {
+    const stub = stubOf(name);
+    const request = {
+      githubId: ALICE,
+      circuit: "shield" as const,
+      claim: claimOf(BYTES, GENESIS_SHA256.shield),
+      size: BYTES.length,
+    };
+    const first = await stub.prepareUpload(request);
+    expect(first.ok).toBe(true);
+    expect(await stub.prepareUpload(request)).toEqual({ ok: false, refusal: "busy" });
+    // A failed stream gives the job back at once.
+    await stub.releaseUpload((first as { key: string }).key);
+    expect((await stub.prepareUpload(request)).ok).toBe(true);
+  });
+
   it("shows the contributor a rejection's reason, never the verifier's detail", async () => {
     const as = { ceremony: name };
     expect((await put(BYTES, { "x-ceremony-claim": claimHeader() })).status).toBe(202);

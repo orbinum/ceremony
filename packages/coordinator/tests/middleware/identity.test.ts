@@ -26,7 +26,8 @@ const me = (patch: Partial<Env>, url: string, headers: Record<string, string>) =
 describe("who is calling", () => {
   it("accepts the development identity only in a local run on a loopback host", async () => {
     const local = await call("GET", "/api/link", 4001);
-    expect([local.status, await json(local)]).toEqual([200, { linked: null }]);
+    expect(local.status).toBe(200);
+    expect(await json(local)).toMatchObject({ githubId: 4001, linked: null });
     for (const [patch, url] of [
       [{ ENVIRONMENT: "production" }, "http://localhost/api/link"],
       [{ ENVIRONMENT: "testnet" }, "http://127.0.0.1/api/link"],

@@ -147,9 +147,33 @@ describe("Access token verification", () => {
     const t = nextTeam();
     const v = async (patch: Record<string, unknown>) =>
       verifyAccess(await token(good(t, patch)), t, AUD, NOW);
-    expect(await v({ email: "", common_name: "svc.access" })).toBeNull();
-    expect(await v({ email: null, common_name: "svc.access" })).toBe("svc.access");
-    expect(await v({ email: 5, common_name: "svc.access" })).toBeNull();
+    expect(
+      await v({ email: "", common_name: "0123456789abcdef0123456789abcdef.access" }),
+    ).toBeNull();
+    expect(await v({ email: null, common_name: "0123456789abcdef0123456789abcdef.access" })).toBe(
+      "0123456789abcdef0123456789abcdef.access",
+    );
+    expect(
+      await v({ email: 5, common_name: "0123456789abcdef0123456789abcdef.access" }),
+    ).toBeNull();
+  });
+
+  it("takes common_name only as a service token's Client ID, never as another identity's name", async () => {
+    const t = nextTeam();
+    const v = async (patch: Record<string, unknown>) =>
+      verifyAccess(await token(good(t, patch)), t, AUD, NOW);
+    // …nor can an IdP-asserted email spell a service token's Client ID.
+    expect(await v({ email: "0123456789abcdef0123456789abcdef.access" })).toBeNull();
+    // e.g. a certificate whose subject spells an allowlisted operator's email
+    for (const cn of [
+      "ops@orbinum.io",
+      "svc.access",
+      "0123456789ABCDEF0123456789ABCDEF.ACCESS",
+      "0123456789abcdef0123456789abcdef.accessx",
+    ]) {
+      // oxlint-disable-next-line no-await-in-loop -- one token at a time
+      expect([cn, await v({ email: undefined, common_name: cn })]).toEqual([cn, null]);
+    }
   });
 
   it("refetches keys for unknown key ids at most every 30 s when requests arrive one by one", async () => {

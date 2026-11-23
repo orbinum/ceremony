@@ -53,8 +53,9 @@ export async function commit(
   const stale = db.pendingJobs(store.sql).filter((job) => !isCurrentVerification(state, job));
   for (const job of stale) db.writeJob(store.sql, { ...job, status: "stale" });
   const next = nextDeadline(state);
-  if (next === null) await store.storage.deleteAlarm();
-  else await store.storage.setAlarm(next);
+  // Armed before publishing, even with no deadline left (a sealed ceremony): an object reset
+  // between this commit and its publication still gets the publication retried.
+  await store.storage.setAlarm(next ?? Date.now() + PUBLISH_RETRY_MS);
   if (stale.length > 0) {
     await deleteQuietly(
       store.env.PRIVATE,
@@ -66,8 +67,12 @@ export async function commit(
       await unpublishUnrecorded(store, job);
     }
   }
-  // A publication that lags is retried by the alarm until it lands.
-  if (await publish(store)) {
+  // A publication that lags is retried by the alarm until it lands. The retry alarm is dropped
+  // only by the last publication chained: a later commit's own one still needs it.
+  const publication = publish(store);
+  if (await publication) {
     await store.storage.setAlarm(Math.min(next ?? Infinity, Date.now() + PUBLISH_RETRY_MS));
+  } else if (next === null && store.publishing === publication) {
+    await store.storage.deleteAlarm();
   }
 }

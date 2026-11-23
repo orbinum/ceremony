@@ -7,6 +7,7 @@ import {
   type CeremonyRefusal,
   checkUpload,
   isJobObjectKey,
+  jobKey,
   jobObjectKey,
   type JobSpec,
   jobSpecOf,
@@ -26,13 +27,33 @@ const checked = (store: Store, upload: UploadRequest) => {
   return checkUpload(setup, state, records(store), upload, queueNow(store));
 };
 
-/** Where to stream an upload: a random suffix keeps two concurrent uploads apart. */
+/**
+ * How long a started upload holds its job. Every exit releases it sooner; this only bounds one
+ * whose Worker died mid-stream. ponytail: in memory, so an evicted object forgets holds early.
+ */
+const STREAM_HOLD_MS = 15 * 60_000;
+
+/**
+ * Where to stream an upload (a random suffix keeps two uploads apart). One upload streams per job
+ * at a time: a second one is refused before its bytes move instead of after they are stored.
+ */
 export function prepareUpload(
   store: Store,
   upload: UploadRequest,
 ): { ok: true; key: string } | { ok: false; refusal: CeremonyRefusal } {
   const c = checked(store, upload);
-  return c.ok ? { ok: true, key: jobObjectKey(c.job, randomHex(8)) } : c;
+  if (!c.ok) return c;
+  const id = jobKey(c.job);
+  const now = Date.now();
+  if ((store.streaming.get(id)?.until ?? 0) > now) return refuse("busy");
+  const key = jobObjectKey(c.job, randomHex(8));
+  store.streaming.set(id, { key, until: now + STREAM_HOLD_MS });
+  return { ok: true, key };
+}
+
+/** The upload streaming to `key` ended (stored or not): its job may take another. */
+export function releaseUpload(store: Store, key: string): void {
+  for (const [id, hold] of store.streaming) if (hold.key === key) store.streaming.delete(id);
 }
 
 /** The bytes are under `key`: record the job, freeze the clock, return what to dispatch. */
@@ -41,6 +62,7 @@ export async function uploaded(
   upload: UploadRequest,
   key: string,
 ): Promise<{ ok: true; spec: JobSpec } | { ok: false; refusal: CeremonyRefusal }> {
+  releaseUpload(store, key);
   const c = checked(store, upload);
   if (!c.ok) return c;
   // Another upload of this turn already took the job.

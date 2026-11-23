@@ -5,11 +5,26 @@
 import { publicStatusOf } from "@orbinum-ceremony/core";
 import { Hono } from "hono";
 import { ceremony } from "../../durable";
-import type { AppEnv } from "../../env";
+import { type AppEnv, isLocal } from "../../env";
 import { edgeCache, fail, seqParam } from "../../http";
 import { byNetwork, rateLimit } from "../../middleware";
 
 const readLimit = rateLimit("READ_LIMIT", byNetwork);
+
+/** The network a deployment runs, by its ENVIRONMENT (one Worker and domain per network). */
+const NETWORK_OF = { production: "mainnet", testnet: "testnet", local: "local" } as const;
+
+/**
+ * `GET /api/config`: what the page needs from this deployment: its network, and the Turnstile
+ * site key (null on a local run, which needs no widget). Public by design; one client build
+ * serves every network.
+ */
+export const config = new Hono<AppEnv>().get("/", readLimit, (c) =>
+  c.json({
+    network: NETWORK_OF[c.env.ENVIRONMENT as keyof typeof NETWORK_OF] ?? null,
+    turnstileSiteKey: isLocal(c.env, c.req.url) ? null : c.env.TURNSTILE_SITE_KEY || null,
+  }),
+);
 
 /** `GET /api/status`: phase and counts, nothing about who is in the queue. */
 export const status = new Hono<AppEnv>().get("/", readLimit, edgeCache, async (c) => {

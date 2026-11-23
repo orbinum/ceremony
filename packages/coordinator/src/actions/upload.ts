@@ -55,6 +55,7 @@ export async function receiveUpload(
     });
   } catch (error) {
     await deleteQuietly(env.PRIVATE, prepared.key);
+    await stub.releaseUpload(prepared.key).catch(() => undefined);
     if (error instanceof BytesMismatch) {
       return refuse("malformed", "the body does not match its Content-Length or output hash");
     }

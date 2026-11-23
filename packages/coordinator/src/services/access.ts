@@ -63,6 +63,9 @@ async function keyFor(team: string, kid: unknown, now: number): Promise<Jwk | un
   return (await fetchKeys(team, now)).find((k) => k.kid === kid);
 }
 
+/** A service token's Client ID, as Access puts it in `common_name`. */
+const SERVICE_TOKEN = /^[0-9a-f]{32}\.access$/;
+
 const json = (part: string) => JSON.parse(fromUtf8(fromBase64url(part))) as Record<string, unknown>;
 
 /** The verified identity of an Access token (person or service token); null for anything else. */
@@ -96,9 +99,15 @@ export async function verifyAccess(
     if (!aud.includes(audience) || claims.iss !== team) return null;
     if (typeof claims.exp !== "number" || claims.exp <= seconds) return null;
     if (typeof claims.nbf === "number" && claims.nbf > seconds) return null;
-    // A person has `email`; a service token (`cli publish-init`) has `common_name`.
-    const who = claims.email ?? claims.common_name;
-    return typeof who === "string" && who.length > 0 ? who : null;
+    // A person has `email`; a service token (`cli publish-init`) has `common_name`, its Client ID.
+    // Anything else in `common_name` (a certificate's subject) is never an operator, so no other
+    // identity type can spell an allowlisted email.
+    if (claims.email !== undefined && claims.email !== null) {
+      // An email has an @: never the spelling of a service token's Client ID.
+      return typeof claims.email === "string" && claims.email.includes("@") ? claims.email : null;
+    }
+    const cn = claims.common_name;
+    return typeof cn === "string" && SERVICE_TOKEN.test(cn) ? cn : null;
   } catch {
     return null;
   }

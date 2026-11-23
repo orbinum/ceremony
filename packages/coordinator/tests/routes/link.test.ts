@@ -7,7 +7,7 @@ import { Keyring } from "@polkadot/keyring";
 import { u8aToHex } from "@polkadot/util";
 import { cryptoWaitReady, encodeAddress } from "@polkadot/util-crypto";
 import { env } from "cloudflare:workers";
-import { type LinkPayload, sr25519Message } from "@orbinum-ceremony/core";
+import { type LinkPayload, sr25519Message, ss58Address } from "@orbinum-ceremony/core";
 import { type BaseWallet, Wallet } from "ethers";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
@@ -115,7 +115,7 @@ describe("wallet link (SPEC §3.4)", () => {
     expect(await stubOf(name).linked(id2)).toBeNull();
   });
 
-  it("refuses a second wallet for an identity, and a wallet another identity holds", async () => {
+  it("replaces the wallet of an identity that has not contributed, never with another's", async () => {
     const [first, second] = [Wallet.createRandom(), Wallet.createRandom()];
     const id = nextIdentity();
     const p1 = await payloadFor(id, first.address);
@@ -126,15 +126,24 @@ describe("wallet link (SPEC §3.4)", () => {
       payload: p2,
       signature: await signEvm(second, p2),
     });
-    expect(await refusal(again)).toEqual([409, "already-linked"]);
-    expect((await stubOf(name).linked(id))?.account).toBe(first.address);
+    expect(again.status).toBe(200);
+    expect((await stubOf(name).linked(id))?.account).toBe(second.address);
+    // The released wallet may now be linked by another account; the one held stays taken.
+    const taker = nextIdentity();
+    const p4 = await payloadFor(taker, first.address);
+    const released = await linkWith(taker, {
+      scheme: "eip712",
+      payload: p4,
+      signature: await signEvm(first, p4),
+    });
+    expect(released.status).toBe(200);
 
     const thief = nextIdentity();
-    const p3 = await payloadFor(thief, first.address);
+    const p3 = await payloadFor(thief, second.address);
     const taken = await linkWith(thief, {
       scheme: "eip712",
       payload: p3,
-      signature: await signEvm(first, p3),
+      signature: await signEvm(second, p3),
     });
     expect(await refusal(taken)).toEqual([409, "wallet-taken"]);
     expect(await stubOf(name).linked(thief)).toBeNull();
@@ -238,6 +247,44 @@ describe("wallet link (SPEC §3.4)", () => {
       signature: signPolkadot(ed, "link", p2),
     });
     expect([r.status, (await json(r)).error.code]).toEqual([401, "invalid-signature"]);
+  });
+
+  it("links an ed25519 account (a Solana wallet, a Ledger) signing bare or <Bytes>", async () => {
+    const linked = await Promise.all(
+      [false, true].map(async (wrapped) => {
+        const ed = await polkadotPair("ed25519");
+        const id = nextIdentity();
+        const p = await payloadFor(id, ed.address);
+        const signature = signPolkadot(ed, "link", p, wrapped);
+        return (await linkWith(id, { scheme: "ed25519", payload: p, signature })).status;
+      }),
+    );
+    expect(linked).toEqual([200, 200]);
+    const sr = await polkadotPair("sr25519");
+    const other = nextIdentity();
+    const p2 = await payloadFor(other, sr.address);
+    const r = await linkWith(other, {
+      scheme: "ed25519",
+      payload: p2,
+      signature: signPolkadot(sr, "link", p2),
+    });
+    // An sr25519 key read as ed25519 is mostly not a prime-order point (malformed); when it is,
+    // the signature does not verify. Either way it is no ed25519 wallet.
+    expect([
+      ["400", "malformed"],
+      ["401", "invalid-signature"],
+    ]).toContainEqual([String(r.status), (await json(r)).error.code]);
+  });
+
+  it("refuses a keyless ed25519 'wallet' whose small-order key verifies any message", async () => {
+    // The identity point: R = O, S = 0 verifies under the lenient default the Worker would run.
+    const keyless = Uint8Array.from([1, ...Array<number>(31).fill(0)]);
+    const id = nextIdentity();
+    const p = await payloadFor(id, ss58Address(keyless));
+    const signature = `0x01${"00".repeat(63)}`;
+    expect(await refusal(await linkWith(id, { scheme: "ed25519", payload: p, signature }))).toEqual(
+      [400, "malformed"],
+    );
   });
 
   it("refuses an account of the other scheme, and signatures of the wrong size", async () => {

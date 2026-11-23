@@ -198,6 +198,29 @@ describe("object path spellings", () => {
 });
 
 describe("bounds before the MAC", () => {
+  it("refuses unsigned or stale headers before reading a chunked body", async () => {
+    const stale = { "x-ceremony-timestamp": "1", "x-ceremony-signature": "ab".repeat(32) };
+    for (const headers of [{}, stale]) {
+      // More than the report bound: reading it would answer 413, not 401.
+      const big = new Uint8Array(2 * MAX_LOG_CHARS + 128 * 1024);
+      const body = new ReadableStream<Uint8Array>({
+        start(c) {
+          for (let i = 0; i < big.length; i += 65_536) c.enqueue(big.subarray(i, i + 65_536));
+          c.close();
+        },
+      });
+      // oxlint-disable-next-line no-await-in-loop -- one request at a time
+      const r = await raw("/internal/verifications", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body,
+        duplex: "half",
+      } as RequestInit);
+      // oxlint-disable-next-line no-await-in-loop -- one request at a time
+      expect(await refusal(r)).toEqual([401, "unauthenticated"]);
+    }
+  });
+
   it("refuses an oversized chunked report (no Content-Length) with 413", async () => {
     const big = new TextEncoder().encode("x".repeat(2 * MAX_LOG_CHARS + 128 * 1024));
     const body = new ReadableStream<Uint8Array>({
@@ -210,13 +233,30 @@ describe("bounds before the MAC", () => {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-ceremony-timestamp": "1",
+        "x-ceremony-timestamp": String(Date.now()),
         "x-ceremony-signature": "ab".repeat(32),
       },
       body,
       duplex: "half",
     } as RequestInit);
     expect(await refusal(r)).toEqual([413, "too-large"]);
+  });
+
+  it("refuses a correctly signed but stale or future request before reading its body", async () => {
+    for (const at of [Date.now() - 61_000, Date.now() + 61_000]) {
+      const headers = signRequest(
+        env.VERIFIER_HMAC_KEY,
+        env.CEREMONY_ID,
+        "POST",
+        "/internal/verifications",
+        "{}",
+        at,
+      );
+      // oxlint-disable-next-line no-await-in-loop -- one request at a time
+      const r = await raw("/internal/verifications", { method: "POST", headers, body: "{}" });
+      // oxlint-disable-next-line no-await-in-loop -- one request at a time
+      expect(await refusal(r)).toEqual([401, "unauthenticated"]);
+    }
   });
 
   it("refuses a malformed header shape before reading the body", async () => {

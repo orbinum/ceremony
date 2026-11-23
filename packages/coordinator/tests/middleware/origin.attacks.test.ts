@@ -55,6 +55,29 @@ describe("cross-site state changes", () => {
     });
   }
 
+  it("refuses an operator route from any other origin or site, before Access is consulted", async () => {
+    const operator = { "x-ceremony-operator": "1" };
+    // Local runs skip Access, so a same-origin call reaches validation (400): the 403 is the guard.
+    const ok = await call("POST", "/admin/state", 9001, {
+      headers: { ...operator, origin: "http://localhost" },
+      body: { action: "nope" },
+    });
+    expect((await refusal(ok))[0]).toBe(400);
+    for (const headers of HOSTILE) {
+      // oxlint-disable-next-line no-await-in-loop -- one case at a time
+      const r = await call("POST", "/admin/state", 9001, {
+        headers: { ...operator, ...headers },
+        body: { action: "nope" },
+      });
+      // oxlint-disable-next-line no-await-in-loop -- one case at a time
+      expect([JSON.stringify(headers), ...(await refusal(r))]).toEqual([
+        JSON.stringify(headers),
+        403,
+        "forbidden",
+      ]);
+    }
+  });
+
   it("refuses an empty Origin when it reaches the Worker (workerd's fetch drops it in transit)", async () => {
     const direct = await appWith({}, "http://localhost/api/queue/leave", {
       method: "POST",

@@ -144,7 +144,13 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
     );
     const linked = await call("GET", "/api/link", undefined, { cookie: session });
     expect(linked.status).toBe(200);
-    expect(await json(linked)).toEqual({ linked: null });
+    // Everything a link payload names but the nonce: the session's identity and this ceremony.
+    expect(await json(linked)).toEqual({
+      ceremonyId: "local",
+      githubId: 583231,
+      login: "octocat",
+      linked: null,
+    });
   });
 
   it("refuses a callback whose state does not match the cookie (login CSRF)", async () => {
@@ -158,7 +164,9 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
   });
 
   it("gives no session to an account below the thresholds, and says why", async () => {
-    mockGithub({ ...OCTOCAT, created_at: "2026-09-30T00:00:00Z", followers: 0 });
+    // Created yesterday: after the cutoff and under 30 days old, whenever the test runs.
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+    mockGithub({ ...OCTOCAT, created_at: yesterday, followers: 0 });
     const { cookie, state } = await start();
     const r = await call("GET", `/auth/github/callback?code=c&state=${state}`, undefined, {
       cookie,
