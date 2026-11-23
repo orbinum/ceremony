@@ -1,0 +1,13 @@
+# Served with the built page by Workers static assets, which skip the Worker's own headers.
+# The page has one-click actions (leave the line, finish, sign out, create a CLI token): no other
+# site may frame it. Scripts, styles and requests stay on this origin, but for Turnstile (its
+# script and frame) and wallet logos (as each wallet announces them); snarkjs compiles wasm and starts its threads as blob: workers. No other
+# window keeps a handle on the page (COOP), and https does not rest on the zone's settings (HSTS).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com; worker-src 'self' blob:; frame-src https://challenges.cloudflare.com; connect-src 'self'; img-src 'self' data: blob: https:; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin
+  Strict-Transport-Security: max-age=15552000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
