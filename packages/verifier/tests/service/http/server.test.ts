@@ -52,7 +52,10 @@ const raw = (
   );
 
 const SHAPED = {
-  "x-ceremony-timestamp": "1700000000000",
+  // Fresh at each use: a stale timestamp is refused before anything else is looked at.
+  get "x-ceremony-timestamp"() {
+    return String(Date.now());
+  },
   "x-ceremony-signature": "ab".repeat(32),
 };
 
@@ -60,7 +63,7 @@ describe("service http", () => {
   const submitted: JobSpec[] = [];
   let healthy = true;
   const sink: JobSink = {
-    submit: (spec) => (submitted.push(spec), true),
+    submit: (spec) => (submitted.push(spec), "queued"),
     healthy: () => healthy,
   };
   let server: Server;
@@ -142,6 +145,19 @@ describe("service http", () => {
         req.flushHeaders(),
       );
       expect(res).toEqual({ status: 413, body: '{"error":"body too large"}', connection: "close" });
+    });
+
+    it("refuses a stale or future timestamp with 401 before reading the body", async () => {
+      for (const at of [Date.now() - 61_000, Date.now() + 61_000]) {
+        const headers = { ...SHAPED, "x-ceremony-timestamp": String(at) };
+        // oxlint-disable-next-line no-await-in-loop -- one request at a time
+        const res = await raw(
+          url,
+          { ...headers, "content-length": MAX_JOB_SPEC_BYTES + 1 },
+          (req) => req.flushHeaders(),
+        );
+        expect(res.status).toBe(401);
+      }
     });
 
     it("refuses an oversized chunked body with 413", async () => {

@@ -42,7 +42,7 @@ describe("verifier http under hostile requests", () => {
     submit: (spec) => {
       if (throwOnSubmit) throw new Error("sink exploded");
       submitted.push(spec);
-      return true;
+      return "queued";
     },
     healthy: () => true,
   };

@@ -100,6 +100,11 @@ interface Tweak {
   delta2Add?: Uint8Array;
   /** Added to the new entry's g2_spx. */
   g2spxAdd?: Uint8Array;
+  /**
+   * The new entry's g1_s moved off the curve (its y limb nudged, still canonical), g1_sx = -g1_s
+   * and g2_spx = -g2_sp: the proof of knowledge of secret -1 for any G1 "point".
+   */
+  g1sOffCurve?: boolean;
 }
 
 /**
@@ -153,15 +158,17 @@ async function extend(
     const xe = Fr.e(((x % R) + R) % R);
     total = Fr.mul(total, xe);
     const s = Fr.e(0x1234567n + BigInt(i) * 7919n + BigInt(prev.length));
+    const last = i === secrets.length - 1;
     const g1s = G1.toAffine(G1.timesFr(G1.g, s));
-    const g1sx = G1.toAffine(G1.timesFr(g1s, xe));
+    if (tweak.g1sOffCurve && last) g1s[32] = (g1s[32]! ^ 1) as number; // y ± 1, still < q
+    const g1sx = tweak.g1sOffCurve && last ? G1.neg(g1s) : G1.toAffine(G1.timesFr(g1s, xe));
     const t = createBlake2b512();
     t.update(csHash);
     for (const e of [...prev, ...added]) t.update(pubOf(e));
     t.update(unc1(g1s)).update(unc1(g1sx));
     const transcript = fromHex(t.digestHex());
     const g2sp = hashToG2(curve, transcript);
-    let g2spx = G2.toAffine(G2.timesFr(g2sp, xe));
+    let g2spx = tweak.g1sOffCurve && last ? G2.neg(g2sp) : G2.toAffine(G2.timesFr(g2sp, xe));
     if (tweak.g2spxAdd && i === secrets.length - 1)
       g2spx = G2.toAffine(G2.add(g2spx, tweak.g2spxAdd));
     d1 = G1.toAffine(G1.timesFr(d1, xe));
@@ -202,7 +209,27 @@ async function extend(
     f.version,
     out.toSorted((x, y) => x.type - y.type),
   );
-  return { bytes, hash: readMpcParams(bytes).entries.at(-1)!.hash };
+  return { bytes, hash: lastHash(bytes) };
+}
+
+/**
+ * h_k of the last MPC entry as snarkjs computes it (uncompressed points, no validation): the hash a
+ * client claims, even for an entry whose points core now refuses to decode.
+ */
+function lastHash(bytes: Uint8Array): string {
+  const { G1, G2 } = curve;
+  const mpc = sec(split(bytes), 10).data;
+  const [a, b] = entryRanges(mpc).at(-1)!;
+  const e = mpc.subarray(a, b);
+  const unc = (g: typeof G1, p: Uint8Array, n: number) => {
+    const out = new Uint8Array(n);
+    g.toRprUncompressed(out, 0, p);
+    return out;
+  };
+  const t = createBlake2b512();
+  for (const at of [0, 64, 128]) t.update(unc(G1, e.subarray(at, at + 64), 64));
+  t.update(unc(G2, e.subarray(192, 320), 128)).update(e.subarray(320, 384));
+  return t.digestHex();
 }
 
 /** A G2 point of order 10069 on the twist: outside the prime-order subgroup snarkjs assumes. */
@@ -350,12 +377,13 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       sec(f, 10).data = m;
       const bytes = join2(f.version, f.sections);
       const asBeacon = await bytesOf(out);
-      expect(
-        await verdictOf("shield", head3, asBeacon, readMpcParams(asBeacon).entries.at(-1)!.hash),
-      ).toMatchObject({ result: "rejected", reason: "not-a-contribution" });
-      expect(
-        await verdictOf("shield", head3, bytes, readMpcParams(bytes).entries.at(-1)!.hash),
-      ).toMatchObject({ result: "valid" });
+      expect(await verdictOf("shield", head3, asBeacon, lastHash(asBeacon))).toMatchObject({
+        result: "rejected",
+        reason: "not-a-contribution",
+      });
+      expect(await verdictOf("shield", head3, bytes, lastHash(bytes))).toMatchObject({
+        result: "valid",
+      });
     });
 
     it("rejects δ led back to the genesis δ by two chosen secrets (x, then 1/x)", async () => {
@@ -378,7 +406,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       });
       expect(await verdictOf("shield", head3, bytes, hash)).toMatchObject({
         result: "rejected",
-        reason: "zkey-verify-failed",
+        reason: "malformed", // refused by core's point checks, before zkvi,
       });
     });
 
@@ -388,7 +416,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       });
       expect(await verdictOf("shield", head3, bytes, hash)).toMatchObject({
         result: "rejected",
-        reason: "zkey-verify-failed",
+        reason: "malformed", // refused by core's point checks, before zkvi,
       });
     });
 
@@ -402,10 +430,18 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       y[0] = (y[0]! ^ 1) as number; // y ± 1 in Montgomery form: still < q, now off the curve
       mpc.set(g16.subarray(layout("shield").deltaFrom, layout("shield").deltaFrom + 64), a);
       const m = join2(f.version, f.sections);
-      expect(
-        await verdictOf("shield", head3, m, readMpcParams(m).entries.at(-1)!.hash),
-      ).toMatchObject({
+      expect(await verdictOf("shield", head3, m, lastHash(m))).toMatchObject({
         result: "rejected",
+      });
+    });
+
+    it("rejects off-curve g1_s/g1_sx with secret −1, which zkvi's pairing alone accepts", async () => {
+      const { bytes, hash } = await extend(three, layout("shield"), [R - 1n], ["offg1s"], {
+        g1sOffCurve: true,
+      });
+      expect(await verdictOf("shield", head3, bytes, hash)).toMatchObject({
+        result: "rejected",
+        reason: "malformed",
       });
     });
 
@@ -417,7 +453,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       const m = join2(f.version, f.sections);
       expect(await verdictOf("shield", head3, m, hash)).toMatchObject({
         result: "rejected",
-        reason: "zkey-verify-failed",
+        reason: "malformed", // refused by core's point checks, before zkvi,
       });
     });
 
@@ -498,7 +534,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       m[at] = (m[at]! ^ (1 + Math.floor(rand() * 255))) as number;
       let hash: string;
       try {
-        hash = readMpcParams(m).entries.at(-1)!.hash;
+        hash = lastHash(m);
       } catch {
         continue;
       }

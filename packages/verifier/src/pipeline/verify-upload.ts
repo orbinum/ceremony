@@ -72,18 +72,24 @@ async function snarkjsFailure(
   what: string,
   ms: Ms,
   files: UploadFiles,
+  copy: string,
 ): Promise<UploadVerification> {
   if (classifyVerifierError(error) === "infra") return infra(error, ms);
   try {
-    await assertOwnInputs(files);
+    await assertOwnInputs(files, copy);
   } catch (own) {
     return infra(own, ms);
   }
   return malformed(`${what}: ${errorMessage(error)}`, ms);
 }
 
-/** Our own inputs are still there and readable, right before snarkjs reopens them. */
-async function assertOwnInputs(files: UploadFiles): Promise<void> {
+/**
+ * Our own inputs are still there and readable, right before snarkjs reopens them, and so is our
+ * staged copy of the upload once it exists: losing it (a tmp cleaner, a permission change) is the
+ * host's fault, never the contributor's.
+ */
+async function assertOwnInputs(files: UploadFiles, copy?: string): Promise<void> {
+  if (copy !== undefined) await assertRegularFile(copy);
   await assertRegularFile(files.genesis);
   await assertRegularFile(files.ptau, PTAU.sizeBytes);
   if (files.r1cs !== undefined) await assertRegularFile(files.r1cs);
@@ -143,7 +149,7 @@ export async function verifyUpload(
         verifyFromInit(files.genesis, files.ptau, copy, limits),
       );
     } catch (error) {
-      return await snarkjsFailure(error, "snarkjs", ms, files);
+      return await snarkjsFailure(error, "snarkjs", ms, files, copy);
     }
 
     if (files.r1cs !== undefined) {
@@ -153,7 +159,7 @@ export async function verifyUpload(
         full = await verifyFromR1cs(files.r1cs, files.ptau, copy, limits);
       } catch (error) {
         ms.verifyFromR1cs = Math.round(performance.now() - start);
-        return await snarkjsFailure(error, "snarkjs (from r1cs)", ms, files);
+        return await snarkjsFailure(error, "snarkjs (from r1cs)", ms, files, copy);
       }
       ms.verifyFromR1cs = Math.round(performance.now() - start);
       if (full.ok !== check.ok) {
