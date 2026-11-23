@@ -89,13 +89,12 @@ export async function contributorCall(
 }
 
 /**
- * A public artifact the coordinator announced (`path`, `sha256`): fetched from the same origin
- * without the token, at most `maxBytes`, and returned only if it hashes to `sha256`.
+ * A public artifact of the coordinator (`path`): fetched from the same origin without the token,
+ * never through a redirect, at most `maxBytes`.
  */
-export async function fetchAnnounced(
+export async function fetchPublic(
   origin: string,
   path: string,
-  sha256: string,
   maxBytes: number,
 ): Promise<Uint8Array> {
   if (!isArtifactPath(path)) throw new Error("the coordinator announced an unexpected path");
@@ -105,7 +104,21 @@ export async function fetchAnnounced(
     signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`${what}: HTTP ${res.status}`);
-  const bytes = await readCapped(res, maxBytes, what);
-  if (sha256Hex(bytes) !== sha256) throw new Error(`${what}: does not match its announced hash`);
+  return readCapped(res, maxBytes, what);
+}
+
+/**
+ * A public artifact the coordinator announced (`path`, `sha256`), fetched as `fetchPublic` does
+ * and returned only if it hashes to `sha256`.
+ */
+export async function fetchAnnounced(
+  origin: string,
+  path: string,
+  sha256: string,
+  maxBytes: number,
+): Promise<Uint8Array> {
+  const bytes = await fetchPublic(origin, path, maxBytes);
+  if (sha256Hex(bytes) !== sha256)
+    throw new Error(`GET ${path}: does not match its announced hash`);
   return bytes;
 }

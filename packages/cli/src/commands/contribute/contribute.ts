@@ -2,7 +2,7 @@
  * `contribute`: a contributor's session from the command line (SPEC §4.1, §4.4). Anchors the
  * ceremony in its announced `ceremony.json`, waits for the slot and claims it, keeps it with
  * heartbeats, and for each circuit in order downloads the head (checked against the announced
- * hash and the circuit's anchored csHash), contributes in a snarkjs child process that draws the
+ * hash, the circuit's anchored csHash and the published transcript), contributes in a snarkjs child process that draws the
  * randomness itself and exits right after (no secret ever reaches this process), checks the output
  * with the very pre-checks the verifier runs, uploads it as `cli` and waits for its verdict. The
  * loop follows the queue's own rules (a rejection is retried once, `infra` and `stale` pause and
@@ -38,7 +38,9 @@ import { contribute, resolveCommit } from "../../tools";
 import type { Command } from "../types";
 import { CONTRIBUTE_USAGE, type ContributeOptions, parseContributeOptions } from "./options";
 import {
-  anchoredCsHashes,
+  type Anchors,
+  anchoredCeremony,
+  assertRecordedHead,
   claim,
   finish,
   isTransient,
@@ -171,6 +173,7 @@ interface Step {
   who: Contributor;
   circuit: CircuitName;
   csHash: string;
+  anchors: Anchors;
   seq: number;
   client: ClientInfo;
   work: string;
@@ -202,6 +205,13 @@ async function contributeTo(step: Step): Promise<Attempt> {
     if (params.csHash !== step.csHash) {
       throw new Error(`${circuit}: the head is not the announced circuit's (csHash differs)`);
     }
+    await assertRecordedHead(
+      who,
+      step.anchors,
+      circuit,
+      { entries: params.entries, sha256: inputSha256 },
+      signal,
+    );
     const inPath = join(dir, "head.zkey");
     const outPath = join(dir, "contribution.zkey");
     await writeFile(inPath, input, { mode: 0o600, flag: "wx" });
@@ -281,7 +291,6 @@ async function contributeAll(
   who: Contributor,
   seq: number,
   base: Omit<Step, "who" | "circuit" | "csHash" | "seq">,
-  csHashes: Map<CircuitName, string>,
   heart: { lost: () => Error | null },
   log: Log,
 ) {
@@ -319,7 +328,7 @@ async function contributeAll(
     const tries = (attempts.get(circuit) ?? 0) + 1;
     if (tries > MAX_ATTEMPTS) throw new Error(`${circuit}: no verdict after ${MAX_ATTEMPTS} tries`);
     attempts.set(circuit, tries);
-    const csHash = csHashes.get(circuit);
+    const csHash = base.anchors.csHashes.get(circuit);
     if (!csHash) throw new Error(`${circuit}: not a circuit of the announced ceremony`);
     log(`${circuit}: contributing`);
     // oxlint-disable-next-line no-await-in-loop -- one circuit after the other (SPEC §4.1)
@@ -355,7 +364,7 @@ export async function runContribute(
   const who: Contributor = { origin: options.coordinator, token: options.token };
   assertTokenLife(options.token, false);
   const client = options.client ?? (await thisClient());
-  const csHashes = await anchoredCsHashes(who, options.announcementSha256);
+  const anchors = await anchoredCeremony(who, options.announcementSha256);
   if (options.work !== undefined) await ensureDir(options.work);
   const work = await mkdtemp(join(options.work ?? tmpdir(), "orbinum-contribute-"));
   let heart: ReturnType<typeof keepAlive> | undefined;
@@ -366,7 +375,7 @@ export async function runContribute(
     const slot = await takeSlot(who, log, signal);
     seq = slot.seq;
     heart = keepAlive(who);
-    const run = await contributeAll(who, seq, { client, work, signal }, csHashes, heart, log);
+    const run = await contributeAll(who, seq, { client, anchors, work, signal }, heart, log);
     result = { contributions: run.contributions, earlier: slot.earlier + run.earlier };
   } catch (error) {
     failure = error;

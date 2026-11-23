@@ -124,6 +124,25 @@ describe("the announced release in the verifier's clone", () => {
     );
   });
 
+  it("refuses every spelling of .git that git itself refuses, in any tree it exports", async () => {
+    const blob = execFileSync("git", ["-C", repo, "hash-object", "-w", "--stdin"], {
+      input: "[core]\n",
+      encoding: "utf8",
+    }).trim();
+    for (const name of [".GIT", ".g\u200Cit", "\uFEFF.git", ".git.", ".git ", "GIT~1"]) {
+      // Built with plumbing: a porcelain `git add` refuses these names on its own.
+      const tree = execFileSync("git", ["-C", repo, "mktree"], {
+        input: `100644 blob ${blob}\t${name}\n`,
+        encoding: "utf8",
+      }).trim();
+      const commit = git(repo, "commit-tree", tree, "-m", "hostile");
+      // oxlint-disable-next-line no-await-in-loop -- one tree at a time
+      await expect(
+        exportTree(repo, commit, join(work, `export-${encodeURIComponent(name)}`)),
+      ).rejects.toThrow(/is not exported/);
+    }
+  });
+
   it("never runs the clone's filter or textconv drivers, and exports the committed bytes", async () => {
     // The worktree is dirty (unaudited content) and every path is filtered; the export is the tag.
     await writeFile(join(repo, "circuits", "shield.circom"), "dirty worktree\n");

@@ -2,16 +2,25 @@
  * `contribute` against a coordinator played by a local server: an honest session end to end
  * (real snarkjs on a real shield genesis), and a coordinator that lies, falters or is interrupted.
  * The session must always be ended, nothing it says may become a path or terminal text, and a
- * head that is not the announced circuit's is never contributed to.
+ * head that is not the announced circuit's, or not the end of its published chain, is never
+ * contributed to.
  */
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  appendRecord,
+  buildContributionRecord,
   CEREMONY_LAYOUT,
+  chainGenesis,
+  LOCAL_VERIFIER,
+  parseAnnouncement,
   precheckUpload,
   readMpcParams,
   sha256Hex,
   genesisLayoutOf,
+  TOOLING,
+  type Transcript,
+  transcriptOf,
 } from "@orbinum-ceremony/core";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { runContribute } from "../../../src/api";
@@ -21,6 +30,7 @@ import {
   PTAU_PATH,
   rejection,
   shieldOnlyCeremony,
+  T_ROUND,
   type TestCeremony,
 } from "../../support";
 
@@ -55,6 +65,8 @@ interface Script {
   dropUploadAnswer?: boolean;
   /** `/api/queue/me` refuses the token. */
   refuseToken?: boolean;
+  /** The published transcript (default: no contribution yet); null when it is not published. */
+  transcript?: Transcript | null;
 }
 
 let ceremony: TestCeremony;
@@ -72,10 +84,51 @@ afterEach(async () => {
   servers = [];
 });
 
+/** The transcript of this ceremony with `count` accepted shield contributions (random h_k). */
+async function transcriptWith(count: number): Promise<Transcript> {
+  const announcement = parseAnnouncement(
+    await readFile(join(ceremony.dir, CEREMONY_LAYOUT.announcement), "utf8"),
+  );
+  const genesisChain = chainGenesis(announcement.ceremony_id, announcement);
+  const records: Transcript["records"] = [];
+  let input = sha256Hex(genesis);
+  for (let index = 1; index <= count; index++) {
+    const output = sha256Hex(Buffer.from(`output ${index}`));
+    const h = sha256Hex(Buffer.from(`h ${index}`)).repeat(2);
+    const record = buildContributionRecord({
+      ceremonyId: announcement.ceremony_id,
+      seq: index,
+      circuit: "shield",
+      index,
+      claimed: {
+        inputSha256: input,
+        outputSha256: output,
+        contributionHash: h,
+        method: "cli",
+        client: CLIENT,
+      },
+      verified: {
+        contributionHash: h,
+        zkeyName: String(index),
+        deltaAfter: h,
+        logSha256: output,
+        verifierVersion: LOCAL_VERIFIER,
+        snarkjsVersion: TOOLING.snarkjs,
+      },
+      contributor: null,
+      at: new Date(T_ROUND - 30 * 60_000).toISOString(),
+    });
+    records.push(appendRecord(records, genesisChain, record));
+    input = output;
+  }
+  return transcriptOf(announcement.ceremony_id, ceremony.announcementSha256, records);
+}
+
 /** A coordinator for one session of seq 7, contributing to shield only. */
 async function coordinator(script: Script = {}) {
   const file = (key: string) => readFile(join(ceremony.dir, key));
   const head = script.head ?? genesis;
+  const transcript = script.transcript === undefined ? await transcriptWith(0) : script.transcript;
   let polls = 0;
   let claimed = false;
   let accepted = false;
@@ -88,6 +141,8 @@ async function coordinator(script: Script = {}) {
     "/artifacts/genesis/init.json": (_q, res) =>
       void file(CEREMONY_LAYOUT.init).then((b) => res.end(b)),
     "/artifacts/genesis/shield.genesis.zkey": (_q, res) => res.end(head),
+    "/artifacts/transcript.json": (_q, res) =>
+      transcript ? json(res, 200, transcript) : res.writeHead(404).end(),
     "/api/queue/me": (_q, res) => {
       polls += 1;
       if (script.refuseToken) return json(res, 401, { error: { code: "unauthenticated" } });
@@ -216,6 +271,44 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
     expect(error.message).toMatch(/not the announced circuit/);
     expect(c.uploaded()).toBeUndefined();
     expect(c.finished()).toBe(1);
+  });
+
+  it("never contributes to a head with the recorded contributions but other bytes", async () => {
+    // The MPC section untouched, a point of the key changed: not the key the transcript pins.
+    const head = genesis.slice();
+    const at = Math.floor(head.length / 2);
+    head[at] = (head[at] as number) ^ 1;
+    const c = await coordinator({ head });
+    const error = await rejection(runContribute(c.options, quiet));
+    expect(error.message).toMatch(/shield: refusing the head, which is not the key the transcript/);
+    expect(c.uploaded()).toBeUndefined();
+    expect(c.finished()).toBe(1);
+  });
+
+  it("never contributes to a stale head, one the published transcript has moved past", async () => {
+    const c = await coordinator({ transcript: await transcriptWith(1) });
+    const error = await rejection(runContribute(c.options, quiet));
+    expect(error.message).toMatch(/shield: refusing the head, which is stale: 0 contributions/);
+    expect(c.uploaded()).toBeUndefined();
+    expect(c.finished()).toBe(1);
+  });
+
+  it("fails closed when the published transcript is missing or does not check", async () => {
+    const missing = await coordinator({ transcript: null });
+    expect((await rejection(runContribute(missing.options, quiet))).message).toMatch(
+      /shield: cannot check the head: GET \/artifacts\/transcript.json: HTTP 404/,
+    );
+    expect(missing.uploaded()).toBeUndefined();
+    const foreign = {
+      ...(await transcriptWith(0)),
+      anchor: { file: "ceremony.json" as const, sha256: "00".repeat(32) },
+    };
+    const unanchored = await coordinator({ transcript: foreign });
+    expect((await rejection(runContribute(unanchored.options, quiet))).message).toMatch(
+      /cannot check the head: the published transcript fails: transcript is anchored/,
+    );
+    expect(unanchored.uploaded()).toBeUndefined();
+    expect(unanchored.finished()).toBe(1);
   });
 
   it("refuses a coordinator whose ceremony.json is not the announced one", async () => {

@@ -249,6 +249,36 @@ describe("download against a hostile mirror", () => {
     expect((await readdir(out)).filter((f) => f !== ".local")).toEqual([]);
   });
 
+  it("refuses a redirect from a loopback http mirror to plain http elsewhere, fetching nothing there", async () => {
+    const c = await syntheticCeremony({ network: "testnet" });
+    const real = await serve(c.dir);
+    const elsewhere = new URL(real.url);
+    // Same server, reached through a name that is not loopback: the hop must never be made.
+    elsewhere.hostname = "ceremony-mirror.invalid";
+    const s = await localServer({
+      "*": (req, res) =>
+        res.writeHead(302, { location: `${elsewhere.origin}${req.url ?? "/"}` }).end(),
+    });
+    cleanup.push(() => s.close());
+    const out = await fresh();
+    const error = await rejection(download(c, s.url, out));
+    expect(error.message).toMatch(/redirected from plain http to neither https nor loopback/);
+    expect(real.requests).toEqual([]);
+    expect((await readdir(out)).filter((f) => f !== ".local")).toEqual([]);
+  });
+
+  it("follows a redirect from a loopback http mirror to another loopback spelling", async () => {
+    const c = await syntheticCeremony({ network: "testnet" });
+    const real = await serve(c.dir);
+    const other = new URL(real.url);
+    other.hostname = "localhost";
+    const s = await localServer({
+      "*": (req, res) => res.writeHead(302, { location: `${other.origin}${req.url ?? "/"}` }).end(),
+    });
+    cleanup.push(() => s.close());
+    expect(await download(c, s.url, await fresh())).toBe(11);
+  });
+
   it("refuses a redirect loop", async () => {
     const c = await syntheticCeremony({ network: "testnet" });
     const s = await localServer({

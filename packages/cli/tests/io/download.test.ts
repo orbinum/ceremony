@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/prom
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { downloadFirst } from "../../src/io";
+import { downloadFirst, redirectRefusal } from "../../src/io";
 import { localServer } from "../support/http";
 
 let dir: string;
@@ -53,5 +53,60 @@ describe("downloads from mirrors", () => {
     await downloadFirst([`${server.url}/file`], join(dir, "c"), 1000);
     expect(await readFile(target, "utf8")).toBe("untouched");
     expect(await readFile(join(dir, "c"), "utf8")).toBe("content");
+  });
+});
+
+const hop = (from: string, to: string) => redirectRefusal(new URL(from), new URL(to));
+
+describe("redirect hops", () => {
+  it("keeps https on https, and off internal hosts named by IP literal or localhost", () => {
+    expect(hop("https://mirror.example/a", "https://cdn.example/a")).toBeNull();
+    expect(hop("https://mirror.example/a", "https://8.8.8.8/a")).toBeNull();
+    expect(hop("https://mirror.example/a", "https://[2001:db8::1]/a")).toBeNull();
+    expect(hop("https://mirror.example/a", "http://cdn.example/a")).toBe(
+      "redirected from https to plain http",
+    );
+    for (const host of [
+      "10.1.2.3",
+      "172.16.0.1",
+      "172.31.255.255",
+      "192.168.1.1",
+      "127.0.0.1",
+      "127.1",
+      "0x7f000001",
+      "169.254.169.254",
+      "0.0.0.0",
+      "[::1]",
+      "[::]",
+      "[fc00::1]",
+      "[fd12:3456::1]",
+      "[fe80::1]",
+      "[::ffff:127.0.0.1]",
+      "[::ffff:10.0.0.1]",
+      "localhost",
+      "localhost.",
+      "api.localhost",
+    ]) {
+      expect([host, hop("https://mirror.example/a", `https://${host}/a`)]).toEqual([
+        host,
+        "redirected from https to an internal host",
+      ]);
+    }
+    // Just outside the private ranges.
+    expect(hop("https://mirror.example/a", "https://172.32.0.1/a")).toBeNull();
+    expect(hop("https://mirror.example/a", "https://[fec0::1]/a")).toBeNull();
+  });
+
+  it("lets a loopback http mirror go to https or stay on loopback, nowhere else", () => {
+    expect(hop("http://127.0.0.1:8080/a", "https://mirror.example/a")).toBeNull();
+    for (const host of ["127.0.0.1:9", "localhost:9", "[::1]:9"]) {
+      expect([host, hop("http://127.0.0.1:8080/a", `http://${host}/a`)]).toEqual([host, null]);
+    }
+    for (const to of ["http://mirror.example/a", "http://10.0.0.1/a", "file:///etc/passwd"]) {
+      expect([to, hop("http://localhost:8080/a", to)]).toEqual([
+        to,
+        "redirected from plain http to neither https nor loopback",
+      ]);
+    }
   });
 });
