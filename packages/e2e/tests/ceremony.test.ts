@@ -346,10 +346,16 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
       "contribution",
       "attestation",
     ]);
-    for (const key of ["contributions/shield/99.zkey", "..%2F..%2Fwrangler.jsonc", "%2e%2e/x"]) {
+    for (const key of ["contributions/shield/99.zkey", "..%2F..%2Fwrangler.jsonc"]) {
       // oxlint-disable-next-line no-await-in-loop -- a few keys
       expect((await fetch(`${base}/artifacts/${key}`)).status).toBe(404);
     }
+    // Dot segments leave /artifacts in the URL itself (`/x`): that path is the page, never a file.
+    const out = await fetch(`${base}/artifacts/%2e%2e/x`);
+    expect([out.status, out.headers.get("content-type")]).toEqual([
+      200,
+      "text/html; charset=utf-8",
+    ]);
   });
 
   it("publishes final heads that stock snarkjs verifies against the genesis", async () => {

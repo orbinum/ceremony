@@ -6,6 +6,7 @@
   "author": "Orbinum Technologies <contact@orbinum.net>",
   "type": "module",
   "scripts": {
+    "stack": "tsx scripts/stack.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },
