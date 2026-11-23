@@ -1,0 +1,11 @@
+# Build context of packages/verifier/Dockerfile (the repository root): only what it copies.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!packages/*/package.json
+!packages/core/tsconfig.json
+!packages/core/src/
+!packages/verifier/tsconfig.json
+!packages/verifier/src/

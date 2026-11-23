@@ -81,10 +81,13 @@ The service the coordinator dispatches uploads to. Configuration by environment:
 | `HOST`, `PORT`      | Listen address (default `127.0.0.1:8788`)                                                                                                        |
 | `LOG_DIR`           | one record per attempt (job, verdict, timings, snarkjs log, report delivery; default `<CEREMONY_DIR>/logs`); created and write-probed at startup |
 | `VERIFY_TIMEOUT_MS` | snarkjs time limit per upload, below the coordinator's 5-min deadline (default 270000)                                                           |
+| `INIT_SHA256`       | Set: the inputs are mirrored from `COORDINATOR_URL`'s `/artifacts` at startup, init.json must hash to it (the container)                         |
 
 ```bash
 pnpm --filter @orbinum-ceremony/verifier start
 ```
+
+On testnet and mainnet it runs as a **Cloudflare Container** (`packages/verifier/Dockerfile`), started on demand by the coordinator's `VerifierContainer` Durable Object, which passes `COORDINATOR_URL`, `VERIFIER_HMAC_KEY` and the setup's `INIT_SHA256`; `wrangler deploy` builds and pushes the image (Docker needed). Nothing to host: no VPS, Tunnel or Access application. `VERIFIER_URL` still points a coordinator at a verifier run elsewhere (a VPS, or a local process as in the e2e tests).
 
 ## Running a ceremony locally
 
@@ -159,4 +162,4 @@ Each network's ceremony is its own deployment of the coordinator (which serves t
 
 A run fails before deploying when the tag is not signed by the release key, not on `main`, not the version of every `package.json`, has no CHANGELOG section, its commit's CI did not pass on `main`, or (mainnet) testnet never shipped it. A failed run is retried with "Re-run failed jobs".
 
-Secrets: `RELEASE_GPG_PUBLIC_KEY` (the release key's public part); `CLOUDFLARE_API_TOKEN` (Workers Scripts edit, on this account) and `CLOUDFLARE_ACCOUNT_ID` in the GitHub environments `testnet` and `mainnet` (required reviewers on `mainnet`); `CIRCUITS_READ_TOKEN` for CI (a fine-grained token limited to `orbinum/circuits`, Contents read-only; the organisation disables deploy keys). The Worker's own secrets (`SESSION_KEY`, `VERIFIER_HMAC_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`, optional `VERIFIER_ACCESS_CLIENT_ID`/`_SECRET`) are set once per network with `wrangler secret put <NAME> --env <network>`; a deploy is refused while one is missing. Mainnet is not live yet: `env.mainnet` in `wrangler.jsonc` needs its empty values filled (OAuth app, Access, verifier, Turnstile site key), its first deploy by hand (`wrangler deploy --env mainnet --secrets-file …`, a new Worker cannot inherit secrets) and "Soon" removed from the client's network selector.
+Secrets: `RELEASE_GPG_PUBLIC_KEY` (the release key's public part); `CLOUDFLARE_API_TOKEN` (Workers Scripts edit and Containers edit, on this account) and `CLOUDFLARE_ACCOUNT_ID` in the GitHub environments `testnet` and `mainnet` (required reviewers on `mainnet`); `CIRCUITS_READ_TOKEN` for CI (a fine-grained token limited to `orbinum/circuits`, Contents read-only; the organisation disables deploy keys). The Worker's own secrets (`SESSION_KEY`, `VERIFIER_HMAC_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`, optional `VERIFIER_ACCESS_CLIENT_ID`/`_SECRET`) are set once per network with `wrangler secret put <NAME> --env <network>`; a deploy is refused while one is missing. Mainnet is not live yet: `env.mainnet` in `wrangler.jsonc` needs its empty values filled (OAuth app, Access, verifier, Turnstile site key), its first deploy by hand (`wrangler deploy --env mainnet --secrets-file …`, a new Worker cannot inherit secrets) and "Soon" removed from the client's network selector.

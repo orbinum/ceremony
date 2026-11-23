@@ -1,0 +1,106 @@
+/**
+ * The verifier as a Cloudflare Container (COORDINATOR §5), one per ceremony, driven by this
+ * Durable Object. A dispatched job is kept here and handed over from an alarm: the alarm starts
+ * the container when it is not running (it mirrors the published inputs and checks their pins,
+ * about a minute), waits until `/healthz` answers, then posts every job still worth running,
+ * signed as any dispatch. The container reports to the coordinator's public `/internal` routes.
+ * A failed alarm is retried by the platform; a job the coordinator has given up on is dropped.
+ */
+import { DurableObject } from "cloudflare:workers";
+import { type JobSpec, jobKey } from "@orbinum-ceremony/core";
+import { ceremony } from "../durable";
+import { postJob } from "../services";
+
+/** The port `packages/verifier/Dockerfile` listens on. */
+const PORT = 8788;
+/** 2 vCPU / 8 GiB: `transfer` needs ~700 MB and a few CPU-bound minutes at most. */
+const INSTANCE = "standard-3";
+/** Startup mirrors ~100 MB and hashes it, then runs one snarkjs task. */
+const BOOT_MS = 5 * 60_000;
+/** Kept warm between turns; a cold start eats into the next job's deadline. */
+const IDLE_MS = 30 * 60_000;
+/** Past the verify deadline, the coordinator has already counted the job as `infra`. */
+const STALE_MS = 6 * 60_000;
+
+interface Queued {
+  spec: JobSpec;
+  at: number;
+}
+
+export class VerifierContainer extends DurableObject<Env> {
+  /** Keeps the job and wakes the alarm; returns at once (the caller is the upload's waitUntil). */
+  async enqueue(spec: JobSpec): Promise<void> {
+    const queued: Queued = { spec, at: Date.now() };
+    await this.ctx.storage.put(`job:${jobKey(spec.job)}`, queued);
+    await this.ctx.storage.setAlarm(Date.now());
+  }
+
+  override async alarm(): Promise<void> {
+    const jobs = await this.ctx.storage.list<Queued>({ prefix: "job:" });
+    if (jobs.size === 0) return;
+    const port = await this.ready();
+    for (const [key, { spec, at }] of jobs) {
+      if (Date.now() - at < STALE_MS) {
+        // oxlint-disable-next-line no-await-in-loop -- jobs go in order
+        const status = await postJob(
+          this.env,
+          (u, i) => port.fetch(u, i),
+          "http://container",
+          spec,
+        );
+        // A refusal is the verifier's answer, not a fault to retry.
+        if (status !== 202) console.error(`verifier container answered ${status}`);
+      }
+      // oxlint-disable-next-line no-await-in-loop
+      await this.ctx.storage.delete(key);
+    }
+  }
+
+  /** The running container on the current image, answering `/healthz`. */
+  private async ready(): Promise<Fetcher> {
+    const container = this.ctx.container;
+    if (!container) throw new Error("no container is configured for VerifierContainer");
+    const image = container.images.verifier;
+    if (!image) throw new Error("the verifier image is not configured");
+    // A deploy brings a new image: a container still on the old one is replaced (the coordinator
+    // and the verifier must run the same version).
+    // ponytail: a job in flight on the old image is lost to `infra`; deploys happen between turns.
+    if (container.running && (await container.inspect())?.image !== image) {
+      await container.destroy();
+    }
+    if (!container.running) {
+      const setup = await ceremony(this.env).setup();
+      if (!setup) throw new Error("no ceremony is configured");
+      container.start({
+        image,
+        instance: INSTANCE,
+        enableInternet: true,
+        env: {
+          COORDINATOR_URL: this.env.COORDINATOR_URL,
+          VERIFIER_HMAC_KEY: this.env.VERIFIER_HMAC_KEY,
+          INIT_SHA256: setup.announcement.init_sha256,
+        },
+      });
+    }
+    await container.setInactivityTimeout(IDLE_MS);
+    const port = container.getTcpPort(PORT);
+    const until = Date.now() + BOOT_MS;
+    for (;;) {
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- polled until it answers
+        const health = await port.fetch("http://container/healthz", {
+          signal: AbortSignal.timeout(2_000),
+        });
+        // oxlint-disable-next-line no-await-in-loop
+        await health.body?.cancel();
+        if (health.ok) return port;
+      } catch {
+        // Not listening yet.
+      }
+      if (!container.running) throw new Error("the verifier container exited while starting");
+      if (Date.now() > until) throw new Error("the verifier container did not become healthy");
+      // oxlint-disable-next-line no-await-in-loop
+      await new Promise((done) => setTimeout(done, 1_000));
+    }
+  }
+}

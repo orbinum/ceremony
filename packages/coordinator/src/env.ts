@@ -103,6 +103,16 @@ export function configProblems(env: Env): string[] {
   if (env.VERIFIER_URL && !isVerifierUrl(env.VERIFIER_URL)) {
     problems.push("VERIFIER_URL must be https (plain http only on a loopback host)");
   }
+  // The container fetches the inputs and reports there: this deployment's own https origin.
+  if (
+    !env.VERIFIER_URL &&
+    env.VERIFIER_CONTAINER &&
+    !/^https:\/\/[a-z0-9.-]+$/.test(env.COORDINATOR_URL)
+  ) {
+    problems.push(
+      "COORDINATOR_URL must be this deployment's https origin (the verifier container)",
+    );
+  }
   if (!env.VERIFIER_ACCESS_CLIENT_ID !== !env.VERIFIER_ACCESS_CLIENT_SECRET) {
     problems.push("VERIFIER_ACCESS_CLIENT_ID and VERIFIER_ACCESS_CLIENT_SECRET go together");
   }

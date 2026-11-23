@@ -1,6 +1,6 @@
 {
   "name": "@orbinum-ceremony/cli",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Operator, contributor and public-verification commands",
   "author": "Orbinum Technologies <contact@orbinum.net>",

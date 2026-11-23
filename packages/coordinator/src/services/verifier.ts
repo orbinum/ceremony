@@ -1,8 +1,10 @@
 /**
- * Hands a job to the verifier (`POST <VERIFIER_URL>/verify`, HMAC bound to this ceremony, expects
- * 202), with the Access service token of its Tunnel when one is set (KL-45). A redirect is never
- * followed (`manual`; workerd has no `error` mode) and counts as a failure. A failed dispatch is
- * only logged: the verify deadline turns the silence into `infra`. COORDINATOR §5.
+ * Hands a job to the verifier, signed for this ceremony (HMAC), expecting 202. Two ways:
+ * `VERIFIER_URL` (`POST <url>/verify`, with the Access service token of its Tunnel when one is set,
+ * KL-45), or else the `VERIFIER_CONTAINER` Durable Object, which starts the container and posts it
+ * there. A redirect is never followed (`manual`; workerd has no `error` mode) and counts as a
+ * failure. A failed dispatch is only logged: the verify deadline turns the silence into `infra`.
+ * COORDINATOR §5.
  */
 import { type JobSpec, signedRequestInit, VERIFIER_PATHS } from "@orbinum-ceremony/core";
 
@@ -16,30 +18,43 @@ function accessHeaders(env: Env, url: URL): Record<string, string> {
   return { "cf-access-client-id": id, "cf-access-client-secret": secret };
 }
 
+/** Posts `spec` to `<base>/verify` through `send`, signed; the verifier's status. Throws on I/O. */
+export async function postJob(
+  env: Env,
+  send: (url: URL, init: RequestInit) => Promise<Response>,
+  base: string,
+  spec: JobSpec,
+): Promise<number> {
+  const url = new URL(VERIFIER_PATHS.verify, base);
+  const body = JSON.stringify(spec);
+  const init = signedRequestInit(
+    env.VERIFIER_HMAC_KEY,
+    env.CEREMONY_ID,
+    "POST",
+    url,
+    body,
+    Date.now(),
+  );
+  const response = await send(url, {
+    ...init,
+    headers: { ...(init.headers as Record<string, string>), ...accessHeaders(env, url) },
+    redirect: "manual",
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  // Nothing in the answer is read: release it.
+  await response.body?.cancel();
+  return response.status;
+}
+
 /** Dispatches `spec`; never throws. */
 export async function dispatch(env: Env, spec: JobSpec): Promise<void> {
-  if (!env.VERIFIER_URL) return;
   try {
-    const url = new URL(VERIFIER_PATHS.verify, env.VERIFIER_URL);
-    const body = JSON.stringify(spec);
-    const init = signedRequestInit(
-      env.VERIFIER_HMAC_KEY,
-      env.CEREMONY_ID,
-      "POST",
-      url,
-      body,
-      Date.now(),
-    );
-    const response = await fetch(url, {
-      ...init,
-      headers: { ...(init.headers as Record<string, string>), ...accessHeaders(env, url) },
-      redirect: "manual",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    // Nothing in the answer is read: release it.
-    await response.body?.cancel();
-    if (response.status !== 202)
-      console.error(`dispatch: the verifier answered ${response.status}`);
+    if (env.VERIFIER_URL) {
+      const status = await postJob(env, (u, i) => fetch(u, i), env.VERIFIER_URL, spec);
+      if (status !== 202) console.error(`dispatch: the verifier answered ${status}`);
+    } else if (env.VERIFIER_CONTAINER) {
+      await env.VERIFIER_CONTAINER.getByName(env.CEREMONY_ID).enqueue(spec);
+    }
   } catch (error) {
     console.error("dispatch:", error);
   }
