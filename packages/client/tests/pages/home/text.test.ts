@@ -1,7 +1,7 @@
 import { QUEUE_RULES } from "@orbinum-ceremony/core";
 import { describe, expect, it } from "vitest";
 import { ApiError, signInOutcomeOf } from "../../../src/api";
-import { errorText, signInText } from "../../../src/pages/home/text";
+import { errorText, NOT_ANNOUNCED, signInText } from "../../../src/pages/home/text";
 
 describe("errorText", () => {
   it("says what a contributor can do about a refusal, with the queue's own numbers", () => {
@@ -17,6 +17,11 @@ describe("errorText", () => {
 });
 
 describe("signInText", () => {
+  it("says the ceremony is not announced yet rather than a failure", () => {
+    expect(signInText({ auth: "error", reason: "not-configured" })).toBe(NOT_ANNOUNCED);
+    expect(signInText({ auth: "error", reason: "github" })).toMatch(/failed/);
+  });
+
   it("says nothing on success and lists every ineligibility reason", () => {
     expect(signInText({ auth: "ok" })).toBeNull();
     expect(
