@@ -58,6 +58,14 @@ function isVerifierUrl(value: string): boolean {
   }
 }
 
+const isLoopbackOrigin = (origin: string): boolean => {
+  try {
+    return LOOPBACK_HOSTS.includes(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+};
+
 /**
  * What makes this configuration unusable, by setting name (never a value); empty when it is
  * usable. An empty `VERIFIER_URL` is allowed: nothing is dispatched (KL-30).
@@ -88,6 +96,15 @@ export function configProblems(env: Env): string[] {
   // What the deployment is decides local privileges and which network it may run: no other value.
   if (!(ENVIRONMENTS as readonly string[]).includes(env.ENVIRONMENT)) {
     problems.push(`ENVIRONMENT must be one of ${ENVIRONMENTS.join(", ")}`);
+  }
+  // A deployment names its public origin; `local` there (an override) would let it freeze an
+  // announcement of any network. A local run has none, or a loopback one.
+  if (
+    env.ENVIRONMENT === "local" &&
+    env.COORDINATOR_URL &&
+    !isLoopbackOrigin(env.COORDINATOR_URL)
+  ) {
+    problems.push("ENVIRONMENT local is for a local run: COORDINATOR_URL names a public origin");
   }
   const seconds = env.PUBLIC_CACHE_SECONDS;
   if (!/^[0-9]{1,3}$/.test(seconds ?? "") || Number(seconds) > MAX_PUBLIC_CACHE_SECONDS) {

@@ -9,7 +9,9 @@ import type { R1csHeader } from "./header";
 /**
  * Groth16 evaluation domain snarkjs needs: next power of two ≥ constraints + public signals + 1.
  */
-export function domainPower(h: R1csHeader): number {
+export function domainPower(
+  h: Pick<R1csHeader, "constraints" | "publicOutputs" | "publicInputs">,
+): number {
   return Math.ceil(Math.log2(h.constraints + h.publicOutputs + h.publicInputs + 1));
 }
 

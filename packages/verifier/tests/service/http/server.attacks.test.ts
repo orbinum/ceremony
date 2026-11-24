@@ -71,6 +71,7 @@ describe("verifier http under hostile requests", () => {
       `POST ${path} HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\n` +
       `x-ceremony-timestamp: ${h["x-ceremony-timestamp"]}\r\n` +
       `x-ceremony-signature: ${h["x-ceremony-signature"]}\r\n` +
+      `x-ceremony-body-sha256: ${h["x-ceremony-body-sha256"]}\r\n` +
       `Content-Length: ${Buffer.byteLength(body)}\r\nConnection: close\r\n${extra}\r\n${body}`
     );
   };

@@ -97,7 +97,9 @@ async function contributeTo(
 }
 
 /**
- * Contributes to every circuit the turn `seq` still offers; returns this run's accepted ones.
+ * Contributes to every circuit the turn `seq` still offers; returns this run's accepted ones. An
+ * upload of an earlier run that is accepted meanwhile is only reported (`accepted`): its hashes are
+ * not known here.
  * Throws if the turn is lost or a check fails (nothing more is uploaded then).
  */
 export async function contributeAll(
@@ -118,7 +120,9 @@ export async function contributeAll(
     const pending = view.slot.circuits.find((c) => c.status === "verifying");
     if (pending) {
       // oxlint-disable-next-line no-await-in-loop -- one verdict at a time
-      await settled(deps, pending.circuit, seq, null);
+      const verdict = await settled(deps, pending.circuit, seq, null);
+      // Accepted, but uploaded before this run: reported so the caller signs it by name.
+      if (verdict.status === "valid") report({ circuit: pending.circuit, stage: "accepted" });
       continue;
     }
     const next = view.slot.circuits.find((c) => c.status === "todo");

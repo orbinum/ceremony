@@ -37,9 +37,14 @@ export class VerifierContainer extends DurableObject<Env> {
 
   override async alarm(): Promise<void> {
     const jobs = await this.ctx.storage.list<Queued>({ prefix: "job:" });
-    if (jobs.size === 0) return;
+    // A job past its deadline is already `infra` on the coordinator: dropped without a start.
+    const stale = [...jobs].filter(([, { at }]) => Date.now() - at >= STALE_MS).map(([k]) => k);
+    if (stale.length > 0) await this.ctx.storage.delete(stale);
+    const fresh = [...jobs].filter(([key]) => !stale.includes(key));
+    if (fresh.length === 0) return;
     const port = await this.ready();
-    for (const [key, { spec, at }] of jobs) {
+    for (const [key, { spec, at }] of fresh) {
+      // A start can take minutes: a job that went stale meanwhile is not posted either.
       if (Date.now() - at < STALE_MS) {
         // oxlint-disable-next-line no-await-in-loop -- jobs go in order
         const status = await postJob(
@@ -98,7 +103,12 @@ export class VerifierContainer extends DurableObject<Env> {
         // Not listening yet.
       }
       if (!container.running) throw new Error("the verifier container exited while starting");
-      if (Date.now() > until) throw new Error("the verifier container did not become healthy");
+      if (Date.now() > until) {
+        // Unhealthy (pins failed, or wedged): the platform's retry of this alarm starts afresh.
+        // oxlint-disable-next-line no-await-in-loop -- leaves the loop by the throw below
+        await container.destroy();
+        throw new Error("the verifier container did not become healthy");
+      }
       // oxlint-disable-next-line no-await-in-loop
       await new Promise((done) => setTimeout(done, 1_000));
     }

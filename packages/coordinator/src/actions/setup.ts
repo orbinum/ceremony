@@ -10,11 +10,14 @@ import {
   finalFiles,
   type InitRecord,
   isFinalFileKey,
+  MAX_DOCUMENT_BYTES,
+  parseAnnouncement,
   parseInit,
   parseSetup,
   type Setup,
   type SetupInput,
   setupCircuitOf,
+  fromUtf8,
   sha256Hex,
   utf8,
 } from "@orbinum-ceremony/core";
@@ -42,6 +45,10 @@ async function circuitFileRefusal(env: Env, key: string): Promise<Result<never> 
   if (circuit === null) return null;
   const object = await getObject(env.PUBLIC, CEREMONY_LAYOUT.init);
   if (!object) return refuse("invalid-transition", `publish ${CEREMONY_LAYOUT.init} first`);
+  if (object.size > MAX_DOCUMENT_BYTES) {
+    await object.body.cancel();
+    return refuse("malformed", `the published ${CEREMONY_LAYOUT.init} is not valid`);
+  }
   let init: InitRecord;
   try {
     init = parseInit(await object.text());
@@ -85,6 +92,43 @@ async function writeRefusal(env: Env, key: string, sha256: string): Promise<Resu
   return null;
 }
 
+/** The setup documents, parsed before they are published: one that does not parse never freezes. */
+const DOCUMENTS: Record<string, (text: string) => unknown> = {
+  [CEREMONY_LAYOUT.announcement]: parseAnnouncement,
+  [CEREMONY_LAYOUT.init]: parseInit,
+};
+
+/**
+ * A setup document's body, read whole (it is small) and parsed: the stream to store, or why not.
+ * A file that is not a document passes through.
+ */
+async function documentBody(
+  input: PublicFileInput,
+): Promise<Result<never> | ReadableStream<Uint8Array>> {
+  const parse = DOCUMENTS[input.key];
+  if (!parse) return input.body;
+  if (input.size > MAX_DOCUMENT_BYTES) {
+    await input.body.cancel();
+    return refuse("malformed", `${input.key} is larger than ${MAX_DOCUMENT_BYTES} bytes`);
+  }
+  const bounded = input.body.pipeThrough(new FixedLengthStream(input.size));
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await new Response(bounded).arrayBuffer());
+  } catch {
+    return refuse("malformed", "the body does not match its Content-Length or SHA-256");
+  }
+  if (sha256Hex(bytes) !== input.sha256) {
+    return refuse("malformed", "the body does not match its Content-Length or SHA-256");
+  }
+  try {
+    parse(fromUtf8(bytes));
+  } catch {
+    return refuse("malformed", `${input.key} is not a valid document`);
+  }
+  return new Response(bytes).body as ReadableStream<Uint8Array>;
+}
+
 /**
  * Publishes one setup or final file. Published files are immutable: the same bytes again are a
  * no-op (decided without reading the body when the file is already there), other bytes are
@@ -95,7 +139,7 @@ export async function publishFile(
   env: Env,
   input: PublicFileInput,
 ): Promise<Result<{ key: string; unchanged?: true }>> {
-  const { key, sha256, size, body } = input;
+  const { key, sha256, size } = input;
   const existing = await headObject(env.PUBLIC, key);
   if (existing && holds(existing, sha256)) return succeed({ key, unchanged: true });
   const final = isFinalFileKey(key);
@@ -106,7 +150,9 @@ export async function publishFile(
   try {
     const why = await writeRefusal(env, key, sha256);
     if (why) return why;
-    const r = await streamExact(env.PUBLIC, key, body, {
+    const stream = await documentBody(input);
+    if (!(stream instanceof ReadableStream)) return stream;
+    const r = await streamExact(env.PUBLIC, key, stream, {
       size,
       sha256,
       contentType: contentTypeOf(key),

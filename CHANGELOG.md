@@ -32,6 +32,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The real-key test vectors are `testnet-rehearsal-2` (circuits v0.17.1), from ceremony-verifier's
   `test-vectors-2` release.
 
+### Security
+
+- **The coordinator ↔ verifier MAC is checked before any body byte is read.** It now covers the
+  body's SHA-256, sent in `x-ceremony-body-sha256`, instead of the body itself; the bounded body
+  must then hash to it. An unauthenticated `/internal/*` or `/verify` request costs one HMAC over
+  its headers, where a forged one with a fresh timestamp used to make the Worker buffer up to
+  ~2 MiB and hash it (KL-54). Coordinator and verifier must run this release together.
+- The release deploy checks out the commit the signed tag named when it was verified, and fails
+  unless it is that commit: a tag moved (or shadowed by a branch) after the check is not shipped.
+- `ceremony.json` and `genesis/init.json` are parsed before `PUT /admin/artifacts` publishes them,
+  and refused above 1 MiB: a document that does not parse can no longer freeze unusable.
+- `init.json` is refused unless its circuits are in session order, each `domain_power` is the one
+  its constraints and public signals need, and each `ceremony_version` is at least 1; a release
+  manifest that already publishes the version after the active one is refused (two keys would
+  share it). The circomlib version is read from the lockfile in linear time.
+- A failed write deletes the object only while it is still the version that write made.
+- The browser's CLI command no longer pre-fills `--announcement-sha256` from the coordinator it
+  checks: the contributor fills in the hash Orbinum published; the site's own is shown to compare.
+- A coordinator with `ENVIRONMENT=local` and a public `COORDINATOR_URL` (an overridden deployment)
+  refuses to serve.
+- The verifier container is not started for jobs past their deadline, and one that does not
+  become healthy is destroyed instead of blocking every later job.
+- `verify` keeps the ptau's prerequisite apart from a circuit named `ptau`.
+- After a reload mid-verification, the browser still signs a circuit accepted meanwhile.
+- Gitleaks also catches a literal `VERIFIER_ACCESS_CLIENT_SECRET`.
+- A late attestation in CLOSED can make the operator re-run `finalize` (KL-62).
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

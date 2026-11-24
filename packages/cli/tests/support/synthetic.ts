@@ -19,6 +19,7 @@ import {
   chainGenesis,
   CIRCUITS_REPO_URL,
   type CircuitName,
+  domainPower,
   DRAND,
   headChain,
   INIT_SCHEMA,
@@ -116,18 +117,25 @@ export async function syntheticCeremony(options: SyntheticOptions = {}): Promise
     },
     source: { ref: release.tag, commit: release.commit },
     circuits: await Promise.all(
-      circuits.map(async (c) => ({
-        name: c,
-        circuit_id: shapeOf(c).id,
-        ceremony_version: shapeOf(c).version,
-        r1cs_sha256: await put(dir, `r1cs/${c}.r1cs`, fake(`${c} r1cs`)),
-        constraints: shapeOf(c).constraints,
-        public_signals: shapeOf(c).publicSignals,
-        wires: shapeOf(c).constraints + 1,
-        domain_power: 16,
-        genesis_sha256: await put(dir, `genesis/${c}.genesis.zkey`, fake(`${c} genesis`)),
-        cs_hash: hex(64),
-      })),
+      // In session order, as `init` writes them.
+      circuits
+        .toSorted((a, b) => shapeOf(a).constraints - shapeOf(b).constraints)
+        .map(async (c) => ({
+          name: c,
+          circuit_id: shapeOf(c).id,
+          ceremony_version: shapeOf(c).version,
+          r1cs_sha256: await put(dir, `r1cs/${c}.r1cs`, fake(`${c} r1cs`)),
+          constraints: shapeOf(c).constraints,
+          public_signals: shapeOf(c).publicSignals,
+          wires: shapeOf(c).constraints + 1,
+          domain_power: domainPower({
+            constraints: shapeOf(c).constraints,
+            publicOutputs: shapeOf(c).publicSignals,
+            publicInputs: 0,
+          }),
+          genesis_sha256: await put(dir, `genesis/${c}.genesis.zkey`, fake(`${c} genesis`)),
+          cs_hash: hex(64),
+        })),
     ),
   });
   const initBytes = utf8(serializeJson(init));

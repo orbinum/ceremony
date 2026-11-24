@@ -1,14 +1,23 @@
 /**
  * Coordinator ↔ verifier request authentication, both directions: HMAC-SHA-256 with the shared
- * key over `direction \n ceremony_id \n timestamp \n method \n path \n body`, the timestamp in
- * epoch ms within the skew. The direction (`dispatch` to the verifier, `callback` to the
+ * key over `direction \n ceremony_id \n timestamp \n method \n path \n sha256(body)`, the
+ * timestamp in epoch ms within the skew. The body's digest travels in its own header, so a
+ * receiver checks the MAC before reading a single body byte (`verifyRequestHeaders`), then the
+ * bounded body against the digest (`bodyMatches`): an unauthenticated request costs one HMAC over
+ * a few hundred bytes, whatever body it announces. The direction (`dispatch` to the verifier, `callback` to the
  * coordinator) follows from the path, and no other path can be signed, so a request made for one
  * side never verifies on the other even if a route is added or renamed. The ceremony id keeps a
  * request for one ceremony from verifying for another under a reused key. Every request it guards
  * is idempotent, so a replay inside the window is harmless. COORDINATOR §5.
  */
 import { REQUEST_AUTH } from "../../config";
-import { hmacSha256Hex, keyBytes, timingSafeEqual } from "../../primitives/hashing";
+import {
+  hmacSha256Hex,
+  keyBytes,
+  sha256Hex,
+  sha256Utf8,
+  timingSafeEqual,
+} from "../../primitives/hashing";
 import { CEREMONY_ID } from "../../primitives/schema";
 import { VERIFIER_PATHS } from "./paths";
 
@@ -16,6 +25,26 @@ import { VERIFIER_PATHS } from "./paths";
 export const TIMESTAMP_HEADER = "x-ceremony-timestamp";
 /** Header carrying the MAC (lowercase hex). */
 export const SIGNATURE_HEADER = "x-ceremony-signature";
+/** Header carrying the SHA-256 of the body's bytes (lowercase hex; the empty body's for none). */
+export const BODY_SHA256_HEADER = "x-ceremony-body-sha256";
+
+/** The three headers as a receiver reads them. */
+export interface RequestAuthHeaders {
+  timestamp: string | null | undefined;
+  signature: string | null | undefined;
+  bodySha256: string | null | undefined;
+}
+
+const HEX32 = /^[0-9a-f]{64}$/;
+
+/** The three headers, read through `get` (a lookup by lowercase header name). */
+export const requestAuthOf = (
+  get: (name: string) => string | null | undefined,
+): RequestAuthHeaders => ({
+  timestamp: get(TIMESTAMP_HEADER),
+  signature: get(SIGNATURE_HEADER),
+  bodySha256: get(BODY_SHA256_HEADER),
+});
 
 const HMAC_KEY = "HMAC key";
 
@@ -23,17 +52,16 @@ const HMAC_KEY = "HMAC key";
 export const checkHmacKey = (key: string): void => void keyBytes(key, HMAC_KEY);
 
 /**
- * Whether the two headers have the shape `signRequest` gives them (decimal timestamp, 32-byte hex
- * MAC): checked before a receiver reads the body.
+ * Whether the headers have the shape `signRequest` gives them (decimal timestamp, 32-byte hex MAC
+ * and body digest).
  */
-export const authHeadersWellFormed = (
-  timestamp: string | null | undefined,
-  signature: string | null | undefined,
-): boolean =>
-  typeof timestamp === "string" &&
-  /^\d{1,16}$/.test(timestamp) &&
-  typeof signature === "string" &&
-  /^[0-9a-f]{64}$/.test(signature);
+export const authHeadersWellFormed = (h: RequestAuthHeaders): boolean =>
+  typeof h.timestamp === "string" &&
+  /^\d{1,16}$/.test(h.timestamp) &&
+  typeof h.signature === "string" &&
+  HEX32.test(h.signature) &&
+  typeof h.bodySha256 === "string" &&
+  HEX32.test(h.bodySha256);
 
 /** Whether `timestamp` (epoch ms, as the header carries it) is within the skew of `now`. */
 export const timestampFresh = (timestamp: string, now: number): boolean =>
@@ -61,10 +89,14 @@ const mac = (
   ts: string,
   method: string,
   path: string,
-  body: string,
-) => hmacSha256Hex(key, `${directionOf(path)}\n${ceremonyId}\n${ts}\n${method}\n${path}\n${body}`);
+  bodySha256: string,
+) =>
+  hmacSha256Hex(
+    key,
+    `${directionOf(path)}\n${ceremonyId}\n${ts}\n${method}\n${path}\n${bodySha256}`,
+  );
 
-/** The two headers that authenticate a request of ceremony `ceremonyId` made at `now`. */
+/** The three headers that authenticate a request of ceremony `ceremonyId` made at `now`. */
 export function signRequest(
   key: string,
   ceremonyId: string,
@@ -80,32 +112,50 @@ export function signRequest(
     );
   }
   const ts = String(now);
+  const digest = sha256Utf8(body);
   return {
     [TIMESTAMP_HEADER]: ts,
-    [SIGNATURE_HEADER]: mac(k, ceremonyId, ts, method, path, body),
+    [BODY_SHA256_HEADER]: digest,
+    [SIGNATURE_HEADER]: mac(k, ceremonyId, ts, method, path, digest),
   };
 }
 
-/** Whether the headers authenticate this exact request of ceremony `ceremonyId` at `now`. */
-export function verifyRequest(
+/**
+ * Whether the headers authenticate a request of ceremony `ceremonyId` with this method and path
+ * at `now`, before its body is read; `bodyMatches` then binds the body.
+ */
+export function verifyRequestHeaders(
+  key: string,
+  ceremonyId: string,
+  method: string,
+  path: string,
+  headers: RequestAuthHeaders,
+  now: number,
+): boolean {
+  const k = keyBytes(key, HMAC_KEY);
+  if (!authHeadersWellFormed(headers)) return false;
+  if (!unambiguous(ceremonyId, method, path)) return false;
+  const { timestamp, signature, bodySha256 } = headers as Record<keyof RequestAuthHeaders, string>;
+  if (!timestampFresh(timestamp, now)) return false;
+  return timingSafeEqual(signature, mac(k, ceremonyId, timestamp, method, path, bodySha256));
+}
+
+/** Whether `body` (its bytes as received) is the one the authenticated headers name. */
+export const bodyMatches = (body: Uint8Array, headers: RequestAuthHeaders): boolean =>
+  headers.bodySha256 === sha256Hex(body);
+
+/** Whether the headers authenticate this exact request (`body` as text) at `now`. */
+export const verifyRequest = (
   key: string,
   ceremonyId: string,
   method: string,
   path: string,
   body: string,
-  headers: { timestamp: string | null | undefined; signature: string | null | undefined },
+  headers: RequestAuthHeaders,
   now: number,
-): boolean {
-  const k = keyBytes(key, HMAC_KEY);
-  const { timestamp, signature } = headers;
-  if (!authHeadersWellFormed(timestamp, signature)) return false;
-  if (!unambiguous(ceremonyId, method, path)) return false;
-  if (!timestampFresh(timestamp as string, now)) return false;
-  return timingSafeEqual(
-    signature as string,
-    mac(k, ceremonyId, timestamp as string, method, path, body),
-  );
-}
+): boolean =>
+  verifyRequestHeaders(key, ceremonyId, method, path, headers, now) &&
+  headers.bodySha256 === sha256Utf8(body);
 
 /** A JSON request authenticated as `signRequest` defines, ready for `fetch`. */
 export function signedRequestInit(

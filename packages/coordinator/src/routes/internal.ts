@@ -9,7 +9,7 @@ import { pendingUpload } from "../actions";
 import { ceremony } from "../durable";
 import type { AppEnv } from "../env";
 import { fail, jobIdParam, limitBody, objectResponse, reportBody } from "../http";
-import { verifierAuth, verifierHeaders } from "../middleware";
+import { verifierBody, verifierHeaders } from "../middleware";
 
 /** A report carries the verify log (JSON-escaped, up to twice its length) and a few KB more. */
 const MAX_REPORT_BYTES = 2 * MAX_LOG_CHARS + 64 * 1024;
@@ -17,9 +17,9 @@ const MAX_REPORT_BYTES = 2 * MAX_LOG_CHARS + 64 * 1024;
 /** The `/internal` router. */
 export const internal = new Hono<AppEnv>()
   // No rate limit ahead of the MAC: a shared per-network bucket would let anyone on the verifier's
-  // network throttle the verifier itself. Headers are judged before any body byte is read; a
-  // request with fresh headers costs one bounded body read and one HMAC (KL-54).
-  .use(verifierHeaders, limitBody(MAX_REPORT_BYTES), verifierAuth)
+  // network throttle the verifier itself. The MAC covers the body's digest and is checked before
+  // any body byte is read, so an unauthenticated request costs one HMAC over its headers.
+  .use(verifierHeaders, limitBody(MAX_REPORT_BYTES), verifierBody)
   .get("/objects/:seq/:circuit/:attempt", jobIdParam, async (c) => {
     const object = await pendingUpload(c.env, c.req.valid("param"));
     return object ? objectResponse(object) : fail(c, "unknown-job", "no pending job with that id");

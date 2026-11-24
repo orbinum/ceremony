@@ -140,9 +140,19 @@ describe("service http", () => {
       expect(submitted).toEqual([]);
     });
 
-    it("refuses an oversized Content-Length with 413 before reading the body", async () => {
+    it("refuses forged headers with 401 before reading the body, whatever its size", async () => {
       const res = await raw(url, { ...SHAPED, "content-length": MAX_JOB_SPEC_BYTES + 1 }, (req) =>
         req.flushHeaders(),
+      );
+      expect(res).toEqual({ status: 401, body: '{"error":"bad signature"}', connection: "close" });
+    });
+
+    it("refuses an oversized Content-Length with 413 before reading the body, once signed", async () => {
+      const big = "x".repeat(MAX_JOB_SPEC_BYTES + 1);
+      const res = await raw(
+        url,
+        { ...signedDispatch(big), "content-length": MAX_JOB_SPEC_BYTES + 1 },
+        (req) => req.flushHeaders(),
       );
       expect(res).toEqual({ status: 413, body: '{"error":"body too large"}', connection: "close" });
     });
@@ -160,8 +170,8 @@ describe("service http", () => {
       }
     });
 
-    it("refuses an oversized chunked body with 413", async () => {
-      const res = await raw(url, SHAPED, (req) => {
+    it("refuses an oversized chunked body with 413, once signed", async () => {
+      const res = await raw(url, signedDispatch("x".repeat(MAX_JOB_SPEC_BYTES + 1)), (req) => {
         req.write("x".repeat(MAX_JOB_SPEC_BYTES));
         req.end("x");
       });

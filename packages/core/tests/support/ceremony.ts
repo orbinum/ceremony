@@ -162,6 +162,7 @@ export const FULL_INIT: InitRecord = buildInit({
       circuit_id: 2,
       ceremony_version: 3,
       constraints: 16_904,
+      domain_power: 15,
       genesis_sha256: h(110),
     },
     {
@@ -170,6 +171,7 @@ export const FULL_INIT: InitRecord = buildInit({
       circuit_id: 1,
       ceremony_version: 3,
       constraints: 33_688,
+      domain_power: 16,
       genesis_sha256: h(120),
     },
   ],

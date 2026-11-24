@@ -1,6 +1,8 @@
 /**
  * The CLI path (SPEC §4.4), offered inside step 4: a token minted here lets `orbinum-ceremony
- * contribute` run the turn on one's own machine.
+ * contribute` run the turn on one's own machine. The command leaves `--announcement-sha256` for
+ * the contributor to fill from Orbinum's own channels: it anchors every check the CLI makes, so it
+ * must not come from the coordinator being checked. This site's hash is shown only to compare.
  */
 import { useState } from "react";
 import { cliToken, getAnnouncementSha256 } from "../../api";
@@ -23,7 +25,7 @@ export function CliOption() {
     }
   };
   const command = token
-    ? `ORBINUM_CEREMONY_TOKEN=${token.token} orbinum-ceremony contribute --coordinator ${window.location.origin} --announcement-sha256 ${sha ?? "<hex>"}`
+    ? `ORBINUM_CEREMONY_TOKEN=${token.token} orbinum-ceremony contribute --coordinator ${window.location.origin} --announcement-sha256 <sha256-published-by-orbinum>`
     : null;
 
   return (
@@ -54,7 +56,15 @@ export function CliOption() {
             />
             <p>
               The token is valid until {new Date(token.expiresAt).toLocaleString()}; treat it like a
-              password. Check the announcement hash against the one Orbinum published.
+              password. Fill in the announcement hash Orbinum published on its own channels, not one
+              taken from this site: the CLI checks everything against it.
+              {sha && (
+                <>
+                  {" "}
+                  This site serves an announcement whose SHA-256 is{" "}
+                  <code className="break-all text-text">{sha}</code>; it should match.
+                </>
+              )}
             </p>
           </div>
         )}

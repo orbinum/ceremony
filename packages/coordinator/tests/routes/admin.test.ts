@@ -17,6 +17,7 @@ import {
   raw,
   readTranscript,
   refusal,
+  setupInput,
   stubOf,
 } from "../support";
 
@@ -98,18 +99,33 @@ const put = (key: string, body: string, headers: Record<string, string> = {}) =>
 
 describe("setup files (cli publish-init)", () => {
   it("publishes a setup file once; the same bytes again are a no-op, other bytes are refused", async () => {
-    expect((await put("ceremony.json", "{}")).status).toBe(201);
-    expect(await json(await put("ceremony.json", "{}"))).toEqual({
+    const { announcement } = setupInput(Date.now(), Date.now() + 86_400_000);
+    expect((await put("ceremony.json", announcement)).status).toBe(201);
+    expect(await json(await put("ceremony.json", announcement))).toEqual({
       ok: true,
       key: "ceremony.json",
       unchanged: true,
     });
-    expect(await refusal(await put("ceremony.json", "{ }"))).toEqual([409, "immutable"]);
+    expect(await refusal(await put("ceremony.json", `${announcement} `))).toEqual([
+      409,
+      "immutable",
+    ]);
     const served = await call("GET", "/artifacts/ceremony.json");
     expect([await served.text(), served.headers.get("content-type")]).toEqual([
-      "{}",
+      announcement,
       "application/json",
     ]);
+  });
+
+  it("takes ceremony.json and init.json only as valid documents within the document bound", async () => {
+    for (const key of [CEREMONY_LAYOUT.announcement, CEREMONY_LAYOUT.init]) {
+      for (const body of ["{}", "x", `${serializeJson(INIT)} `, " ".repeat(1024 * 1024 + 1)]) {
+        // oxlint-disable-next-line no-await-in-loop -- one file at a time
+        expect(await refusal(await put(key, body))).toEqual([400, "malformed"]);
+      }
+      // oxlint-disable-next-line no-await-in-loop -- one key at a time
+      expect(await env.PUBLIC.head(key)).toBeNull();
+    }
   });
 
   it("serves every setup file with its type", async () => {

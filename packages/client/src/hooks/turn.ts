@@ -112,6 +112,7 @@ export function useTurn(me: api.Me, onEnded: () => void = () => {}) {
       heart.current = keepAlive(sessionApi);
       const csHashes = await api.getCsHashes();
       const current = heart.current;
+      const reported = new Set<CircuitName>();
       const accepted = await contributeAll(
         {
           api: sessionApi,
@@ -123,7 +124,8 @@ export function useTurn(me: api.Me, onEnded: () => void = () => {}) {
           sleep,
         },
         seq,
-        (p: Progress) =>
+        (p: Progress) => {
+          if (p.circuit !== null && p.stage === "accepted") reported.add(p.circuit);
           setState((s) =>
             s.kind !== "running"
               ? s
@@ -134,8 +136,13 @@ export function useTurn(me: api.Me, onEnded: () => void = () => {}) {
                     paused: false,
                     circuits: { ...s.circuits, [p.circuit]: { stage: p.stage, detail: p.detail } },
                   },
-          ),
+          );
+        },
       );
+      // Accepted in this session but not by this run (an upload made before a reload): by name.
+      for (const c of reported) {
+        if (!earlier.includes(c) && !accepted.some((a) => a.circuit === c)) earlier.push(c);
+      }
       if (accepted.length + earlier.length === 0) {
         await end(seq);
         return;

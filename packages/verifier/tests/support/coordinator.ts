@@ -5,9 +5,8 @@ import type { AddressInfo } from "node:net";
 import {
   INTERNAL_PATHS,
   type JobSpec,
-  SIGNATURE_HEADER,
+  requestAuthOf,
   signRequest,
-  TIMESTAMP_HEADER,
   validateReport,
   type VerifierReport,
   verifyRequest,
@@ -81,10 +80,7 @@ export class FakeCoordinator {
         req.method ?? "",
         path,
         body,
-        {
-          timestamp: req.headers[TIMESTAMP_HEADER] as string,
-          signature: req.headers[SIGNATURE_HEADER] as string,
-        },
+        requestAuthOf((name) => req.headers[name] as string | undefined),
         Date.now(),
       );
       if (!ok) return res.writeHead(401).end();

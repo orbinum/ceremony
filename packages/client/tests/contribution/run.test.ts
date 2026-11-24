@@ -110,6 +110,19 @@ describe("contributeAll", () => {
     expect(fake.uploads).toHaveLength(3);
   });
 
+  it("reports an upload of an earlier run accepted meanwhile, without claiming its hashes", async () => {
+    const fake = new FakeCoordinator();
+    // A reload left shield's upload in verification.
+    await fake.uploadContribution("shield", new Uint8Array([1]), {
+      inputSha256: "aa".repeat(32),
+      outputSha256: "bb".repeat(32),
+    } as Parameters<FakeCoordinator["uploadContribution"]>[2]);
+    const progress: Progress[] = [];
+    const accepted = await contributeAll(depsFor(fake), fake.seq, (p) => progress.push(p));
+    expect(progress).toContainEqual({ circuit: "shield", stage: "accepted" });
+    expect(accepted.map((a) => a.circuit)).toEqual(["unshield", "transfer"]);
+  });
+
   it("zeroes the bytes it held", async () => {
     const fake = new FakeCoordinator();
     const served: Uint8Array[] = [];

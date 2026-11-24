@@ -55,9 +55,10 @@ export const INIT: InitRecord = validateInit({
     circuit_id: 3 - i,
     ceremony_version: name === "shield" ? 2 : 4,
     r1cs_sha256: "00".repeat(32),
-    constraints: 1000,
+    // Distinct sizes keep this list in session order; each domain is the one its size needs.
+    constraints: 1000 * (i + 1),
     public_signals: 3,
-    wires: 1000,
+    wires: 1000 * (i + 1),
     domain_power: 10 + i,
     genesis_sha256: GENESIS_SHA256[name],
     cs_hash: `${i + 1}`.repeat(128),

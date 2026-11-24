@@ -90,6 +90,11 @@ describe("init.json against what pins it", () => {
     ]) {
       expect(() => readReleaseManifest(manifest(bad))("shield")).toThrow(FormatError);
     }
+    // The ceremony's next version already published: its key would be a second v2.
+    const taken = { ...entry, versions: { ...entry.versions, "2": entry.versions["1"] } };
+    expect(() => readReleaseManifest(manifest(taken))("shield")).toThrow(
+      "manifest.circuits.shield: v2 is already published, yet v1 is active",
+    );
     expect(() => readReleaseManifest("\u001b[31m{")).toThrow("manifest.json: not valid JSON");
     expect(() => readReleaseManifest("[]")).toThrow(FormatError);
   });
@@ -99,6 +104,13 @@ describe("init.json against what pins it", () => {
       "importers:\n  .:\n    dependencies:\n      circomlib:\n        specifier: 2.0.5\n        version: 2.0.5\n";
     expect(lockedCircomlibOf(lock)).toBe("2.0.5");
     expect(() => lockedCircomlibOf("lockfileVersion: '9.0'\n")).toThrow(FormatError);
+  });
+
+  it("reads a hostile lockfile in linear time", () => {
+    const hostile = `\n circomlib:${" ".repeat(50_000)}\n${"\n ".repeat(50_000)}x`;
+    const start = performance.now();
+    expect(() => lockedCircomlibOf(hostile)).toThrow(FormatError);
+    expect(performance.now() - start).toBeLessThan(1_000);
   });
 
   it("names its circuits and their pins", () => {

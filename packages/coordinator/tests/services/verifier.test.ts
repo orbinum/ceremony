@@ -5,7 +5,7 @@
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { sha256Hex, verifyRequest } from "@orbinum-ceremony/core";
+import { requestAuthOf, sha256Hex, verifyRequest } from "@orbinum-ceremony/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dispatch } from "../../src/services";
 import {
@@ -75,10 +75,7 @@ describe("dispatch to the verifier", () => {
     expect([init?.method, init?.redirect]).toEqual(["POST", "manual"]);
     expect(JSON.parse(body).job).toEqual(job);
     expect(JSON.parse(body).claim.outputSha256).toBe(sha256Hex(BYTES));
-    const headers = {
-      timestamp: headerOf(init, "x-ceremony-timestamp"),
-      signature: headerOf(init, "x-ceremony-signature"),
-    };
+    const headers = requestAuthOf((header) => headerOf(init, header));
     const verify = (ceremonyId: string) =>
       verifyRequest(
         env.VERIFIER_HMAC_KEY,

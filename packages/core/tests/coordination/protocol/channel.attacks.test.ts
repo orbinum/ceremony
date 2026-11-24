@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { MAX_CONTRIBUTIONS, MAX_JOB_SPEC_BYTES, REQUEST_AUTH } from "../../../src/config";
 import {
   authHeadersWellFormed,
+  BODY_SHA256_HEADER,
   checkHmacKey,
   reconcileReport,
   reportOf,
@@ -28,6 +29,7 @@ const sign = (method = "POST", path = "/verify", body = "{}", now = NOW, cid = C
 const hdr = (s: Record<string, string>) => ({
   timestamp: s[TIMESTAMP_HEADER],
   signature: s[SIGNATURE_HEADER],
+  bodySha256: s[BODY_SHA256_HEADER],
 });
 const SIGNED = sign();
 const verifyAt = (now: number) =>
@@ -68,7 +70,7 @@ describe("HMAC timestamp bounds and shapes", () => {
     ["hex", "0x1a3185c5000"],
     ["unicode digits", "١٨٠٠٠٠٠٠٠٠٠٠٠"],
   ])("refuses a timestamp with a %s by shape", (_, ts) => {
-    expect(authHeadersWellFormed(ts, SIGNED[SIGNATURE_HEADER])).toBe(false);
+    expect(authHeadersWellFormed({ ...hdr(SIGNED), timestamp: ts })).toBe(false);
     expect(
       verifyRequest(KEY, CID, "POST", "/verify", "{}", { ...hdr(SIGNED), timestamp: ts }, NOW),
     ).toBe(false);
@@ -76,7 +78,7 @@ describe("HMAC timestamp bounds and shapes", () => {
 
   it("refuses a zero-padded spelling of the signed timestamp", () => {
     const padded = `000${NOW}`;
-    expect(authHeadersWellFormed(padded, SIGNED[SIGNATURE_HEADER])).toBe(true);
+    expect(authHeadersWellFormed({ ...hdr(SIGNED), timestamp: padded })).toBe(true);
     expect(
       verifyRequest(KEY, CID, "POST", "/verify", "{}", { ...hdr(SIGNED), timestamp: padded }, NOW),
     ).toBe(false);
@@ -84,10 +86,10 @@ describe("HMAC timestamp bounds and shapes", () => {
 
   it("refuses a 16-digit timestamp beyond 2^53 at the skew check", () => {
     const ts = "9".repeat(16);
-    const mac = hmacSha256Hex(utf8(KEY), `dispatch\n${CID}\n${ts}\nPOST\n/verify\n{}`);
-    expect(
-      verifyRequest(KEY, CID, "POST", "/verify", "{}", { timestamp: ts, signature: mac }, NOW),
-    ).toBe(false);
+    const digest = sha256Utf8("{}");
+    const mac = hmacSha256Hex(utf8(KEY), `dispatch\n${CID}\n${ts}\nPOST\n/verify\n${digest}`);
+    const forged = { timestamp: ts, signature: mac, bodySha256: digest };
+    expect(verifyRequest(KEY, CID, "POST", "/verify", "{}", forged, NOW)).toBe(false);
   });
 
   it.each([
@@ -117,7 +119,7 @@ describe("HMAC direction", () => {
       expect(() => signRequest(KEY, CID, "POST", path, "{}", NOW)).toThrow(/are required/);
       expect(verifyRequest(KEY, CID, "POST", path, "{}", hdr(SIGNED), NOW)).toBe(false);
     }
-    const untagged = hmacSha256Hex(utf8(KEY), `${CID}\n${NOW}\nPOST\n/verify\n{}`);
+    const untagged = hmacSha256Hex(utf8(KEY), `${CID}\n${NOW}\nPOST\n/verify\n${sha256Utf8("{}")}`);
     expect(
       verifyRequest(
         KEY,

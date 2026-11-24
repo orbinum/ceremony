@@ -66,6 +66,29 @@ describe("validateInit", () => {
       /circuit_id: expected an integer in \[1, 4294967295\]/,
     ],
     [
+      "a ceremony version 0 (the release's active version plus one is at least 1)",
+      withCircuits([{ ...circuit, ceremony_version: 0 }]),
+      /ceremony_version: expected an integer in \[1, /,
+    ],
+    [
+      "a domain other than the one its constraints and signals need",
+      withCircuits([{ ...circuit, domain_power: 16 }]),
+      /domain_power: not the domain its constraints and signals need/,
+    ],
+    [
+      "circuits out of session order (more constraints first)",
+      withCircuits([
+        { ...circuit, name: "transfer", circuit_id: 1, constraints: 34_200, domain_power: 16 },
+        circuit,
+      ]),
+      /init\.circuits: not in session order/,
+    ],
+    [
+      "circuits of one size out of name order",
+      withCircuits([circuit, { ...circuit, name: "disclose", circuit_id: 9 }]),
+      /init\.circuits: not in session order/,
+    ],
+    [
       "a revision instead of a commit",
       { ...init, source: { ref: "v0.16.0", commit: "HEAD" } },
       /init\.source\.commit/,

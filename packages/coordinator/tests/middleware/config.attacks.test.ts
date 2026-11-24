@@ -160,10 +160,13 @@ describe("configuration errors never leak", () => {
       "COORDINATOR_URL must be this deployment's https origin (the verifier container)",
     ];
     for (const url of ["", "http://ceremony.test", "https://ceremony.test/path"]) {
-      expect(problemsWith({ VERIFIER_CONTAINER, COORDINATOR_URL: url })).toEqual(problem);
+      expect(
+        problemsWith({ ENVIRONMENT: "testnet", VERIFIER_CONTAINER, COORDINATOR_URL: url }),
+      ).toEqual(problem);
     }
     expect(
       problemsWith({
+        ENVIRONMENT: "testnet",
         VERIFIER_CONTAINER,
         COORDINATOR_URL: "https://ceremony.testnet.orbinum.network",
       }),
@@ -174,6 +177,22 @@ describe("configuration errors never leak", () => {
         VERIFIER_CONTAINER,
         VERIFIER_URL: "https://verifier.test",
         COORDINATOR_URL: "",
+      }),
+    ).toEqual([]);
+  });
+
+  it("refuses ENVIRONMENT local beside a public COORDINATOR_URL (a deployment overridden)", () => {
+    const problem = ["ENVIRONMENT local is for a local run: COORDINATOR_URL names a public origin"];
+    for (const url of ["https://ceremony.orbinum.network", "https://127.0.0.1.evil.test", "x"]) {
+      expect(problemsWith({ ENVIRONMENT: "local", COORDINATOR_URL: url })).toEqual(problem);
+    }
+    for (const url of ["", "http://127.0.0.1:8787", "http://localhost:8787"]) {
+      expect(problemsWith({ ENVIRONMENT: "local", COORDINATOR_URL: url })).toEqual([]);
+    }
+    expect(
+      problemsWith({
+        ENVIRONMENT: "production",
+        COORDINATOR_URL: "https://ceremony.orbinum.network",
       }),
     ).toEqual([]);
   });

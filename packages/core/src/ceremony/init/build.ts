@@ -2,7 +2,7 @@
 import { type CircuitName, PTAU, TOOLING } from "../../config";
 import { domainPower, type MpcParams, type R1csHeader } from "../../formats";
 import { INIT_SCHEMA, type InitCircuit, type InitRecord } from "./types";
-import { validateInit } from "./validate";
+import { sessionOrder, validateInit } from "./validate";
 
 /** One circuit's entry from its r1cs header and the hashes of its r1cs and genesis. */
 export const initCircuitOf = (
@@ -26,12 +26,6 @@ export const initCircuitOf = (
 /** A genesis has no MPC entry: anything else was not produced by `groth16 setup`. */
 export const checkGenesis = (params: MpcParams): string[] =>
   params.entries.length === 0 ? [] : [`genesis has ${params.entries.length} MPC entries`];
-
-/** Session order: fewest constraints first, then by name (code points: no locale). */
-export const sessionOrder = (circuits: readonly InitCircuit[]): InitCircuit[] =>
-  circuits.toSorted(
-    (a, b) => a.constraints - b.constraints || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
-  );
 
 /** A validated `init.json`, pinned to `PTAU` and the pinned snarkjs, its circuits in session order. */
 export const buildInit = (input: {

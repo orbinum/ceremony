@@ -31,7 +31,7 @@ export interface VerifyContext {
    * Cheap checks a circuit failed (staging, r1cs, genesis, final record): its snarkjs and Rust
    * checks are then reported failed without running on input already known to be wrong.
    */
-  failed: Map<CircuitName | "ptau", string[]>;
+  failed: Map<CircuitName | typeof PTAU_PREREQUISITE, string[]>;
 }
 
 /** The staged ptau, or throws like `staged`. */
@@ -40,9 +40,15 @@ export const stagedPtau = (ctx: VerifyContext): string => {
   return ctx.files.ptau;
 };
 
-/** Records that `circuit` failed the check `id`. */
-export const markFailed = (ctx: VerifyContext, circuit: CircuitName | "ptau", id: string) =>
-  ctx.failed.set(circuit, [...(ctx.failed.get(circuit) ?? []), id]);
+/** The ptau's key in `failed`: not a circuit name (`ptau` is one), so it can shadow none. */
+export const PTAU_PREREQUISITE = "#ptau";
+
+/** Records that `circuit` (or the ptau, which every circuit needs) failed the check `id`. */
+export const markFailed = (
+  ctx: VerifyContext,
+  circuit: CircuitName | typeof PTAU_PREREQUISITE,
+  id: string,
+) => ctx.failed.set(circuit, [...(ctx.failed.get(circuit) ?? []), id]);
 
 /**
  * Runs an expensive check only if its circuit (and the ptau) passed every prerequisite so far;
@@ -54,7 +60,10 @@ export async function attemptGated(
   id: string,
   fn: () => Promise<string[] | void>,
 ): Promise<boolean> {
-  const blocked = [...(ctx.failed.get("ptau") ?? []), ...(ctx.failed.get(circuit) ?? [])];
+  const blocked = [
+    ...(ctx.failed.get(PTAU_PREREQUISITE) ?? []),
+    ...(ctx.failed.get(circuit) ?? []),
+  ];
   if (blocked.length > 0) {
     ctx.report.fail(id, `not run: prerequisite failed (${blocked[0]})`);
     return false;

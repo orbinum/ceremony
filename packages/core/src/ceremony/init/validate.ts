@@ -1,9 +1,10 @@
 /**
  * `genesis/init.json` read from outside. Circuit names are well formed (they become file paths),
- * each name and on-chain id at most once; the source is a full commit id; the published text is
- * canonical. SPEC §2.1, §6.1.
+ * each name and on-chain id at most once, in session order, each domain the one its shape needs;
+ * the source is a full commit id; the published text is canonical. SPEC §2.1, §6.1.
  */
 import { MAX_CIRCUITS } from "../../config";
+import { domainPower } from "../../formats";
 import { parseCanonicalJson } from "../../primitives/encoding";
 import { FormatError } from "../../primitives/errors";
 import {
@@ -23,6 +24,12 @@ import {
 } from "../../primitives/schema";
 import { INIT_SCHEMA, type InitCircuit, type InitRecord } from "./types";
 
+/** Session order: fewest constraints first, then by name (code points: no locale). */
+export const sessionOrder = (circuits: readonly InitCircuit[]): InitCircuit[] =>
+  circuits.toSorted(
+    (a, b) => a.constraints - b.constraints || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
+  );
+
 function circuit(v: unknown, p: string): InitCircuit {
   const o = asRecord(v, p, [
     "name",
@@ -36,10 +43,16 @@ function circuit(v: unknown, p: string): InitCircuit {
     "genesis_sha256",
     "cs_hash",
   ]);
-  return {
+  const c: InitCircuit = {
     name: asCircuitName(o.name, `${p}.name`),
     circuit_id: asSafeInt(o.circuit_id, `${p}.circuit_id`, 1, 0xffff_ffff),
-    ceremony_version: asCount(o.ceremony_version, `${p}.ceremony_version`),
+    // The release's active version plus one: never 0.
+    ceremony_version: asSafeInt(
+      o.ceremony_version,
+      `${p}.ceremony_version`,
+      1,
+      Number.MAX_SAFE_INTEGER,
+    ),
     r1cs_sha256: asHex(o.r1cs_sha256, `${p}.r1cs_sha256`, 32),
     constraints: asCount(o.constraints, `${p}.constraints`),
     public_signals: asCount(o.public_signals, `${p}.public_signals`),
@@ -48,6 +61,11 @@ function circuit(v: unknown, p: string): InitCircuit {
     genesis_sha256: asHex(o.genesis_sha256, `${p}.genesis_sha256`, 32),
     cs_hash: asHex(o.cs_hash, `${p}.cs_hash`, 64),
   };
+  const shape = { constraints: c.constraints, publicOutputs: c.public_signals, publicInputs: 0 };
+  if (domainPower(shape) !== c.domain_power) {
+    throw new FormatError(`${p}.domain_power: not the domain its constraints and signals need`);
+  }
+  return c;
 }
 
 /** Validates the document (its pins against the config: `checkInitAgainstConfig`). */
@@ -77,6 +95,9 @@ export function validateInit(v: unknown): InitRecord {
   }
   if (new Set(circuits.map((c) => c.circuit_id)).size !== circuits.length) {
     throw new FormatError("init.circuits: duplicate circuit_id");
+  }
+  if (sessionOrder(circuits).some((c, i) => c !== circuits[i])) {
+    throw new FormatError("init.circuits: not in session order (fewest constraints first)");
   }
 
   return {

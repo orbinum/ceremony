@@ -22,7 +22,14 @@ import {
   resolveRelease,
 } from "../../../source";
 import { circomVersion, newGenesisZkey, originUrl } from "../../../tools";
-import { attemptGated, markFailed, stagedPtau, type VerifyContext, workDir } from "../context";
+import {
+  attemptGated,
+  markFailed,
+  PTAU_PREREQUISITE,
+  stagedPtau,
+  type VerifyContext,
+  workDir,
+} from "../context";
 import { staged } from "../staging";
 
 async function r1csMatches(ctx: VerifyContext, c: InitCircuit): Promise<string[]> {
@@ -109,7 +116,7 @@ export async function checkInputs(ctx: VerifyContext): Promise<void> {
   const ptauOk = await report.attempt("ptau matches the pinned BLAKE2b-512", async () => {
     await assertPinnedPtau(stagedPtau(ctx));
   });
-  if (!ptauOk) markFailed(ctx, "ptau", "ptau matches the pinned BLAKE2b-512");
+  if (!ptauOk) markFailed(ctx, PTAU_PREREQUISITE, "ptau matches the pinned BLAKE2b-512");
 
   report.expect(
     "init.json pins the ptau and the tooling, and every circuit fits the ptau",
