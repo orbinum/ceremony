@@ -7,7 +7,6 @@ import {
   buildAnnouncement,
   CEREMONY_LAYOUT,
   type CircuitName,
-  CIRCUITS,
   INIT_SCHEMA,
   type InitRecord,
   serializeJson,
@@ -16,15 +15,18 @@ import {
   validateInit,
 } from "@orbinum-ceremony/core";
 
+/** Per circuit of the fixture, also indexable by any circuit name. */
+type Fixture<T> = Record<string, T> & Record<"shield" | "unshield" | "transfer", T>;
+
 /** Genesis hashes of the fixture (from the testnet-rehearsal-1 init.json). */
-export const GENESIS_SHA256: Record<CircuitName, string> = {
+export const GENESIS_SHA256: Fixture<string> = {
   shield: "447849ca88ead88908b575203aab4d150d48b8f5a2f9a0f12ae705727d59fbaa",
   unshield: "3e2d8cfa8a4a7d9e080e4f7c86d738768bf78edc8ec0d7d99f9b027f7fb326aa",
   transfer: "c98105995444d2f00b4829427bc4f19000af7091641d0a5702430d0e4b0a14ca",
 };
 
 /** Genesis sizes of the fixture: shield bounds an upload at 1 MiB + 1 KiB. */
-export const GENESIS_SIZES: Record<CircuitName, number> = {
+export const GENESIS_SIZES: Fixture<number> = {
   shield: 2 ** 20,
   unshield: 30 * 2 ** 20,
   transfer: 60 * 2 ** 20,
@@ -51,11 +53,12 @@ export const INIT: InitRecord = validateInit({
   circuits: (["shield", "unshield", "transfer"] as const).map((name, i) => ({
     name,
     circuit_id: 3 - i,
-    ceremony_version: CIRCUITS[name].ceremonyVersion,
+    ceremony_version: name === "shield" ? 2 : 4,
     r1cs_sha256: "00".repeat(32),
-    constraints: 1000,
+    // Distinct sizes keep this list in session order; each domain is the one its size needs.
+    constraints: 1000 * (i + 1),
     public_signals: 3,
-    wires: 1000,
+    wires: 1000 * (i + 1),
     domain_power: 10 + i,
     genesis_sha256: GENESIS_SHA256[name],
     cs_hash: `${i + 1}`.repeat(128),

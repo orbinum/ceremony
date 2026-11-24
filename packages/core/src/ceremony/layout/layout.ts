@@ -2,8 +2,8 @@
  * The published ceremony directory (SPEC §6.1): one set of relative POSIX keys, used for files on
  * disk (cli), objects in the public bucket (coordinator) and inputs on the VPS (verifier).
  */
-import { CIRCUIT_ORDER, type CircuitName, PTAU } from "../../config";
-import { asOneOf } from "../../primitives/schema";
+import { type CircuitName, PTAU } from "../../config";
+import { isCircuitName } from "../../primitives/schema";
 import { circuitsOf, type InitRecord } from "../init";
 import type { FinalRecord, Transcript } from "../transcript";
 
@@ -18,6 +18,8 @@ export const CEREMONY_LAYOUT = {
   /** Index 0 is the genesis. */
   zkey: (c: CircuitName, index: number) =>
     index === 0 ? `genesis/${c}.genesis.zkey` : `contributions/${c}/${index}.zkey`,
+  /** Every circuit's accepted contributions, one directory each. */
+  allContributions: "contributions",
   /** A circuit's accepted contributions, `1.zkey` … `k.zkey`. */
   contributions: (c: CircuitName) => `contributions/${c}`,
   log: (c: CircuitName, index: number) => `logs/${c}/${index}.log`,
@@ -71,29 +73,41 @@ export const finalFiles = (finals: readonly FinalRecord[]): { key: string; sha25
     { key: CEREMONY_LAYOUT.finalVk(f.circuit), sha256: f.vk_json_sha256 },
   ]);
 
-/**
- * A circuit name from outside (a route parameter): only the pinned set, since names become paths.
- */
-export const asCircuitName = (v: unknown, path: string): CircuitName =>
-  asOneOf(v, path, CIRCUIT_ORDER);
+/** A byte no key holds: what a layout path is split on to find where its circuit goes. */
+const HOLE = "\u0000";
 
-/** Every key a setup may have, whatever circuits it uses: what an operator may publish. */
-const SETUP_KEYS = new Set<string>([
+/** The circuit `key` is `path`'s for (one of `CEREMONY_LAYOUT`'s per-circuit paths), or null. */
+function circuitIn(key: string, path: (c: CircuitName) => string): CircuitName | null {
+  const [prefix = "", suffix = ""] = path(HOLE).split(HOLE);
+  if (!key.startsWith(prefix) || !key.endsWith(suffix)) return null;
+  const name = key.slice(prefix.length, key.length - suffix.length);
+  return isCircuitName(name) ? name : null;
+}
+
+const FIXED_SETUP_KEYS = new Set<string>([
   CEREMONY_LAYOUT.announcement,
   CEREMONY_LAYOUT.init,
   CEREMONY_LAYOUT.ptau,
-  ...CIRCUIT_ORDER.flatMap((c) => [CEREMONY_LAYOUT.r1cs(c), CEREMONY_LAYOUT.zkey(c, 0)]),
 ]);
 
-/** Whether `key` is a setup file (`publish-init` uploads only these). */
-export const isSetupFileKey = (key: string): boolean => SETUP_KEYS.has(key);
+/** The circuit of a per-circuit setup file (`r1cs/<c>.r1cs`, `genesis/<c>.genesis.zkey`), or null. */
+export const setupCircuitOf = (key: string): CircuitName | null =>
+  circuitIn(key, CEREMONY_LAYOUT.r1cs) ?? circuitIn(key, (c) => CEREMONY_LAYOUT.zkey(c, 0));
 
-const FINAL_KEYS = new Set<string>(
-  CIRCUIT_ORDER.flatMap((c) => [CEREMONY_LAYOUT.finalZkey(c), CEREMONY_LAYOUT.finalVk(c)]),
-);
+/**
+ * Whether `key` is a setup file, whatever circuits the ceremony uses: what `publish-init` may
+ * upload. Which circuits it really has is `init.json`'s to say (the coordinator holds each
+ * per-circuit file against the published one).
+ */
+export const isSetupFileKey = (key: string): boolean =>
+  FIXED_SETUP_KEYS.has(key) || setupCircuitOf(key) !== null;
+
+/** The circuit of a final file (`final/<c>.final.zkey` or `final/<c>.vk.json`), or null. */
+export const finalCircuitOf = (key: string): CircuitName | null =>
+  circuitIn(key, CEREMONY_LAYOUT.finalZkey) ?? circuitIn(key, CEREMONY_LAYOUT.finalVk);
 
 /** Whether `key` is a final file (what the operator may publish once the ceremony is sealed). */
-export const isFinalFileKey = (key: string): boolean => FINAL_KEYS.has(key);
+export const isFinalFileKey = (key: string): boolean => finalCircuitOf(key) !== null;
 
 /** The media type a published file is served with. */
 export function contentTypeOf(key: string): string {

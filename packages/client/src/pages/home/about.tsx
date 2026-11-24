@@ -1,10 +1,5 @@
 /** What the ceremony is and what a contribution does, in plain words, with the common questions. */
-import {
-  CEREMONY_LAYOUT,
-  CIRCUIT_ORDER,
-  GITHUB_THRESHOLDS,
-  QUEUE_RULES,
-} from "@orbinum-ceremony/core";
+import { CEREMONY_LAYOUT, GITHUB_THRESHOLDS, QUEUE_RULES } from "@orbinum-ceremony/core";
 
 const minutes = (ms: number) => Math.round(ms / 60_000);
 
@@ -13,9 +8,8 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: "What does my browser compute?",
     a: (
       <>
-        For each circuit ({CIRCUIT_ORDER.join(", ")}) it downloads the current proving key, mixes in
-        fresh randomness and uploads the result. A verifier checks every upload before it joins the
-        chain.
+        For each circuit of the ceremony it downloads the current proving key, mixes in fresh
+        randomness and uploads the result. A verifier checks every upload before it joins the chain.
       </>
     ),
   },
@@ -25,7 +19,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "How long does it take?",
-    a: `A few minutes for the three circuits, at most ${minutes(QUEUE_RULES.activeCapMs)} minutes. Keep the tab open and the computer awake until it ends.`,
+    a: `A few minutes for all the circuits, at most ${minutes(QUEUE_RULES.activeCapMs)} minutes. Keep the tab open and the computer awake until it ends.`,
   },
   {
     q: "Why GitHub and a wallet?",

@@ -13,6 +13,7 @@ import {
   jobResultView,
   jobSpecOf,
   newJob,
+  requestAuthOf,
   signedRequestInit,
   signInQuery,
   storedReport,
@@ -130,7 +131,7 @@ describe("signed requests", () => {
         "POST",
         path,
         b,
-        { timestamp: headers["x-ceremony-timestamp"], signature: headers["x-ceremony-signature"] },
+        requestAuthOf((n) => headers[n]),
         5000,
       );
     expect(headers["content-type"]).toBe("application/json");

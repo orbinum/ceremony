@@ -13,7 +13,7 @@
       {
         "patterns": [
           {
-            "group": ["@orbinum-ceremony/*/*"],
+            "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
             "message": "Import other packages only through their barrel (package root)."
           }
         ]
@@ -37,7 +37,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -68,7 +68,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -97,7 +97,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -124,7 +124,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -144,7 +144,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -164,7 +164,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -191,7 +191,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -211,7 +211,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -231,7 +231,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -251,7 +251,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -277,7 +277,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -310,7 +310,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -341,7 +341,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -370,7 +370,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -397,7 +397,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -417,7 +417,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -437,7 +437,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -457,7 +457,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -531,7 +531,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -571,7 +571,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -598,7 +598,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -618,7 +618,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -638,7 +638,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -666,7 +666,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -701,7 +701,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -734,7 +734,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -761,7 +761,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -807,7 +807,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -844,7 +844,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -898,7 +898,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -952,7 +952,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -1004,7 +1004,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -1054,7 +1054,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -1108,7 +1108,7 @@
           {
             "patterns": [
               {
-                "group": ["@orbinum-ceremony/*/*"],
+                "group": ["@orbinum-ceremony/*/*", "!@orbinum-ceremony/core/snarkjs-child"],
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
@@ -1139,6 +1139,12 @@
             ]
           }
         ]
+      }
+    },
+    {
+      "files": ["packages/cli/src/**"],
+      "rules": {
+        "no-await-in-loop": "off"
       }
     }
   ]

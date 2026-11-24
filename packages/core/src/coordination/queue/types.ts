@@ -84,6 +84,8 @@ export interface QueueState {
   phase: CeremonyState;
   pausedBy: "operator" | "verifier" | null;
   schedule: { openAt: number; closeAt: number };
+  /** The ceremony's circuits, in session order (from `init.json`). */
+  circuits: CircuitName[];
   queue: QueueEntry[];
   /** By GitHub id (decimal string). */
   identities: Record<string, IdentityStanding>;
@@ -147,6 +149,8 @@ export type QueueRefusal =
   | "busy"
   | "no-verification"
   | "invalid-transition"
+  /** The announced beacon time passed: the transcript is being sealed, no attestation enters it. */
+  | "attestation-closed"
   /** The ceremony is sealed: read-only. */
   | "finalized";
 

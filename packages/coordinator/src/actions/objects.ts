@@ -4,10 +4,11 @@
  */
 import type { JobId } from "@orbinum-ceremony/core";
 import { ceremony } from "../durable";
-import { getObject } from "../storage";
+import { getObject, getObjectIfChanged } from "../storage";
 
-/** A file of the public bucket, if it exists. */
-export const publicArtifact = (env: Env, key: string) => getObject(env.PUBLIC, key);
+/** A file of the public bucket, if it exists: without its body if the reader's ETag is current. */
+export const publicArtifact = (env: Env, key: string, ifNoneMatch?: string) =>
+  getObjectIfChanged(env.PUBLIC, key, ifNoneMatch);
 
 /** The private upload of a job still waiting for its result (the verifier may read only these). */
 export async function pendingUpload(env: Env, id: JobId) {

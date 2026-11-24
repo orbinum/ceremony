@@ -1,20 +1,21 @@
 /**
  * The verifier's HTTP face (COORDINATOR §5): `POST /verify` takes an HMAC-signed job and answers
- * 202 at once; `GET /healthz` says whether jobs can run. Bounded before a byte of body is read.
+ * 202 at once; `GET /healthz` says whether jobs can run. The MAC (which covers the body's digest) is
+ * checked before a byte of body is read.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
-  authHeadersWellFormed,
+  bodyMatches,
+  fromUtf8,
   jobKey,
   type JobSpec,
   MAX_JOB_SPEC_BYTES,
   parseJsonText,
-  SIGNATURE_HEADER,
-  TIMESTAMP_HEADER,
+  REQUEST_AUTH,
+  requestAuthOf,
   validateJobSpec,
-  timestampFresh,
   VERIFIER_PATHS,
-  verifyRequest,
+  verifyRequestHeaders,
 } from "@orbinum-ceremony/core";
 import { errorMessage } from "../../text";
 
@@ -54,8 +55,22 @@ const SERVER_LIMITS = {
 
 class TooLarge extends Error {}
 
-/** The body as UTF-8, failing past `MAX_JOB_SPEC_BYTES` whatever the headers said. */
-async function readBody(req: IncomingMessage): Promise<string> {
+/**
+ * The MACs of dispatches already taken, until their window closes: an authentic dispatch is taken
+ * once. Only authenticated requests are kept, so only the key holder can grow it.
+ */
+function spentMacs() {
+  const spent = new Map<string, number>();
+  return (signature: string, timestamp: number, now: number): boolean => {
+    for (const [mac, until] of spent) if (until <= now) spent.delete(mac);
+    if (spent.has(signature)) return false;
+    spent.set(signature, timestamp + REQUEST_AUTH.skewMs + 1);
+    return true;
+  };
+}
+
+/** The body's bytes, failing past `MAX_JOB_SPEC_BYTES` whatever the headers said. */
+async function readBody(req: IncomingMessage): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
@@ -63,8 +78,12 @@ async function readBody(req: IncomingMessage): Promise<string> {
     if (size > MAX_JOB_SPEC_BYTES) throw new TooLarge();
     chunks.push(chunk as Buffer);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return new Uint8Array(Buffer.concat(chunks));
 }
+
+/** A header's single value; a repeated header is none. */
+const one = (value: string | string[] | undefined) =>
+  typeof value === "string" ? value : undefined;
 
 /** Answers JSON; anything but a 202 closes the connection. */
 const reply = (res: ServerResponse, status: number, body: unknown) => {
@@ -76,31 +95,33 @@ const reply = (res: ServerResponse, status: number, body: unknown) => {
   res.end(JSON.stringify(body));
 };
 
-/** `POST /verify`: header shape and size first, then the body, its MAC and the job spec. */
-function dispatch(req: IncomingMessage, res: ServerResponse, auth: DispatchAuth, jobs: JobSink) {
-  const timestamp = req.headers[TIMESTAMP_HEADER];
-  const signature = req.headers[SIGNATURE_HEADER];
-  if (
-    typeof timestamp !== "string" ||
-    typeof signature !== "string" ||
-    !authHeadersWellFormed(timestamp, signature)
-  ) {
+/** `POST /verify`: the MAC and the size first, then the body against its digest and the job spec. */
+function dispatch(
+  req: IncomingMessage,
+  res: ServerResponse,
+  auth: DispatchAuth,
+  jobs: JobSink,
+  spend: ReturnType<typeof spentMacs>,
+) {
+  const headers = requestAuthOf((name) => one(req.headers[name]));
+  const { hmacKey, ceremonyId } = auth;
+  const now = Date.now();
+  // An unauthenticated request is refused before its body is read.
+  if (!verifyRequestHeaders(hmacKey, ceremonyId, "POST", VERIFIER_PATHS.verify, headers, now)) {
     return reply(res, 401, { error: "bad signature" });
   }
-  // A stale or future request is refused before its body is read.
-  if (!timestampFresh(timestamp, Date.now())) return reply(res, 401, { error: "bad signature" });
+  // Authentic, and once: a replay inside the freshness window is refused.
+  if (!spend(headers.signature as string, Number(headers.timestamp), now)) {
+    return reply(res, 401, { error: "replayed request" });
+  }
   const length = req.headers["content-length"];
   if (length !== undefined && !(Number(length) <= MAX_JOB_SPEC_BYTES)) {
     return reply(res, 413, { error: "body too large" });
   }
   readBody(req)
-    .then((body) => {
-      const headers = { timestamp, signature };
-      const { hmacKey, ceremonyId } = auth;
-      const path = VERIFIER_PATHS.verify;
-      if (!verifyRequest(hmacKey, ceremonyId, "POST", path, body, headers, Date.now())) {
-        return reply(res, 401, { error: "bad signature" });
-      }
+    .then((bytes) => {
+      if (!bodyMatches(bytes, headers)) return reply(res, 401, { error: "bad signature" });
+      const body = fromUtf8(bytes);
       let spec: JobSpec;
       try {
         spec = validateJobSpec(parseJsonText(body, "job spec"));
@@ -127,6 +148,7 @@ function dispatch(req: IncomingMessage, res: ServerResponse, auth: DispatchAuth,
 
 /** The service's HTTP server; jobs go to `jobs`, which runs them. */
 export function createVerifierServer(auth: DispatchAuth, jobs: JobSink): Server {
+  const spend = spentMacs();
   const server = createServer(
     {
       requestTimeout: SERVER_LIMITS.requestTimeoutMs,
@@ -140,7 +162,7 @@ export function createVerifierServer(auth: DispatchAuth, jobs: JobSink): Server 
         return reply(res, ok ? 200 : 503, { ok });
       }
       if (req.method === "POST" && req.url === VERIFIER_PATHS.verify) {
-        return dispatch(req, res, auth, jobs);
+        return dispatch(req, res, auth, jobs, spend);
       }
       return reply(res, 404, { error: "not found" });
     },

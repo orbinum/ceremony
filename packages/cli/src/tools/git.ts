@@ -64,11 +64,9 @@ export async function exportTree(repo: string, commit: string, dest: string): Pr
       throw new Error(`release tree: ${JSON.stringify(path)} (${type} ${mode}) is not exported`);
     }
     const out = join(dest, ...path.split("/"));
-    /* oxlint-disable no-await-in-loop -- one blob at a time, in tree order */
     await ensureDir(dirname(out));
     const bytes = await runBytes("git", ["-C", repo, "cat-file", "blob", asBlob(blob)]);
     await writeFile(out, bytes, { flag: "wx", mode: mode === "100755" ? 0o755 : 0o644 });
-    /* oxlint-enable no-await-in-loop */
   }
 }
 

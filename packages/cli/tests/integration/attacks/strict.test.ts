@@ -15,8 +15,6 @@ import {
   VK_PACKER,
 } from "../../support";
 
-const COVERAGE = "init.json covers exactly the pinned circuits and tooling";
-
 // A testnet ceremony must be verified in full: skipped security checks are failures.
 describe.skipIf(!PTAU_PATH || !VK_PACKER)(
   "strict verification (non-local)",
@@ -44,8 +42,7 @@ describe.skipIf(!PTAU_PATH || !VK_PACKER)(
         [
           "circuits clone's origin is the announced repo",
           "announced tag resolves to the announced commit",
-          COVERAGE,
-          "shield: r1cs is the one the release published",
+          "shield: r1cs is the one the release published, at the next version",
           "shield: r1cs rebuilt from the release is identical",
           "shield: vk_hash = blake2_256(packed VK)",
           "shield: independent verifier (Rust, no snarkjs) agrees",
@@ -95,7 +92,7 @@ describe.skipIf(!PTAU_PATH || !VK_PACKER)(
             rustVerifier: RUST_VERIFIER as string,
           }),
         );
-        expect(failed).toEqual([COVERAGE]);
+        expect(failed).toEqual([]);
       },
     );
   },

@@ -1,6 +1,7 @@
 /**
- * Sign-in with GitHub (SPEC §3.2): OAuth with a state and a PKCE verifier bound to the browser;
- * the admission thresholds are checked once, here, and only an eligible account is signed in.
+ * Sign-in with GitHub (SPEC §3.2): OAuth with a state and a PKCE verifier bound to the browser,
+ * each state spent once; the admission thresholds are checked once, here, and only an eligible
+ * account is signed in.
  */
 import {
   admissionCutoff,
@@ -43,8 +44,11 @@ export async function completeSignIn(
   if (!expected || !code || !state || !timingSafeEqual(state, expected.state)) {
     return ended({ auth: "error", reason: "state" });
   }
-  const setup = await ceremony(env).setup();
+  const stub = ceremony(env);
+  const setup = await stub.setup();
   if (!setup) return ended({ auth: "error", reason: "not-configured" });
+  // Single use: a copied state cookie cannot complete a second sign-in.
+  if (!(await stub.spendOAuthState(state))) return ended({ auth: "error", reason: "state" });
   let profile: GithubProfile;
   try {
     const token = await exchangeCode({

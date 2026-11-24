@@ -1,12 +1,13 @@
 /**
  * Wallet accounts and signatures per scheme. EVM accounts may be lowercase or EIP-55 checksummed
- * (a mixed-case address with a wrong checksum is a typo, refused); SS58 checksums are verified
- * where the signature is, in the coordinator (KL-32). SPEC §3.4–3.7.
+ * (a mixed-case address with a wrong checksum is a typo, refused); SS58 accounts must carry a
+ * valid checksum and their one spelling. SPEC §3.4–3.7.
  */
 import { toHex, utf8 } from "../../primitives/encoding";
 import { FormatError } from "../../primitives/errors";
 import { keccak256 } from "../../primitives/hashing";
 import { asHex, asString } from "../../primitives/schema";
+import { ss58PublicKey } from "./ss58";
 import type { Scheme } from "./types";
 
 const EVM_ACCOUNT = /^0x[0-9a-fA-F]{40}$/;
@@ -32,7 +33,15 @@ function isChecksummed(address: string): boolean {
 
 /** An account of `scheme`, as the wallet reports it. */
 export function asAccount(value: unknown, path: string, scheme: Scheme): string {
-  if (scheme !== "eip712") return asString(value, path, 48, SS58_ACCOUNT);
+  if (scheme !== "eip712") {
+    const account = asString(value, path, 48, SS58_ACCOUNT);
+    try {
+      ss58PublicKey(account);
+    } catch (error) {
+      throw new FormatError(`${path}: ${(error as Error).message}`);
+    }
+    return account;
+  }
   const account = asString(value, path, 42, EVM_ACCOUNT);
   if (!isChecksummed(account)) throw new FormatError(`${path}: bad EIP-55 checksum`);
   return account;

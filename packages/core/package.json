@@ -1,13 +1,14 @@
 {
   "name": "@orbinum-ceremony/core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "The ceremony's pure domain (no I/O), in layers: config, primitives, formats, verification, ceremony documents, online coordination",
   "author": "Orbinum Technologies <contact@orbinum.net>",
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./snarkjs-child": "./src/snarkjs-child.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

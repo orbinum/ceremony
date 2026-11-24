@@ -1,6 +1,6 @@
 /** Validators for every wire contract: exact fields, canonical hex, bounded text. */
 import {
-  CIRCUIT_ORDER,
+  MAX_CIRCUITS,
   MAX_CONTRIBUTIONS,
   MAX_DETAIL_CHARS,
   MAX_FILE_BYTES,
@@ -17,6 +17,7 @@ import {
 import { FormatError } from "../../primitives/errors";
 import {
   asArray,
+  asCircuitName,
   asDecimalId,
   asHex,
   asObject,
@@ -50,7 +51,7 @@ export function validateClaim(v: unknown, p = "claim"): ContributionClaim {
 export function validateJobId(v: Record<string, unknown>, p = "job"): JobId {
   return {
     seq: asDecimalId(v.seq, `${p}.seq`),
-    circuit: asOneOf(v.circuit, `${p}.circuit`, CIRCUIT_ORDER),
+    circuit: asCircuitName(v.circuit, `${p}.circuit`),
     attempt: asDecimalId(v.attempt, `${p}.attempt`),
   };
 }
@@ -59,7 +60,7 @@ function job(v: unknown, p: string): JobId & { index: number } {
   const o = asRecord(v, p, ["seq", "circuit", "attempt", "index"]);
   return {
     seq: asU32(o.seq, `${p}.seq`),
-    circuit: asOneOf(o.circuit, `${p}.circuit`, CIRCUIT_ORDER),
+    circuit: asCircuitName(o.circuit, `${p}.circuit`),
     attempt: asU32(o.attempt, `${p}.attempt`),
     index: asU32(o.index, `${p}.index`),
   };
@@ -155,7 +156,7 @@ export function validateFinalizeRequest(v: unknown): FinalizeRequest {
   const { prev_chain, chain, ...record } = asObject(o.beacon, "finalize.beacon");
   const beacon = validateRecord(record, "finalize.beacon");
   if (beacon.type !== "beacon") throw new FormatError("finalize.beacon: not a beacon record");
-  const finals = asArray(o.finals, "finalize.finals", CIRCUIT_ORDER.length, 1).map((f, i) =>
+  const finals = asArray(o.finals, "finalize.finals", MAX_CIRCUITS, 1).map((f, i) =>
     validateFinalRecord(f, `finalize.finals[${i}]`),
   );
   if (new Set(finals.map((f) => f.circuit)).size !== finals.length) {

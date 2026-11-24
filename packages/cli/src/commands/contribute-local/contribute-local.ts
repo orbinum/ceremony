@@ -55,7 +55,7 @@ export async function runContributeLocal(
   await assertPinnedSetup(options.dir, init.value, options.ptau, { r1cs: options.crossCheckR1cs });
 
   await withLock(layout(options.dir).lock, async () => {
-    const store = await openTranscript(options.dir, announcement, init.value);
+    const store = await openTranscript(options.dir, announcement);
     const records = () => store.transcript.records;
     const metrics = await loadMetrics(options.dir);
     const first = nextSeq(records());
@@ -65,19 +65,15 @@ export async function runContributeLocal(
       for (const circuit of circuitsOf(init.value)) {
         refuse(checkContributable(records(), announcement.value, clock().getTime()));
         let at: Date | undefined;
-        // oxlint-disable-next-line no-await-in-loop -- the chain is sequential by definition
         const done = await contributeOnce(step, circuit, () => (at = clock()));
         // The record says when it was accepted: that moment must still be inside the window.
         const late = checkContributable(records(), announcement.value, (at as Date).getTime());
         if (late.length > 0) {
-          // oxlint-disable-next-line no-await-in-loop -- discard before failing
           await Promise.all(done.files.map((f) => rm(f, { force: true })));
           refuse(late);
         }
-        // oxlint-disable-next-line no-await-in-loop -- persist after every accepted contribution
         await store.append(done.record);
         metrics[metricsKey(circuit, done.record.index)] = done.metrics;
-        // oxlint-disable-next-line no-await-in-loop -- local measurements, kept in step
         await saveMetrics(options.dir, metrics);
         console.log(describe(done.record, done.metrics));
       }

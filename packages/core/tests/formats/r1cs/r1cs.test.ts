@@ -39,19 +39,24 @@ describe("checkR1csShape", () => {
     expect(domainPower(header)).toBe(2); // 1 constraint + 1 public + 1 → 4
   });
 
-  it("reports every mismatch against the pinned shape", () => {
-    expect(checkR1csShape("shield", header)).toEqual([
+  it("reports every mismatch against the shape init.json pins", () => {
+    expect(
+      checkR1csShape(header, { constraints: 736, public_signals: 3, domain_power: 10 }),
+    ).toEqual([
       "constraints 1, expected 736",
       "public signals 1, expected 3",
+      "domain 2^2, expected 2^10",
     ]);
   });
 
-  it("accepts a matching shape", () => {
-    expect(checkR1csShape("shield", { ...header, constraints: 736, publicInputs: 2 })).toEqual([]);
+  it("accepts a matching shape, and any shape the ptau covers before one is pinned", () => {
+    const pinned = { constraints: 736, public_signals: 3, domain_power: 10 };
+    expect(checkR1csShape({ ...header, constraints: 736, publicInputs: 2 }, pinned)).toEqual([]);
+    expect(checkR1csShape({ ...header, constraints: 60_000, publicInputs: 9 })).toEqual([]);
   });
 
   it("rejects a non-BN254 field and a domain larger than the ptau", () => {
-    const problems = checkR1csShape("shield", {
+    const problems = checkR1csShape({
       ...header,
       prime: "00",
       constraints: 70_000,

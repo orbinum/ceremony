@@ -2,13 +2,18 @@
 export { ADMIN_PATHS, CONTENT_SHA256_HEADER } from "./admin";
 export {
   authHeadersWellFormed,
-  timestampFresh,
+  BODY_SHA256_HEADER,
+  bodyMatches,
   checkHmacKey,
+  type RequestAuthHeaders,
+  requestAuthOf,
   SIGNATURE_HEADER,
   signedRequestInit,
   signRequest,
   TIMESTAMP_HEADER,
+  timestampFresh,
   verifyRequest,
+  verifyRequestHeaders,
 } from "./auth";
 export { type ApiErrorCode, apiErrorStatus, type CeremonyRefusal } from "./errors";
 export {

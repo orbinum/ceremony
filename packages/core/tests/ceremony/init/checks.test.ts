@@ -7,7 +7,7 @@ import {
   checkGenesis,
   checkInitAgainstAnnouncement,
   checkInitAgainstConfig,
-  checkInitCoverage,
+  checkMeasuredBounds,
   checkRelease,
   circuitOf,
   circuitsOf,
@@ -45,7 +45,7 @@ describe("init.json against what pins it", () => {
     ]);
   });
 
-  it("matches the pinned ptau, snarkjs and circuit ids", () => {
+  it("matches the pinned ptau and tooling, every circuit inside the ptau", () => {
     expect(checkInitAgainstConfig(INIT)).toEqual([]);
     const bad = {
       ...INIT,
@@ -56,23 +56,22 @@ describe("init.json against what pins it", () => {
         circom: "2.1.0",
         circom_flags: ["--r1cs", "--O2"],
       },
-      circuits: [{ ...shield, circuit_id: 9 }],
+      circuits: [{ ...shield, domain_power: 17 }],
     };
     expect(checkInitAgainstConfig(bad)).toEqual([
       "ptau is not the pinned file",
       "snarkjs 0.7.5, pinned 0.7.6",
       "circom 2.1.0, pinned 2.2.3",
       "circom flags --r1cs --O2, pinned --r1cs --O1",
-      "shield: id/version differ from the pinned config",
+      "shield: needs a 2^17 domain, ptau provides 2^16",
     ]);
-    expect(checkInitCoverage(INIT)).toEqual(["unshield missing", "transfer missing"]);
   });
 
-  it("matches the audited release", () => {
+  it("matches the audited release, the ceremony key one version past its active one", () => {
     expect(checkRelease({ r1csSha256: shield.r1cs_sha256, version: 1 }, shield)).toEqual([]);
     expect(checkRelease({ r1csSha256: h(2), version: 2 }, shield)).toEqual([
       "r1cs is not the one the release published",
-      "release has v2, config expects v1",
+      "ceremony version v2, the release's active v2 needs v3",
     ]);
   });
 
@@ -84,6 +83,7 @@ describe("init.json against what pins it", () => {
     const published = readReleaseManifest(manifest(entry));
     expect(published("shield")).toEqual({ version: 1, r1csSha256: h(4) });
     expect(() => published("transfer")).toThrow(/manifest\.circuits\.transfer/);
+    expect(() => published("../x")).toThrow(FormatError);
     for (const bad of [
       { ...entry, active_version: 0 },
       { ...entry, active_version: 2 },
@@ -91,6 +91,11 @@ describe("init.json against what pins it", () => {
     ]) {
       expect(() => readReleaseManifest(manifest(bad))("shield")).toThrow(FormatError);
     }
+    // The ceremony's next version already published: its key would be a second v2.
+    const taken = { ...entry, versions: { ...entry.versions, "2": entry.versions["1"] } };
+    expect(() => readReleaseManifest(manifest(taken))("shield")).toThrow(
+      "manifest.circuits.shield: v2 is already published, yet v1 is active",
+    );
     expect(() => readReleaseManifest("\u001b[31m{")).toThrow("manifest.json: not valid JSON");
     expect(() => readReleaseManifest("[]")).toThrow(FormatError);
   });
@@ -100,6 +105,26 @@ describe("init.json against what pins it", () => {
       "importers:\n  .:\n    dependencies:\n      circomlib:\n        specifier: 2.0.5\n        version: 2.0.5\n";
     expect(lockedCircomlibOf(lock)).toBe("2.0.5");
     expect(() => lockedCircomlibOf("lockfileVersion: '9.0'\n")).toThrow(FormatError);
+  });
+
+  it("reads a hostile lockfile in linear time", () => {
+    const hostile = `\n circomlib:${" ".repeat(50_000)}\n${"\n ".repeat(50_000)}x`;
+    const start = performance.now();
+    expect(() => lockedCircomlibOf(hostile)).toThrow(FormatError);
+    expect(performance.now() - start).toBeLessThan(1_000);
+  });
+
+  it("fits circuits v0.17.1 in the measured bounds, and names what exceeds them (KL-61)", () => {
+    const v0171 = [
+      { name: "shield", constraints: 736 },
+      { name: "unshield", constraints: 17_290 },
+      { name: "transfer", constraints: 34_200 },
+    ];
+    expect(checkMeasuredBounds(v0171)).toEqual([]);
+    expect(checkMeasuredBounds([...v0171, { name: "big", constraints: 50_000 }])).toEqual([
+      "big: 50000 constraints, the bounds were measured up to 40000",
+      "102226 constraints in all, the bounds were measured up to 60000",
+    ]);
   });
 
   it("names its circuits and their pins", () => {
@@ -113,7 +138,7 @@ describe("init.json against what pins it", () => {
 describe("building init.json", () => {
   it("derives a circuit entry from its r1cs header and refuses a genesis with entries", () => {
     const header = readR1csHeader(loadR1cs());
-    const c = initCircuitOf("shield", header, {
+    const c = initCircuitOf("shield", { circuitId: 3, ceremonyVersion: 2 }, header, {
       r1csSha256: h(1),
       genesisSha256: h(2),
       csHash: h(3, 64),

@@ -33,24 +33,27 @@ async function unpublished(store: Store, files: { key: string; sha256: string }[
 /** How long a final-file write holds finalization off; every exit releases it sooner. */
 const FINAL_WRITE_HOLD_MS = 15 * 60_000;
 
+const FINAL_HOLD = "final:";
+
 /**
  * A final file is about to be written: finalization waits until it lands, so the sealed record and
- * the bucket never disagree. Each write holds on its own. Taken before the write is judged, so a seal that wins sees no hold and
- * the write is then judged as FINALIZED. ponytail: in memory, an evicted object forgets holds.
+ * the bucket never disagree. Each write holds on its own. Taken before the write is judged, so a
+ * seal that wins sees no hold and the write is then judged as FINALIZED. Kept in SQLite: an
+ * evicted object still sees it.
  */
 export function holdFinalWrite(store: Store): string {
   const hold = crypto.randomUUID();
-  store.writingFinals.set(hold, Date.now() + FINAL_WRITE_HOLD_MS);
+  const now = Date.now();
+  db.takeHold(store.sql, `${FINAL_HOLD}${hold}`, "", now + FINAL_WRITE_HOLD_MS, now);
   return hold;
 }
 
 /** The write that took `hold` ended (another write of the same file keeps its own). */
 export function releaseFinalWrite(store: Store, hold: string): void {
-  store.writingFinals.delete(hold);
+  db.releaseHold(store.sql, `${FINAL_HOLD}${hold}`);
 }
 
-const writingFinals = (store: Store) =>
-  [...store.writingFinals.values()].some((until) => until > Date.now());
+const writingFinals = (store: Store) => db.anyHoldLive(store.sql, FINAL_HOLD, Date.now());
 
 /** Seals the ceremony with the operator's beacon and finals, or refuses with every problem. */
 export async function finalize(store: Store, request: FinalizeRequest): Promise<Outcome> {

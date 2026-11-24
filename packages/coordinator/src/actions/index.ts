@@ -1,5 +1,6 @@
 // coordinator/actions: what an endpoint does beyond one Durable Object call; no HTTP here.
 export { type CliTokenRequest, issueCliToken } from "./cli-token";
+export { claimTurn } from "./claim";
 export { pendingUpload, publicArtifact } from "./objects";
 export type { Result } from "./result";
 export { configureCeremony, publishFile } from "./setup";

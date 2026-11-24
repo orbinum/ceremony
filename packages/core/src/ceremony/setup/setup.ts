@@ -1,7 +1,7 @@
 /**
  * The frozen setup a coordinator is configured with: the published `ceremony.json` and
- * `genesis/init.json` texts, canonical, checked against each other and the pinned config, and
- * covering every circuit outside a local ceremony. SPEC §6.1–6.2.
+ * `genesis/init.json` texts, canonical, checked against each other and the pinned config. SPEC
+ * §6.1–6.2.
  */
 import type { CircuitName } from "../../config";
 import { utf8 } from "../../primitives/encoding";
@@ -11,7 +11,6 @@ import { type CeremonyAnnouncement, parseAnnouncement } from "../announcement";
 import {
   checkInitAgainstAnnouncement,
   checkInitAgainstConfig,
-  checkInitCoverage,
   type InitRecord,
   parseInit,
 } from "../init";
@@ -47,7 +46,6 @@ export function parseSetup(input: SetupInput, ceremonyId: string): Setup {
     ...(announcement.ceremony_id === ceremonyId ? [] : [`not ceremony ${ceremonyId}`]),
     ...checkInitAgainstAnnouncement(announcement, init, sha256Hex(utf8(input.init))),
     ...checkInitAgainstConfig(init),
-    ...(announcement.network === "local" ? [] : checkInitCoverage(init)),
   ];
   const genesisSizes: Setup["genesisSizes"] = {};
   for (const { name } of init.circuits) {

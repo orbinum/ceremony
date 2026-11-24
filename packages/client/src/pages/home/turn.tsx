@@ -3,7 +3,7 @@
  * progress), then the attestation signed with the linked wallet, and the receipt. The turn's state
  * belongs to the page (`useTurn`), which shows each half in its own step.
  */
-import { CIRCUIT_ORDER } from "@orbinum-ceremony/core";
+import type { CircuitName } from "@orbinum-ceremony/core";
 import { useEffect, useState } from "react";
 import type { Me, Slot } from "../../api";
 import { saveReceipt } from "../../attestation";
@@ -38,10 +38,10 @@ function useSecondsLeft(deadline: number | null): number | null {
   return deadline === null ? null : Math.max(0, Math.ceil((deadline - now) / 1000));
 }
 
-function Circuits({ circuits }: { circuits: CircuitStages }) {
+function Circuits({ order, circuits }: { order: CircuitName[]; circuits: CircuitStages }) {
   return (
     <ol className="divide-y divide-border border border-border">
-      {CIRCUIT_ORDER.map((c, i) => {
+      {order.map((c, i) => {
         const s = circuits[c];
         const look =
           s?.stage === "accepted"
@@ -87,9 +87,9 @@ export function ContributeStep(props: { turn: Turn; slot: Slot; onSkip: () => Pr
         {state.paused && (
           <Notice tone="info">The ceremony is paused; your turn resumes on its own.</Notice>
         )}
-        <Circuits circuits={state.circuits} />
+        <Circuits order={state.order} circuits={state.circuits} />
         <Notice tone="info">
-          Keep this tab open and your computer awake until the three circuits are done.
+          Keep this tab open and your computer awake until every circuit is done.
         </Notice>
       </>
     );

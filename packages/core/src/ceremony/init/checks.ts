@@ -1,14 +1,13 @@
 /**
  * `init.json` against the announcement, the pinned config and the audited release. SPEC §2.1, §6.2.
  */
-import { CIRCUIT_ORDER, CIRCUITS, type CircuitName, PTAU, TOOLING } from "../../config";
+import { type CircuitName, MEASURED_CIRCUITS, PTAU, TOOLING } from "../../config";
 import type { CeremonyAnnouncement } from "../announcement";
-import type { PublishedCircuit } from "./release";
+import { ceremonyVersionOf, type PublishedCircuit } from "./release";
 import type { InitCircuit, InitRecord } from "./types";
 
-/** The ceremony's circuits, in session order. */
-export const circuitsOf = (init: InitRecord): CircuitName[] =>
-  CIRCUIT_ORDER.filter((n) => init.circuits.some((c) => c.name === n));
+/** The ceremony's circuits, in session order (the order `init.json` pins). */
+export const circuitsOf = (init: InitRecord): CircuitName[] => init.circuits.map((c) => c.name);
 
 /** One circuit's entry; throws if the ceremony does not have it. */
 export function circuitOf(init: InitRecord, name: CircuitName): InitCircuit {
@@ -45,7 +44,7 @@ export function checkInitAgainstAnnouncement(
   return problems;
 }
 
-/** Pins the config fixes: the ptau, the tooling, and each circuit's id and ceremony version. */
+/** Pins the config fixes: the ptau and the tooling; and every circuit fits the ptau. */
 export function checkInitAgainstConfig(init: InitRecord): string[] {
   const problems: string[] = [];
   const p = init.ptau;
@@ -62,29 +61,52 @@ export function checkInitAgainstConfig(init: InitRecord): string[] {
     );
   }
   for (const c of init.circuits) {
-    const pinned = CIRCUITS[c.name];
-    if (pinned.id !== c.circuit_id || pinned.ceremonyVersion !== c.ceremony_version) {
-      problems.push(`${c.name}: id/version differ from the pinned config`);
+    if (c.domain_power > PTAU.power) {
+      problems.push(`${c.name}: needs a 2^${c.domain_power} domain, ptau provides 2^${PTAU.power}`);
     }
   }
   return problems;
 }
 
-/** A full ceremony covers every pinned circuit (a rehearsal may cover fewer). */
-export const checkInitCoverage = (init: InitRecord): string[] =>
-  CIRCUIT_ORDER.flatMap((n) => (init.circuits.some((c) => c.name === n) ? [] : [`${n} missing`]));
-
-/** The r1cs is the one the audited release published, at the version the config pins. */
+/**
+ * The r1cs is the one the audited release published for its active version, and the ceremony key
+ * becomes the next version.
+ */
 export function checkRelease(
   published: PublishedCircuit,
-  c: Pick<InitCircuit, "name" | "r1cs_sha256">,
+  c: Pick<InitCircuit, "r1cs_sha256" | "ceremony_version">,
 ): string[] {
   const problems: string[] = [];
   if (published.r1csSha256 !== c.r1cs_sha256)
     problems.push("r1cs is not the one the release published");
-  if (published.version !== CIRCUITS[c.name].devVersion) {
+  const expected = ceremonyVersionOf(published);
+  if (c.ceremony_version !== expected) {
     problems.push(
-      `release has v${published.version}, config expects v${CIRCUITS[c.name].devVersion}`,
+      `ceremony version v${c.ceremony_version}, the release's active v${published.version} needs v${expected}`,
+    );
+  }
+  return problems;
+}
+
+/**
+ * How `circuits` exceed what the session and verifier bounds were measured for (KL-61); empty
+ * when they fit.
+ */
+export function checkMeasuredBounds(
+  circuits: readonly Pick<InitCircuit, "name" | "constraints">[],
+): string[] {
+  const problems: string[] = [];
+  for (const c of circuits) {
+    if (c.constraints > MEASURED_CIRCUITS.maxConstraints) {
+      problems.push(
+        `${c.name}: ${c.constraints} constraints, the bounds were measured up to ${MEASURED_CIRCUITS.maxConstraints}`,
+      );
+    }
+  }
+  const total = circuits.reduce((sum, c) => sum + c.constraints, 0);
+  if (total > MEASURED_CIRCUITS.maxTotalConstraints) {
+    problems.push(
+      `${total} constraints in all, the bounds were measured up to ${MEASURED_CIRCUITS.maxTotalConstraints}`,
     );
   }
   return problems;

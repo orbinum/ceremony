@@ -27,7 +27,7 @@ export async function runFinalize(
   await assertPinnedSetup(options.dir, init.value, options.ptau);
 
   return withLock(paths.lock, async () => {
-    const store = await openTranscript(options.dir, announcement, init.value);
+    const store = await openTranscript(options.dir, announcement);
     const plans = await preflight(
       options.dir,
       init.value,
@@ -46,7 +46,6 @@ export async function runFinalize(
     try {
       const finals: FinalRecord[] = [];
       for (const plan of plans) {
-        // oxlint-disable-next-line no-await-in-loop -- sequential: verification is memory-heavy
         const f = await finalizeCircuit(
           {
             dir: options.dir,

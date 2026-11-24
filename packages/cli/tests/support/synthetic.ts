@@ -17,9 +17,9 @@ import {
   type CeremonyAnnouncement,
   type Chained,
   chainGenesis,
-  CIRCUITS,
   CIRCUITS_REPO_URL,
   type CircuitName,
+  domainPower,
   DRAND,
   headChain,
   INIT_SCHEMA,
@@ -40,6 +40,21 @@ import {
 import { layout } from "../../src/artifacts";
 import { ensureDir, writeAtomic, writeJson } from "../../src/io";
 import { ROUND_1000, scheduleFor, T_ROUND } from "./clock";
+
+/** The shapes of circuits v0.17.1, as `init` would pin them. */
+const SHAPES: Record<
+  string,
+  { id: number; version: number; constraints: number; publicSignals: number }
+> = {
+  shield: { id: 3, version: 2, constraints: 736, publicSignals: 3 },
+  unshield: { id: 2, version: 4, constraints: 17_290, publicSignals: 8 },
+  transfer: { id: 1, version: 4, constraints: 34_200, publicSignals: 9 },
+};
+const shapeOf = (c: string) => {
+  const s = SHAPES[c];
+  if (!s) throw new Error(`no test shape for ${c}`);
+  return s;
+};
 
 /** The release a synthetic ceremony announces (a real one is not needed: nothing compiles). */
 export const SYNTHETIC_RELEASE = { tag: "v1.0.0", commit: "c0ffee".padEnd(40, "0") };
@@ -102,18 +117,25 @@ export async function syntheticCeremony(options: SyntheticOptions = {}): Promise
     },
     source: { ref: release.tag, commit: release.commit },
     circuits: await Promise.all(
-      circuits.map(async (c) => ({
-        name: c,
-        circuit_id: CIRCUITS[c].id,
-        ceremony_version: CIRCUITS[c].ceremonyVersion,
-        r1cs_sha256: await put(dir, `r1cs/${c}.r1cs`, fake(`${c} r1cs`)),
-        constraints: CIRCUITS[c].constraints,
-        public_signals: CIRCUITS[c].publicInputs,
-        wires: CIRCUITS[c].constraints + 1,
-        domain_power: 16,
-        genesis_sha256: await put(dir, `genesis/${c}.genesis.zkey`, fake(`${c} genesis`)),
-        cs_hash: hex(64),
-      })),
+      // In session order, as `init` writes them.
+      circuits
+        .toSorted((a, b) => shapeOf(a).constraints - shapeOf(b).constraints)
+        .map(async (c) => ({
+          name: c,
+          circuit_id: shapeOf(c).id,
+          ceremony_version: shapeOf(c).version,
+          r1cs_sha256: await put(dir, `r1cs/${c}.r1cs`, fake(`${c} r1cs`)),
+          constraints: shapeOf(c).constraints,
+          public_signals: shapeOf(c).publicSignals,
+          wires: shapeOf(c).constraints + 1,
+          domain_power: domainPower({
+            constraints: shapeOf(c).constraints,
+            publicOutputs: shapeOf(c).publicSignals,
+            publicInputs: 0,
+          }),
+          genesis_sha256: await put(dir, `genesis/${c}.genesis.zkey`, fake(`${c} genesis`)),
+          cs_hash: hex(64),
+        })),
     ),
   });
   const initBytes = utf8(serializeJson(init));

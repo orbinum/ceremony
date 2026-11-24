@@ -3,7 +3,7 @@
  * genesis are published exactly as the configured texts and sizes describe them.
  */
 import { env } from "cloudflare:workers";
-import { CEREMONY_LAYOUT, sha256Hex } from "@orbinum-ceremony/core";
+import { CEREMONY_LAYOUT, sha256Hex, utf8 } from "@orbinum-ceremony/core";
 import { describe, expect, it } from "vitest";
 import { configureCeremony } from "../../src/actions";
 import { freshId, publishedSetup, routedTo, stubOf } from "../support";
@@ -46,6 +46,20 @@ describe("configureCeremony", () => {
     ).toMatchObject({ ok: false, code: "malformed-setup" });
     expect(await stub.setup()).toBeNull();
     expect(await configureCeremony(e, setup)).toEqual({ ok: true, value: {} });
+  });
+
+  it("freezes only the announcement a pinned deployment names", async () => {
+    const { e, stub } = fresh();
+    const setup = await publishedSetup(Date.now() - 1000, Date.now() + 86_400_000);
+    const other = { ...e, ANNOUNCEMENT_SHA256: "ab".repeat(32) };
+    expect(await configureCeremony(other, setup)).toEqual({
+      ok: false,
+      code: "malformed-setup",
+      message: "this deployment is pinned to another ceremony.json",
+    });
+    expect(await stub.setup()).toBeNull();
+    const pinned = { ...e, ANNOUNCEMENT_SHA256: sha256Hex(utf8(setup.announcement)) };
+    expect(await configureCeremony(pinned, setup)).toEqual({ ok: true, value: {} });
   });
 
   it("refuses unless ceremony.json and init.json are published exactly as configured", async () => {

@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildAnnouncement,
-  CIRCUITS,
   CIRCUITS_REPO_URL,
   createSha256,
   domainPower,
@@ -34,8 +33,11 @@ export const PTAU_PATH = process.env.ORBINUM_PTAU;
 /** Optional: a clone of the circuits repo, for the release/source checks. */
 export const CIRCUITS_REPO = process.env.ORBINUM_CIRCUITS_REPO;
 
-/** circuits v0.16.0 (the release the shield r1cs fixture comes from). */
-export const RELEASE = { tag: "v0.16.0", commit: "efe10bf3ef1d928c9c209fee4077750334410cfe" };
+/**
+ * circuits v0.17.1, the release of the real-key vectors; the shield r1cs fixture (from v0.16.0) is
+ * byte-identical in it, still at active version 1.
+ */
+export const RELEASE = { tag: "v0.17.1", commit: "05e7d6fa7cde898b34b30d522a1fb38cfcafb5e7" };
 
 export interface TestCeremony {
   dir: string;
@@ -78,8 +80,8 @@ export async function shieldOnlyCeremony(
     circuits: [
       {
         name: "shield",
-        circuit_id: CIRCUITS.shield.id,
-        ceremony_version: CIRCUITS.shield.ceremonyVersion,
+        circuit_id: 3,
+        ceremony_version: 2,
         r1cs_sha256: await hashFile(paths.r1cs("shield"), createSha256()),
         constraints: header.constraints,
         public_signals: header.publicOutputs + header.publicInputs,
@@ -107,8 +109,8 @@ export async function shieldOnlyCeremony(
 
 /** Seals a real drand round in the transcript, as finalize would after fetching it. */
 export async function sealRound(dir: string, round: typeof ROUND_1000): Promise<void> {
-  const [announcement, init] = await opened(dir);
-  const store = await openTranscript(dir, announcement, init);
+  const [announcement] = await opened(dir);
+  const store = await openTranscript(dir, announcement);
   await store.append({
     type: "beacon",
     ceremony_id: announcement.value.ceremony_id,

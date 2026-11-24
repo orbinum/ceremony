@@ -27,14 +27,19 @@ export function Home() {
   const { data: me, error, reload } = usePoll(getMe, 60_000);
   const { data: config } = usePoll(getConfig, 3_600_000);
   const { data: status, error: statusError } = usePoll(getStatus, 15_000);
-  const announced = !(statusError instanceof ApiError && statusError.code === "not-configured");
+  // Undefined until the status answers: the page then knows whether there is a ceremony at all.
+  const announced =
+    status !== undefined
+      ? true
+      : statusError === undefined
+        ? undefined
+        : !(statusError instanceof ApiError && statusError.code === "not-configured");
 
   return (
     <>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 sm:h-16 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex shrink-0 items-center">
           <Logo />
-          <NetworkSelector network={config?.network} />
         </div>
         <div className="flex min-w-0 items-center gap-2 text-xs sm:gap-3">
           {me && (
@@ -45,6 +50,7 @@ export function Home() {
               </Button>
             </>
           )}
+          <NetworkSelector network={config?.network} />
           <ThemeToggle />
         </div>
       </header>
@@ -62,7 +68,7 @@ export function Home() {
           </p>
         </section>
 
-        <CeremonyStatus status={status} announced={announced} />
+        <CeremonyStatus status={status} announced={announced !== false} />
 
         {/* Before the announcement, the sign-in step already says why. */}
         {outcome && announced && <Notice tone="error">{outcome}</Notice>}
@@ -73,7 +79,8 @@ export function Home() {
             <h2 className="mb-6 text-[10px] font-medium uppercase tracking-widest text-muted">
               How to contribute
             </h2>
-            {me !== undefined && (
+            {/* Loading (no answer yet) shows placeholders; a failed load shows only its notice. */}
+            {(me !== undefined || error === undefined) && (
               <Journey me={me} config={config} announced={announced} reloadMe={reload} />
             )}
           </section>

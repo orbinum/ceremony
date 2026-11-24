@@ -17,6 +17,7 @@ export {
   checkFinalizable,
   checkIdentities,
   checkKnownCircuits,
+  checkKnownFinals,
   checkMinContributions,
   checkRecordsInWindow,
   checkSealedBeacon,

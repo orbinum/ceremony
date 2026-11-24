@@ -42,6 +42,7 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
       network: ${{ steps.meta.outputs.network }}
+      sha: ${{ steps.signature.outputs.sha }}
     steps:
       # Credentials kept: the private repository's tag and main are fetched again below. This job
       # runs only its own shell steps, with a read-only token.
@@ -74,6 +75,7 @@ jobs:
 
       # Anyone with push access can create a tag; only the release key can sign one.
       - name: Verify the tag's GPG signature
+        id: signature
         env:
           RELEASE_GPG_PUBLIC_KEY: ${{ secrets.RELEASE_GPG_PUBLIC_KEY }}
           TAG: v${{ steps.meta.outputs.version }}
@@ -84,6 +86,7 @@ jobs:
           echo "$RELEASE_GPG_PUBLIC_KEY" | gpg --batch --import
           git fetch origin "+refs/tags/$TAG:refs/tags/$TAG" --force
           git verify-tag "refs/tags/$TAG"
+          echo "sha=$(git rev-parse "refs/tags/$TAG^{commit}")" >> "$GITHUB_OUTPUT"
 
       # Trunk-based: a release is a commit that is on main.
       - name: Tag must be on main
@@ -91,7 +94,7 @@ jobs:
           TAG: v${{ steps.meta.outputs.version }}
         run: |
           git fetch origin +refs/heads/main:refs/remotes/origin/main
-          git merge-base --is-ancestor "$TAG" origin/main \
+          git merge-base --is-ancestor "refs/tags/$TAG" origin/main \
             || { echo "::error::$TAG is not on main: tag a commit of main"; exit 1; }
 
       # Read at the tag: a promotion's checkout is main.
@@ -102,13 +105,13 @@ jobs:
           TAG="v$VERSION"
           # One version for the whole repository: the CLI reports packages/cli's to the coordinator.
           for f in package.json packages/*/package.json; do
-            V=$(git show "$TAG:$f" | node -p 'JSON.parse(require("fs").readFileSync(0)).version')
+            V=$(git show "refs/tags/$TAG:$f" | node -p 'JSON.parse(require("fs").readFileSync(0)).version')
             if [[ "$V" != "$VERSION" ]]; then
               echo "::error::$f is at $V at $TAG: bump every package.json to $VERSION before tagging"
               exit 1
             fi
           done
-          git show "$TAG:CHANGELOG.md" | grep -Eq "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" \
+          git show "refs/tags/$TAG:CHANGELOG.md" | grep -Eq "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" \
             || { echo "::error::CHANGELOG.md at $TAG has no '## [$VERSION] - YYYY-MM-DD' section"; exit 1; }
 
       # What ships passed CI on main first: merge, wait for green, then tag. A promotion skips
@@ -119,7 +122,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.meta.outputs.version }}
         run: |
-          SHA=$(git rev-parse "$TAG^{commit}")
+          SHA=$(git rev-parse "refs/tags/$TAG^{commit}")
           RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&branch=main&event=push" \
             --jq '.workflow_runs[0] | select(.) | "\(.status) \(.conclusion) \(.html_url)"')
           read -r STATUS CONCLUSION URL <<< "$RUN"
@@ -156,11 +159,19 @@ jobs:
       VERSION: ${{ needs.metadata.outputs.version }}
       NETWORK: ${{ needs.metadata.outputs.network }}
     steps:
-      - name: Checkout the tag
+      # By the commit metadata verified, also on a promotion: a tag name can move after the check.
+      - name: Checkout the verified commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: v${{ needs.metadata.outputs.version }} # also on a promotion
+          ref: ${{ needs.metadata.outputs.sha }}
           persist-credentials: false
+
+      - name: The checkout is the verified commit
+        env:
+          SHA: ${{ needs.metadata.outputs.sha }}
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ && "$(git rev-parse HEAD)" == "$SHA" ]] \
+            || { echo "::error::the checkout is not the verified commit $SHA"; exit 1; }
 
       # Without it wrangler would deploy the top-level (local) configuration.
       - name: The network's deployment must be configured

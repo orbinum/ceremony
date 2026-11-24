@@ -10,6 +10,7 @@ import {
   step,
 } from "../../../src/coordination/queue";
 import { QUEUE_RULES } from "../../../src/config";
+import { CIRCUIT_NAMES } from "../../support";
 
 const MIN = 60_000;
 const OPEN = 1_000_000;
@@ -29,7 +30,7 @@ const refused = (s: QueueState, e: QueueEvent, t: number) => {
   return r.ok ? null : r.refusal;
 };
 const opened = () =>
-  step(initialQueue({ openAt: OPEN, closeAt: CLOSE }), { type: "tick" }, OPEN).state;
+  step(initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES), { type: "tick" }, OPEN).state;
 const holding = (t = OPEN) =>
   apply(opened(), t, { type: "join", githubId: ALICE }, { type: "claim", githubId: ALICE });
 const uploading = (t = OPEN) =>

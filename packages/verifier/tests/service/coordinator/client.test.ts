@@ -2,12 +2,7 @@
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  SIGNATURE_HEADER,
-  TIMESTAMP_HEADER,
-  type VerifierReport,
-  verifyRequest,
-} from "@orbinum-ceremony/core";
+import { requestAuthOf, type VerifierReport, verifyRequest } from "@orbinum-ceremony/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchObject, MAX_ATTEMPTS, postReport, REQUEST_TIMEOUT_MS } from "../../../src/service";
 import { CEREMONY_ID, HMAC_KEY } from "../../support";
@@ -52,7 +47,7 @@ const signedFor = (ceremonyId: string, method: string, url: URL, init: RequestIn
     method,
     url.pathname,
     typeof init.body === "string" ? init.body : "",
-    { timestamp: headers[TIMESTAMP_HEADER], signature: headers[SIGNATURE_HEADER] },
+    requestAuthOf((name) => headers[name]),
     Date.now(),
   );
 };

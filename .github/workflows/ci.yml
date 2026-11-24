@@ -65,8 +65,42 @@ jobs:
   # The test suites in parallel, each with only the inputs it reads. The packages' tests do not
   # depend on each other's, so nothing waits for another; the cli runs its files one at a time
   # (fileParallelism: false), so it is split into shards here.
+  # The circuits repo at the release the test ceremonies announce, with its tags (the
+  # verification resolves them) and its locked node_modules installed later (circomlib). The
+  # organisation disables deploy keys, so a fine-grained token reads it: Contents read-only, that
+  # repo only. It is cloned in this job alone, which runs no code of this repository nor any
+  # dependency, so no later step can read the token from the runner's memory; the test jobs get
+  # the tree as an artifact. Its origin stays the plain HTTPS URL the verification compares with
+  # the announced repo. It is checked out by the commit the tests pin (v0.17.1,
+  # packages/cli/tests/support/ceremony.ts; a test keeps the two equal), never by a ref name
+  # someone could move.
+  circuits:
+    name: Clone the circuits repo
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone the circuits repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: orbinum/circuits
+          ref: 05e7d6fa7cde898b34b30d522a1fb38cfcafb5e7 # v0.17.1
+          token: ${{ secrets.CIRCUITS_READ_TOKEN }}
+          persist-credentials: false
+          path: circuits
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Hand the clone to the test jobs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: circuits
+          path: circuits
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
   test:
     name: Test ${{ matrix.name }}
+    needs: circuits
     runs-on: ubuntu-24.04
     # The end-to-end ceremony alone takes ~8 min (wrangler dev, nine verifications, a real drand
     # round); the bound only stops a hung run.
@@ -114,26 +148,13 @@ jobs:
           node-version: "22.15.0"
           cache: pnpm
 
-      # The circuits repo at the release the test ceremonies announce, with its tags (the
-      # verification resolves them) and its locked node_modules (circomlib). The organisation
-      # disables deploy keys, so a fine-grained token reads it: Contents read-only, that repo
-      # only. It is not left in the clone, whose origin stays the plain HTTPS URL the
-      # verification compares with the announced repo. It is checked out by the commit the tests
-      # pin (v0.16.0, packages/cli/tests/support/ceremony.ts; a test keeps the two equal), never by
-      # a ref name someone could move. The token reaches only this step; pull-request code already
-      # runs earlier in the job (pnpm/action-setup, the pnpm cache), so what keeps it from a
-      # pull request is that forks never get secrets (KL-53).
-      - name: Clone the circuits repo
+      # The circuits repo, cloned by its own job: no secret is referenced in this one.
+      - name: The circuits repo
         if: matrix.tools
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          repository: orbinum/circuits
-          ref: efe10bf3ef1d928c9c209fee4077750334410cfe # v0.16.0
-          token: ${{ secrets.CIRCUITS_READ_TOKEN }}
-          persist-credentials: false
+          name: circuits
           path: .test-inputs/circuits
-          fetch-depth: 0
-          fetch-tags: true
 
       # Install scripts run only for esbuild and workerd (pnpm-workspace.yaml), which
       # `wrangler dev` needs in the end-to-end test.

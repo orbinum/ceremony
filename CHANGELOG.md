@@ -7,6 +7,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-24
+
+### Changed
+
+- **Circuits come from the circuits release, not from code.** `init --circuit-ids
+  <name>=<id>,…` names the ceremony's circuits and their on-chain `CircuitId`; each r1cs must be
+  the one the release's `manifest.json` publishes for its active version, the ceremony key becomes
+  the next version, and the constraints and public signals are read from the r1cs. `init.json`
+  pins them all, in session order (fewest constraints first), and every component (coordinator,
+  verifier, `verify`, browser client) takes the circuit list from it. A new circuits release or a
+  new circuit needs no code change. With circuits v0.17.1: transfer v3 → v4 (34,200 constraints),
+  unshield v3 → v4 (17,290), shield v1 → v2 (736).
+- A ceremony may cover any circuits of its release on every network (the full-coverage check is
+  gone); circuit names are `[a-z][a-z0-9_]{0,31}` and never an `Object.prototype` key.
+- An attestation lists the session's contributions in transcript order, which is the session
+  order (uploads are sequential); a payload in another order still fails to match.
+- Before the setup freezes, the coordinator takes a circuit's `r1cs/` or `genesis/` file only
+  for a circuit of the already published `genesis/init.json` (`publish-init` uploads it first).
+- `verify` fails a `transcript.finals` that names a circuit outside `init.json`.
+- A queue state stored before this release takes its circuits from the frozen setup.
+- The CI clones circuits v0.17.1, the release of the test vectors (shield's r1cs is unchanged).
+- Session and verifier bounds stay sized for circuits v0.17.1 (KL-61).
+- The real-key test vectors are `testnet-rehearsal-2` (circuits v0.17.1), from ceremony-verifier's
+  `test-vectors-2` release.
+
+### Security
+
+- **The coordinator ↔ verifier MAC is checked before any body byte is read.** It now covers the
+  body's SHA-256, sent in `x-ceremony-body-sha256`, instead of the body itself; the bounded body
+  must then hash to it. An unauthenticated `/internal/*` or `/verify` request costs one HMAC over
+  its headers, where a forged one with a fresh timestamp used to make the Worker buffer up to
+  ~2 MiB and hash it (KL-54). Coordinator and verifier must run this release together.
+- The release deploy checks out the commit the signed tag named when it was verified, and fails
+  unless it is that commit: a tag moved (or shadowed by a branch) after the check is not shipped.
+- `ceremony.json` and `genesis/init.json` are parsed before `PUT /admin/artifacts` publishes them,
+  and refused above 1 MiB: a document that does not parse can no longer freeze unusable.
+- `init.json` is refused unless its circuits are in session order, each `domain_power` is the one
+  its constraints and public signals need, and each `ceremony_version` is at least 1; a release
+  manifest that already publishes the version after the active one is refused (two keys would
+  share it). The circomlib version is read from the lockfile in linear time.
+- A failed write deletes the object only while it is still the version that write made.
+- The browser's CLI command no longer pre-fills `--announcement-sha256` from the coordinator it
+  checks: the contributor fills in the hash Orbinum published; the site's own is shown to compare.
+- A coordinator with `ENVIRONMENT=local` and a public `COORDINATOR_URL` (an overridden deployment)
+  refuses to serve.
+- The verifier container is not started for jobs past their deadline, and one that does not
+  become healthy is destroyed instead of blocking every later job.
+- `verify` keeps the ptau's prerequisite apart from a circuit named `ptau`.
+- After a reload mid-verification, the browser still signs a circuit accepted meanwhile.
+- Gitleaks also catches a literal `VERIFIER_ACCESS_CLIENT_SECRET`.
+- No attestation is taken from the announced beacon time on: a transcript downloaded after it is
+  the one the beacon follows, so `finalize` never has to run again for a late attestation.
+- Each OAuth state completes one sign-in, and each authentic coordinator ↔ verifier request is
+  taken once (its MAC is spent until its window closes): a copied cookie or a replayed request
+  inside the ±60 s window is refused.
+- Contributions and logs are revalidated by ETag (`304` when unchanged) instead of cached for a
+  year, so a leftover of a failed promotion is never kept by a reader; `genesis/` stays immutable.
+- `download --transcript-sha256` pins the sealed transcript from an official channel: a mirror
+  can no longer make it fetch an invented chain.
+- SS58 accounts are checked (checksum, one spelling) wherever core reads an account, without
+  @polkadot.
+- KL-32, KL-35, KL-43, KL-44, KL-46 and KL-62 removed; KL-45 narrowed (no body before the MAC).
+- The verifier container is warmed when a turn is claimed, so its start no longer counts inside
+  the first upload's deadline; its Durable Object keeps each job until that deadline and posts it
+  again to a container that crashed or was replaced by a deploy (KL-59 removed, KL-27 narrowed to
+  a verifier run elsewhere).
+- Upload and final-write holds live in the Durable Object's SQLite, so an evicted object keeps
+  them; an upload's hold lasts 2 minutes plus its size at 128 KiB/s instead of 15 minutes (KL-51
+  narrowed).
+- snarkjs verification bounds grow with the MPC entries a zkey holds (KL-47 narrowed).
+- `download` connects to a redirect hop over https only at a public address, checked at the
+  connection's own DNS lookup (CGNAT and NAT64 count as internal); `undici` 7.30.1 (already in the
+  lockfile) is now a direct dependency of the CLI (KL-56 removed).
+- `ANNOUNCEMENT_SHA256` (empty by default) pins a deployment to one `ceremony.json`:
+  `/admin/configure` refuses any other (KL-58 narrowed).
+- A verifier test rebuilds every genesis key of the real-key vectors and requires the pinned
+  bytes; CI runs it on Linux, the vectors were built on macOS (KL-14 removed).
+- CI clones the circuits repo in a job of its own, the only one that sees `CIRCUITS_READ_TOKEN`;
+  the test jobs get the tree as an artifact (KL-53 removed).
+
+### Changed (known limits, UX and operations)
+
+- `contribute` checks the head against the coordinator's live transcript (`/api/transcript`)
+  when the published `transcript.json` is withheld or behind, under the same anchor and checks,
+  instead of ending the session (KL-52 removed).
+- The wallet picker and the wallet step show the Solana (base58) form of an ed25519 account
+  beside its SS58 form (KL-50 removed).
+- `init` downloads the ptau from Orbinum's copies first (the testnet coordinator's
+  `/artifacts/ptau/…`, ceremony-verifier's `test-vectors-2` release), then the original hosts
+  (KL-25 removed).
+- snarkjs children load core through `@orbinum-ceremony/core/snarkjs-child`, without the wallet
+  libraries: about 100 MB and 0.3 s less per child (KL-33 narrowed).
+- `init` refuses circuits past the envelope the session and verifier bounds were measured for
+  (`MEASURED_CIRCUITS`: 40,000 constraints per circuit, 60,000 in all) unless
+  `--beyond-measured-bounds` says they were re-measured (KL-61 narrowed).
+- The CLI's code is split by responsibility: one reader of the coordinator's answers and one
+  `CoordinatorRefusal` for the contributor and operator APIs; `contribute` as retry, token, session
+  API, anchors and head checks, one contribution, and the session; `download` as pinned files and
+  transcript acceptance; `verify`'s prerequisite gate, release and independent checks on their own.
+  The sequential loops no longer carry a lint suppression each.
+- `verify` gates every circuit's expensive checks on a ptau that could not be staged again (its
+  prerequisite was recorded under the wrong key).
+
+### Fixed
+
+- The sign-in step shows a placeholder until the session and the ceremony's status are known,
+  instead of offering "Sign in with GitHub" and then switching to "not announced yet".
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

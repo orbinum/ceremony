@@ -123,7 +123,6 @@ describe("attestation payloads have one signable form (SPEC §3.5)", () => {
   it.each([
     ["no contribution", []],
     ["a repeated circuit", [contribution("shield"), contribution("shield", 2)]],
-    ["circuits out of order", [contribution("transfer"), contribution("shield")]],
   ])("refuses %s", (_, contributions) => {
     expect(() => validateAttestationPayload(payload(contributions), "eip712")).toThrow(
       /attestation\.contributions/,

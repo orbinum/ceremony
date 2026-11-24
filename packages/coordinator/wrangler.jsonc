@@ -53,6 +53,9 @@
     // This deployment's public origin, where the verifier container fetches the published inputs
     // and reports (/artifacts, /internal). Required with VERIFIER_CONTAINER.
     "COORDINATOR_URL": "",
+    // SHA-256 of the one ceremony.json this deployment may freeze (from the official channel);
+    // empty: any announcement of its network. Set before /admin/configure on mainnet.
+    "ANNOUNCEMENT_SHA256": "",
     // Cloudflare Access application guarding /admin/* (https://<team>.cloudflareaccess.com and
     // its audience tag). A local deployment serves /admin without them; elsewhere they are required.
     "ACCESS_TEAM_DOMAIN": "",
@@ -121,6 +124,7 @@
         "GITHUB_CLIENT_ID": "Ov23li2sBLCtW89N1Mth",
         "VERIFIER_URL": "",
         "COORDINATOR_URL": "https://ceremony.testnet.orbinum.network",
+        "ANNOUNCEMENT_SHA256": "",
         "ACCESS_TEAM_DOMAIN": "https://orbinum.cloudflareaccess.com",
         "ACCESS_AUD": "28660a96a902d23d7173df1e6399799abbd96f945f6bf3cda7feb46c59dc5a80",
         // The CLI's service token (ceremony-testnet-operator) and one operator's browser login.
@@ -183,6 +187,7 @@
         "GITHUB_CLIENT_ID": "",
         "VERIFIER_URL": "",
         "COORDINATOR_URL": "https://ceremony.orbinum.network",
+        "ANNOUNCEMENT_SHA256": "",
         "ACCESS_TEAM_DOMAIN": "",
         "ACCESS_AUD": "",
         "ACCESS_OPERATORS": "",

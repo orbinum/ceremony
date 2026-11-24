@@ -1,7 +1,8 @@
 // core/config: pinned constants, limits and policy (no logic).
 export { BEACON_ITERATIONS_EXP, BEACON_ITERATIONS_RANGE, DRAND } from "./beacon";
-export { CIRCUIT_ORDER, CIRCUITS, CIRCUITS_REPO_URL, type CircuitName } from "./circuits";
+export { CIRCUITS_REPO_URL, type CircuitName } from "./circuits";
 export {
+  MAX_CIRCUITS,
   MAX_CLAIM_BYTES,
   MAX_CONTRIBUTIONS,
   MAX_DETAIL_CHARS,
@@ -21,6 +22,7 @@ export {
   GITHUB_THRESHOLDS,
   LINK_RULES,
   LOOPBACK_HOSTS,
+  MEASURED_CIRCUITS,
   MAINNET_MIN_CONTRIBUTIONS,
   MAX_BEACON_DELAY_SECONDS,
   MIN_BEACON_DELAY_SECONDS,

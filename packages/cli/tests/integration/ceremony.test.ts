@@ -15,11 +15,6 @@ import {
   type TestCeremony,
 } from "../support";
 
-/**
- * The shield-only ceremony lacks unshield/transfer by construction; every other check must pass.
- */
-const COVERAGE = "init.json covers exactly the pinned circuits and tooling";
-
 describe.skipIf(!PTAU_PATH)("local ceremony end to end (shield)", { timeout: 180_000 }, () => {
   const ptau = PTAU_PATH as string;
   let ceremony: TestCeremony;
@@ -37,14 +32,14 @@ describe.skipIf(!PTAU_PATH)("local ceremony end to end (shield)", { timeout: 180
     };
   }, 180_000);
 
-  it("verifies everything except the deliberately partial circuit set", async () => {
-    expect(await failedChecks(verify)).toEqual([COVERAGE]);
+  it("verifies everything: a ceremony may cover any circuits of the release", async () => {
+    expect(await failedChecks(verify)).toEqual([]);
   });
 
   it("re-running finalize reuses the sealed beacon and produces the same keys", async () => {
     const finals = await runFinalize({ dir: ceremony.dir, ptau }, CLOCK.finalize);
     expect(finals.map((f) => f.contributions)).toEqual([2]);
-    expect(await failedChecks(verify)).toEqual([COVERAGE]);
+    expect(await failedChecks(verify)).toEqual([]);
   });
 
   it("refuses contributions after the seal", async () => {

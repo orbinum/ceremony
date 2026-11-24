@@ -86,6 +86,18 @@ describe("verify, rooted in the pin and the expected network", () => {
     );
   });
 
+  it("does not run snarkjs at all when the ptau cannot be staged", async () => {
+    const failed = await failures(options(c));
+    expect(failed).toContainEqual(
+      expect.objectContaining({ id: "ptau is a regular file", status: "fail" }),
+    );
+    expect(failed).toContainEqual({
+      id: "shield: final zkey verifies from r1cs + ptau",
+      status: "fail",
+      detail: "not run: prerequisite failed (ptau is a regular file)",
+    });
+  });
+
   it("exits 1 when the verification fails", async () => {
     const before = process.exitCode;
     try {
@@ -204,7 +216,9 @@ describe("verify with the verifier's own circuits clone", () => {
     await rm(log, { force: true });
     const failed = await failures(options(c, { circuitsRepo: repo }));
     expect(failed).toContainEqual(
-      expect.objectContaining({ id: "init.json covers exactly the pinned circuits and tooling" }),
+      expect.objectContaining({
+        id: "init.json pins the ptau and the tooling, and every circuit fits the ptau",
+      }),
     );
     const calls = (await readFile(log, "utf8")).trim().split("\n");
     expect(calls).toHaveLength(1);

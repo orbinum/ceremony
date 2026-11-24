@@ -1,18 +1,19 @@
 /** Building `init.json` from what `init` measured. SPEC §2.1–2.3. */
-import { CIRCUITS, type CircuitName, PTAU, TOOLING } from "../../config";
+import { type CircuitName, PTAU, TOOLING } from "../../config";
 import { domainPower, type MpcParams, type R1csHeader } from "../../formats";
 import { INIT_SCHEMA, type InitCircuit, type InitRecord } from "./types";
-import { validateInit } from "./validate";
+import { sessionOrder, validateInit } from "./validate";
 
 /** One circuit's entry from its r1cs header and the hashes of its r1cs and genesis. */
 export const initCircuitOf = (
   name: CircuitName,
+  ids: { circuitId: number; ceremonyVersion: number },
   header: R1csHeader,
   hashes: { r1csSha256: string; genesisSha256: string; csHash: string },
 ): InitCircuit => ({
   name,
-  circuit_id: CIRCUITS[name].id,
-  ceremony_version: CIRCUITS[name].ceremonyVersion,
+  circuit_id: ids.circuitId,
+  ceremony_version: ids.ceremonyVersion,
   r1cs_sha256: hashes.r1csSha256,
   constraints: header.constraints,
   public_signals: header.publicOutputs + header.publicInputs,
@@ -26,7 +27,7 @@ export const initCircuitOf = (
 export const checkGenesis = (params: MpcParams): string[] =>
   params.entries.length === 0 ? [] : [`genesis has ${params.entries.length} MPC entries`];
 
-/** A validated `init.json`, pinned to `PTAU` and the pinned snarkjs. */
+/** A validated `init.json`, pinned to `PTAU` and the pinned snarkjs, its circuits in session order. */
 export const buildInit = (input: {
   ceremonyId: string;
   createdAt: string;
@@ -48,5 +49,5 @@ export const buildInit = (input: {
       circom_flags: input.circomFlags,
     },
     source: input.source,
-    circuits: input.circuits,
+    circuits: sessionOrder(input.circuits),
   } satisfies InitRecord);

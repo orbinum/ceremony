@@ -7,11 +7,11 @@ import { CEREMONY_LAYOUT } from "@orbinum-ceremony/core";
 import { useEffect } from "react";
 import { type Config, getSlot, leaveQueue, type Me } from "../../api";
 import { usePoll, useTurn } from "../../hooks";
-import { Notice, Step, type StepState } from "../../ui";
+import { Notice, Skeleton, Step, type StepState } from "../../ui";
 import { CliOption } from "./cli";
 import { QueueStep } from "./queue";
 import { ContributeStep, SignStep } from "./turn";
-import { NOT_ANNOUNCED, shortAccount } from "./text";
+import { accountLine, NOT_ANNOUNCED } from "./text";
 import { WalletStep } from "./wallet";
 
 const TITLES = [
@@ -26,11 +26,13 @@ const ABOUT = [
   "Your GitHub account keeps the line fair: one contribution per person.",
   "It signs your contribution. No transaction, no fee.",
   "One contributor at a time; you wait your turn on this page.",
-  "Your browser adds its randomness to the three circuits. A few minutes.",
+  "Your browser adds its randomness to every circuit of the ceremony. A few minutes.",
   "Your wallet signs what you contributed, for the public record.",
 ] as const;
 
-function SignIn({ announced }: { announced: boolean }) {
+/** `announced` undefined: not known yet, so neither the button nor the notice is shown. */
+function SignIn({ announced }: { announced: boolean | undefined }) {
+  if (announced === undefined) return <Skeleton label="Loading the ceremony" />;
   if (!announced) return <Notice tone="info">{NOT_ANNOUNCED}</Notice>;
   return (
     <>
@@ -92,7 +94,7 @@ function Linked(props: { me: Me; config: Config | undefined; reloadMe: () => voi
         n={2}
         title={TITLES[1]}
         state="done"
-        summary={linked && `${linked.scheme} · ${shortAccount(linked.account)}`}
+        summary={linked && accountLine(linked.scheme, linked.account)}
       >
         <WalletStep me={me} onLinked={reloadMe} />
       </Step>
@@ -159,15 +161,20 @@ function Linked(props: { me: Me; config: Config | undefined; reloadMe: () => voi
   );
 }
 
-/** The five steps for whoever is on the page: signed out, signed in, or linked. */
+/**
+ * The five steps for whoever is on the page: signed out, signed in, or linked. `me` undefined and
+ * `announced` undefined are still loading: step 1 shows a placeholder until both are known, so it
+ * never offers a sign-in that the next answer takes back.
+ */
 export function Journey(props: {
-  me: Me | null;
+  me: Me | null | undefined;
   config: Config | undefined;
-  announced: boolean;
+  announced: boolean | undefined;
   reloadMe: () => void;
 }) {
   const { me } = props;
   if (me?.linked) return <Linked me={me} config={props.config} reloadMe={props.reloadMe} />;
+  const loading = me === undefined;
   return (
     <ol>
       <Step
@@ -176,7 +183,11 @@ export function Journey(props: {
         state={me ? "done" : "current"}
         summary={me ? `Signed in as @${me.login}` : ABOUT[0]}
       >
-        {!me && <SignIn announced={props.announced} />}
+        {loading ? (
+          <Skeleton label="Loading your session" />
+        ) : (
+          !me && <SignIn announced={props.announced} />
+        )}
       </Step>
       <Step n={2} title={TITLES[1]} state={me ? "current" : "upcoming"} summary={ABOUT[1]}>
         {me && <WalletStep me={me} onLinked={props.reloadMe} />}

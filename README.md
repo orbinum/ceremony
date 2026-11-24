@@ -32,13 +32,13 @@ End-to-end tests run a real (shield-only) ceremony and need the 75 MB Hermez pta
 ORBINUM_PTAU=/path/to/powersOfTau28_hez_final_16.ptau pnpm test
 ```
 
-`packages/e2e` also needs a ceremony directory with all three genesis keys and its `genesis/init.json` (e.g. the output of `init`, or `ceremony-verifier`'s `testnet-rehearsal-1` vectors). It runs the coordinator with `wrangler dev`, the verifier service, three contributors (one through stock snarkjs, as the CLI path) and a tampered upload:
+`packages/e2e` also needs a ceremony directory with all three genesis keys and its `genesis/init.json` (e.g. the output of `init`, or `ceremony-verifier`'s `testnet-rehearsal-2` vectors). It runs the coordinator with `wrangler dev`, the verifier service, three contributors (one through stock snarkjs, as the CLI path) and a tampered upload:
 
 ```bash
-ORBINUM_PTAU=... ORBINUM_REHEARSAL_DIR=artifacts/testnet-rehearsal-1 pnpm --filter @orbinum-ceremony/e2e test
+ORBINUM_PTAU=... ORBINUM_REHEARSAL_DIR=artifacts/testnet-rehearsal-2 pnpm --filter @orbinum-ceremony/e2e test
 ```
 
-The attack suites of `core` and `verifier` walk the same rehearsal's whole chain: every contribution, each final's `vk.json` and `transcript.json` (`artifacts/testnet-rehearsal-1` when `ORBINUM_REHEARSAL_DIR` is unset).
+The attack suites of `core` and `verifier` walk the same rehearsal's whole chain: every contribution, each final's `vk.json` and `transcript.json` (`artifacts/testnet-rehearsal-2` when `ORBINUM_REHEARSAL_DIR` is unset).
 
 Both inputs can be fetched, checked against their pins, from `ceremony-verifier`'s `test-vectors-1` release; the script prints the environment to use:
 
@@ -95,12 +95,15 @@ On testnet and mainnet it runs as a **Cloudflare Container** (`packages/verifier
 PTAU=<path to powersOfTau28_hez_final_16.ptau>
 PACKER=../groth16-proofs/target/release/pack-verifying-key
 
-pnpm ceremony init     --ceremony-id rehearsal-1 --circuits-repo ../circuits --circuits-ref v0.16.0 --ptau $PTAU
+pnpm ceremony init     --ceremony-id rehearsal-1 --circuits-repo ../circuits --circuits-ref v0.17.1 \
+                       --circuit-ids shield=3,unshield=2,transfer=1 --ptau $PTAU
 pnpm ceremony announce --dir artifacts/rehearsal-1 --network testnet --circuits-repo ../circuits \
-                       --circuits-tag v0.16.0 --min-contributions 3 --close <ISO time>      # prints the SHA-256 to publish
+                       --circuits-tag v0.17.1 --min-contributions 3 --close <ISO time>      # prints the SHA-256 to publish
 pnpm ceremony contribute-local --dir artifacts/rehearsal-1 --ptau $PTAU --contributors 3
 pnpm ceremony finalize --dir artifacts/rehearsal-1 --ptau $PTAU --vk-packer $PACKER           # after close + beacon round
 ```
+
+`init` takes the ceremony's circuits and their on-chain ids from `--circuit-ids` and everything else from the tagged release: each r1cs must be the one its `manifest.json` publishes for the active version, and the ceremony key becomes the next version. Any circuits of the release, including new ones, work without changing this code; circuits larger than the session and verifier bounds were measured for (40,000 constraints each, 60,000 in all) are refused until those bounds are re-measured and `--beyond-measured-bounds` is passed.
 
 `ceremony.json` (written by `announce`) is the root of trust: it pins `init.json`, the circuits tag and commit, the minimum contributions and the drand round. Its SHA-256 is published before contributions open.
 
@@ -127,7 +130,7 @@ pnpm ceremony publish-final --dir artifacts/rehearsal-1 --coordinator https://<c
 Mirror what was published, every file checked against the chain of pins rooted in the announced SHA-256, then verify the copy:
 
 ```bash
-pnpm ceremony download --from https://<public bucket> --dir published --announcement-sha256 <hex>
+pnpm ceremony download --from https://<public bucket> --dir published --announcement-sha256 <hex> [--transcript-sha256 <hex>]
 ```
 
 ```bash
@@ -162,4 +165,4 @@ Each network's ceremony is its own deployment of the coordinator (which serves t
 
 A run fails before deploying when the tag is not signed by the release key, not on `main`, not the version of every `package.json`, has no CHANGELOG section, its commit's CI did not pass on `main`, or (mainnet) testnet never shipped it. A failed run is retried with "Re-run failed jobs".
 
-Secrets: `RELEASE_GPG_PUBLIC_KEY` (the release key's public part); `CLOUDFLARE_API_TOKEN` (Workers Scripts edit and Containers edit, on this account) and `CLOUDFLARE_ACCOUNT_ID` in the GitHub environments `testnet` and `mainnet` (required reviewers on `mainnet`); `CIRCUITS_READ_TOKEN` for CI (a fine-grained token limited to `orbinum/circuits`, Contents read-only; the organisation disables deploy keys). The Worker's own secrets (`SESSION_KEY`, `VERIFIER_HMAC_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`, optional `VERIFIER_ACCESS_CLIENT_ID`/`_SECRET`) are set once per network with `wrangler secret put <NAME> --env <network>`; a deploy is refused while one is missing. Mainnet is not live yet: `env.mainnet` in `wrangler.jsonc` needs its empty values filled (OAuth app, Access, verifier, Turnstile site key), its first deploy by hand (`wrangler deploy --env mainnet --secrets-file …`, a new Worker cannot inherit secrets) and "Soon" removed from the client's network selector.
+Secrets: `RELEASE_GPG_PUBLIC_KEY` (the release key's public part); `CLOUDFLARE_API_TOKEN` (Workers Scripts edit and Containers edit, on this account) and `CLOUDFLARE_ACCOUNT_ID` in the GitHub environments `testnet` and `mainnet` (required reviewers on `mainnet`); `CIRCUITS_READ_TOKEN` for CI (a fine-grained token limited to `orbinum/circuits`, Contents read-only; the organisation disables deploy keys; only the CI job that clones circuits sees it). The Worker's own secrets (`SESSION_KEY`, `VERIFIER_HMAC_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`, optional `VERIFIER_ACCESS_CLIENT_ID`/`_SECRET`) are set once per network with `wrangler secret put <NAME> --env <network>`; a deploy is refused while one is missing. Mainnet is not live yet: `env.mainnet` in `wrangler.jsonc` needs its empty values filled (OAuth app, Access, verifier, Turnstile site key, and `ANNOUNCEMENT_SHA256`, the published `ceremony.json`'s SHA-256, before `/admin/configure`: the deployment then freezes no other ceremony), its first deploy by hand (`wrangler deploy --env mainnet --secrets-file …`, a new Worker cannot inherit secrets) and "Soon" removed from the client's network selector.

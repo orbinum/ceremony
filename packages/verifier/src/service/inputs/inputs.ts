@@ -25,7 +25,7 @@ export interface Inputs {
   /** The staged ptau copy. */
   ptau: string;
   /** The staged genesis copy of each circuit, with its init.json pin. */
-  genesis: Partial<Record<CircuitName, { path: string; sha256: string }>>;
+  genesis: Record<CircuitName, { path: string; sha256: string }>;
   /** Owns the copies; `cleanup` on shutdown. */
   stage: Stage;
   /** The last pin check's outcome (startup, then before each job). */
@@ -98,7 +98,7 @@ export async function checkPins(inputs: Inputs): Promise<void> {
   try {
     for (const [name, g] of Object.entries(inputs.genesis)) {
       // oxlint-disable-next-line no-await-in-loop -- one hash at a time
-      await assertPinnedFile(inputs.init, name as CircuitName, "genesis", g.path);
+      await assertPinnedFile(inputs.init, name, "genesis", g.path);
     }
     await assertPinnedPtau(inputs.ptau);
     inputs.pinned = true;

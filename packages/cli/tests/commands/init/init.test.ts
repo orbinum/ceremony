@@ -1,7 +1,8 @@
 /**
  * `init` refuses to rebuild a ceremony anything builds on, before touching any tool (SPEC §2.1).
  */
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { layout } from "../../../src/artifacts";
 import { runInit } from "../../../src/commands/init";
@@ -11,10 +12,12 @@ const options = (out: string, force: boolean) => ({
   ceremonyId: "synthetic-local",
   circuitsRepo: "/nonexistent",
   circuitsRef: "v1.0.0",
+  circuits: [{ name: "shield", circuitId: 3 }],
   out,
   ptau: "/nonexistent.ptau",
   checkDeterminism: false,
   force,
+  beyondMeasuredBounds: false,
 });
 
 describe("init over an existing ceremony", () => {
@@ -28,6 +31,21 @@ describe("init over an existing ceremony", () => {
         `${c.dir} already has contributions: it cannot be rebuilt`,
       );
     }
+  });
+
+  it("looks past stray files under contributions/ and still finds the contributions", async () => {
+    const c = await syntheticCeremony({ finalized: false });
+    await rm(layout(c.dir).init);
+    await rm(layout(c.dir).transcript);
+    await writeFile(join(c.dir, "contributions", ".DS_Store"), "x");
+    expect((await rejection(runInit(options(c.dir, true)))).message).toBe(
+      `${c.dir} already has contributions: it cannot be rebuilt`,
+    );
+    await rm(layout(c.dir).contributions("shield"), { recursive: true });
+    await rm(layout(c.dir).announcement);
+    expect((await rejection(runInit(options(c.dir, true)))).message).not.toMatch(
+      /contributions|announced|--force|ENOTDIR/,
+    );
   });
 
   it("never rebuilds an announced ceremony, whose init.json ceremony.json pins", async () => {

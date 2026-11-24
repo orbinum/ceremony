@@ -1,13 +1,13 @@
 import {
   type AttestationPayload,
   type AttestedContribution,
-  CIRCUIT_ORDER,
   type Receipt,
 } from "@orbinum-ceremony/core";
 import { describe, expect, it, vi } from "vitest";
 import type { Me } from "../../src/api";
 import { attestSession, receiptFileName, type Shown, StaleReceipt } from "../../src/attestation";
 import type { Wallet } from "../../src/wallets";
+import { CIRCUIT_NAMES } from "../support";
 
 const me: Me = {
   ceremonyId: "testnet-rehearsal-9",
@@ -17,9 +17,9 @@ const me: Me = {
 };
 const CLIENT = { name: "test", version: "0.0.0", commit: "abcdef0" };
 
-/** A receipt of session 3 with one contribution per circuit by `me`, in reverse order. */
+/** A receipt of session 3 with one contribution per circuit by `me`, as the transcript accepts them. */
 function receipt(): Receipt {
-  const records = CIRCUIT_ORDER.toReversed().map((circuit, i) => ({
+  const records = CIRCUIT_NAMES.map((circuit, i) => ({
     type: "contribution",
     seq: 3,
     circuit,
@@ -87,7 +87,7 @@ describe("attestSession", () => {
       account: "0xabc",
       seq: 3,
     });
-    expect(payload.contributions.map((c) => c.circuit)).toEqual([...CIRCUIT_ORDER]);
+    expect(payload.contributions.map((c) => c.circuit)).toEqual([...CIRCUIT_NAMES]);
     expect(payload.client).toEqual(CLIENT);
     expect(w.signAttestation).toHaveBeenCalledWith(payload);
     expect(attest).toHaveBeenCalledWith(payload, "0xsignature");

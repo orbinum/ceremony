@@ -3,17 +3,21 @@
  * state, runs the effects and sets its single alarm to `nextDeadline`. Every rule lives in the
  * handlers, so it is tested without workerd, and a refused event leaves the state untouched.
  */
-import { QUEUE_RULES } from "../../config";
+import { type CircuitName, QUEUE_RULES } from "../../config";
 import type { StepContext } from "./context";
 import * as on from "./handlers";
 import type { QueueEvent, QueueRefusal, QueueRules, QueueState, StepResult } from "./types";
 
-/** A ceremony before it opens. Times are epoch milliseconds. */
-export function initialQueue(schedule: { openAt: number; closeAt: number }): QueueState {
+/** A ceremony over `circuits` (session order) before it opens. Times are epoch milliseconds. */
+export function initialQueue(
+  schedule: { openAt: number; closeAt: number },
+  circuits: readonly CircuitName[],
+): QueueState {
   return {
     phase: "SCHEDULED",
     pausedBy: null,
     schedule,
+    circuits: [...circuits],
     queue: [],
     identities: {},
     slot: null,

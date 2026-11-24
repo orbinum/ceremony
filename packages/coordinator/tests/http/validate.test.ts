@@ -51,12 +51,18 @@ const postLink = (body: string, type = "application/json") =>
   app.request("/link", { method: "POST", headers: { "content-type": type }, body });
 
 describe("request validators", () => {
-  it("accept the pinned circuits, decimal ids and job ids only", async () => {
+  it("accept well-formed circuit names, decimal ids and job ids only", async () => {
     expect(await (await get("/circuit/shield")).json()).toEqual({ circuit: "shield" });
-    expect(await error(await get("/circuit/nope"))).toEqual([
-      400,
-      { code: "malformed", message: "unknown circuit" },
-    ]);
+    expect(await (await get("/circuit/private_sweep")).json()).toEqual({
+      circuit: "private_sweep",
+    });
+    for (const bad of ["Nope", "constructor", "a-b"]) {
+      // oxlint-disable-next-line no-await-in-loop -- one name at a time
+      expect(await error(await get(`/circuit/${bad}`))).toEqual([
+        400,
+        { code: "malformed", message: "not a circuit name" },
+      ]);
+    }
     expect(await (await get("/seq/12")).json()).toEqual({ seq: 12 });
     for (const seq of ["01", "-1", "abc"]) {
       // oxlint-disable-next-line no-await-in-loop -- one case at a time
@@ -119,7 +125,7 @@ describe("request validators", () => {
   });
 
   it("read a setup or final file's key and hash, in that order", async () => {
-    for (const key of ["transcript.json", "contributions/shield/1.zkey", "final/nope.vk.json"]) {
+    for (const key of ["transcript.json", "contributions/shield/1.zkey", "final/Nope.vk.json"]) {
       // oxlint-disable-next-line no-await-in-loop -- one key at a time
       expect(await error(await putSetupFile(key, { "x-content-sha256": "ab".repeat(32) }))).toEqual(
         [400, { code: "malformed", message: `not a setup or final file: ${key}` }],

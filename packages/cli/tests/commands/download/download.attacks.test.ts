@@ -1,5 +1,5 @@
 /**
- * Attacks on `download` from a hostile mirror (SPEC §6.1, KL-35), each against a synthetic
+ * Attacks on `download` from a hostile mirror (SPEC §6.1), each against a synthetic
  * ceremony served from loopback.
  */
 import { randomBytes } from "node:crypto";
@@ -160,7 +160,7 @@ describe("download against a hostile mirror", () => {
     const s = await serve(copy);
     const out = await fresh();
     const e = await rejection(download(c, s.url, out));
-    expect(e.message).toMatch(/circuit: expected one of/);
+    expect(e.message).toMatch(/circuit: does not match/);
     expect(s.requests.map((r) => r.path)).toEqual([
       "/ceremony.json",
       "/genesis/init.json",
@@ -168,7 +168,7 @@ describe("download against a hostile mirror", () => {
     ]);
   });
 
-  it("mirrors a long invented but internally consistent chain, checking each file only against it (KL-35)", async () => {
+  it("mirrors a long invented but internally consistent chain when no transcript is pinned, checking each file against it", async () => {
     const c = await syntheticCeremony({ network: "testnet" });
     const copy = await tamperedCopy(c.dir, (d) =>
       inventContributions(d, 25, (i) => ({
@@ -181,6 +181,40 @@ describe("download against a hostile mirror", () => {
     const out = await fresh();
     // 3 documents + r1cs + genesis + 27 × (zkey, log) + final zkey + vk
     expect(await download(c, s.url, out)).toBe(3 + 2 + 27 * 2 + 2);
+  });
+
+  it("refuses an invented chain when the sealed transcript is pinned, fetching nothing it names", async () => {
+    const c = await syntheticCeremony({ network: "testnet" });
+    const sealed = sha256Hex(await readFile(layout(c.dir).transcript));
+    const copy = await tamperedCopy(c.dir, (d) =>
+      inventContributions(d, 3, (i) => ({
+        zkey: Buffer.from(`invented zkey ${i}`),
+        log: Buffer.from(`invented log ${i}`),
+      })),
+    );
+    cleanup.push(() => rm(copy, { recursive: true, force: true }));
+    const s = await serve(copy);
+    const out = await fresh();
+    const pinned = { from: s.url, dir: out, withPtau: false, force: false };
+    const e = await rejection(
+      runDownload({
+        ...pinned,
+        announcementSha256: c.announcementSha256,
+        transcriptSha256: sealed,
+      }),
+    );
+    expect(e.message).toMatch(/not the one --transcript-sha256 pins/);
+    expect(s.requests.some((r) => /^\/(contributions|logs|final)/.test(r.path))).toBe(false);
+    // The real one, pinned, downloads.
+    const real = await serve(c.dir);
+    expect(
+      await runDownload({
+        ...pinned,
+        from: real.url,
+        announcementSha256: c.announcementSha256,
+        transcriptSha256: sealed,
+      }),
+    ).toBeGreaterThan(0);
   });
 
   it("refuses an intermediate zkey or log far above what an honest one can be", async () => {

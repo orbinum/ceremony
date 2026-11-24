@@ -10,7 +10,6 @@ import {
   CEREMONY_LAYOUT,
   type CircuitName,
   circuitsOf,
-  CONTENT_SHA256_HEADER,
   fromUtf8,
   parseSetup,
   type SetupInput,
@@ -19,7 +18,7 @@ import {
   sha256Utf8,
 } from "@orbinum-ceremony/core";
 import { layout, loadCeremony } from "../../artifacts";
-import { adminCall, assertPinnedBytes, assertPtauBytes, readBytes } from "../../io";
+import { assertPinnedBytes, assertPtauBytes, postJson, publishArtifact, readBytes } from "../../io";
 import { withLock } from "../../store";
 import type { Command } from "../types";
 import { PUBLISH_INIT_USAGE, type PublishInitOptions, parsePublishInitOptions } from "./options";
@@ -30,7 +29,6 @@ async function readPinnedSetup(options: PublishInitOptions) {
   const files = new Map<string, Uint8Array>();
   for (const key of setupFiles(init.value)) {
     const path = key === CEREMONY_LAYOUT.ptau ? options.ptau : join(options.dir, key);
-    // oxlint-disable-next-line no-await-in-loop -- a few files, read one at a time (75 MB ptau)
     files.set(key, await readBytes(path));
   }
   const bytes = (key: string) => files.get(key) as Uint8Array;
@@ -48,8 +46,9 @@ async function readPinnedSetup(options: PublishInitOptions) {
     }
   };
   const genesisSizes: Partial<Record<CircuitName, number>> = {};
-  for (const c of circuitsOf(init.value))
+  for (const c of circuitsOf(init.value)) {
     genesisSizes[c] = bytes(CEREMONY_LAYOUT.zkey(c, 0)).length;
+  }
   const setup: SetupInput = {
     announcement: text(CEREMONY_LAYOUT.announcement),
     init: text(CEREMONY_LAYOUT.init),
@@ -73,24 +72,10 @@ export async function runPublishInit(options: PublishInitOptions): Promise<strin
     const { announcement, files, setup } = await readPinnedSetup(options);
     // In core's order: the announcement last.
     for (const [key, bytes] of files) {
-      // oxlint-disable-next-line no-await-in-loop -- one upload at a time (the ptau is 75 MB)
-      const answer = await adminCall(
-        options.coordinator,
-        "PUT",
-        ADMIN_PATHS.artifact(key),
-        { [CONTENT_SHA256_HEADER]: sha256Hex(bytes) },
-        bytes,
-      );
-      if (answer.key !== key) throw new Error(`PUT ${key}: the coordinator stored another key`);
+      await publishArtifact(options.coordinator, key, bytes);
       console.log(`published ${key}`);
     }
-    await adminCall(
-      options.coordinator,
-      "POST",
-      ADMIN_PATHS.configure,
-      { "content-type": "application/json" },
-      JSON.stringify(setup),
-    );
+    await postJson(options.coordinator, ADMIN_PATHS.configure, setup);
     console.log(
       `configured ${announcement.value.ceremony_id}; ceremony.json SHA-256 ${announcement.sha256}`,
     );

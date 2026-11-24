@@ -3,6 +3,7 @@ export {
   BytesMismatch,
   deleteQuietly,
   getObject,
+  getObjectIfChanged,
   headObject,
   holds,
   putObject,

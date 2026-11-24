@@ -5,17 +5,19 @@
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { CEREMONY_LAYOUT, sha256Hex } from "@orbinum-ceremony/core";
+import { CEREMONY_LAYOUT, serializeJson, sha256Hex } from "@orbinum-ceremony/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   call,
   clearBuckets,
   freshId,
+  INIT,
   json,
   publishedSetup,
   raw,
   readTranscript,
   refusal,
+  setupInput,
   stubOf,
 } from "../support";
 
@@ -97,24 +99,55 @@ const put = (key: string, body: string, headers: Record<string, string> = {}) =>
 
 describe("setup files (cli publish-init)", () => {
   it("publishes a setup file once; the same bytes again are a no-op, other bytes are refused", async () => {
-    expect((await put("ceremony.json", "{}")).status).toBe(201);
-    expect(await json(await put("ceremony.json", "{}"))).toEqual({
+    const { announcement } = setupInput(Date.now(), Date.now() + 86_400_000);
+    expect((await put("ceremony.json", announcement)).status).toBe(201);
+    expect(await json(await put("ceremony.json", announcement))).toEqual({
       ok: true,
       key: "ceremony.json",
       unchanged: true,
     });
-    expect(await refusal(await put("ceremony.json", "{ }"))).toEqual([409, "immutable"]);
+    expect(await refusal(await put("ceremony.json", `${announcement} `))).toEqual([
+      409,
+      "immutable",
+    ]);
     const served = await call("GET", "/artifacts/ceremony.json");
     expect([await served.text(), served.headers.get("content-type")]).toEqual([
-      "{}",
+      announcement,
       "application/json",
     ]);
   });
 
+  it("takes ceremony.json and init.json only as valid documents within the document bound", async () => {
+    for (const key of [CEREMONY_LAYOUT.announcement, CEREMONY_LAYOUT.init]) {
+      for (const body of ["{}", "x", `${serializeJson(INIT)} `, " ".repeat(1024 * 1024 + 1)]) {
+        // oxlint-disable-next-line no-await-in-loop -- one file at a time
+        expect(await refusal(await put(key, body))).toEqual([400, "malformed"]);
+      }
+      // oxlint-disable-next-line no-await-in-loop -- one key at a time
+      expect(await env.PUBLIC.head(key)).toBeNull();
+    }
+  });
+
   it("serves every setup file with its type", async () => {
+    expect((await put(CEREMONY_LAYOUT.init, serializeJson(INIT))).status).toBe(201);
     expect((await put(CEREMONY_LAYOUT.r1cs("transfer"), "r1cs")).status).toBe(201);
     const r = await call("GET", `/artifacts/${CEREMONY_LAYOUT.r1cs("transfer")}`);
     expect(r.headers.get("content-type")).toBe("application/octet-stream");
+  });
+
+  it("takes a circuit's files only for a circuit of the published init.json", async () => {
+    expect(await refusal(await put(CEREMONY_LAYOUT.r1cs("transfer"), "r1cs"))).toEqual([
+      409,
+      "invalid-transition",
+    ]);
+    expect((await put(CEREMONY_LAYOUT.init, serializeJson(INIT))).status).toBe(201);
+    for (const key of [CEREMONY_LAYOUT.r1cs("private_sweep"), CEREMONY_LAYOUT.zkey("other", 0)]) {
+      // oxlint-disable-next-line no-await-in-loop -- one key at a time
+      expect(await refusal(await put(key, "x"))).toEqual([400, "malformed"]);
+      // oxlint-disable-next-line no-await-in-loop -- one key at a time
+      expect(await env.PUBLIC.head(key)).toBeNull();
+    }
+    expect((await put(CEREMONY_LAYOUT.zkey("shield", 0), "genesis")).status).toBe(201);
   });
 
   it("refuses other keys, a missing hash or length, and bytes that do not match", async () => {

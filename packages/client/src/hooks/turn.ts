@@ -39,7 +39,14 @@ export type CircuitStages = Partial<Record<CircuitName, { stage: Stage; detail?:
 /** Where the turn is. */
 export type TurnState =
   | { kind: "idle" }
-  | { kind: "running"; seq: number; circuits: CircuitStages; paused: boolean }
+  | {
+      kind: "running";
+      seq: number;
+      /** The session's circuits, in session order. */
+      order: CircuitName[];
+      circuits: CircuitStages;
+      paused: boolean;
+    }
   | {
       kind: "signing";
       seq: number;
@@ -99,11 +106,13 @@ export function useTurn(me: api.Me, onEnded: () => void = () => {}) {
       for (const c of view.slot.circuits) {
         if (c.status === "accepted") circuits[c.circuit] = { stage: "accepted" };
       }
-      setState({ kind: "running", seq, circuits, paused: false });
+      const order = view.slot.circuits.map((c) => c.circuit);
+      setState({ kind: "running", seq, order, circuits, paused: false });
       await claim(sessionApi);
       heart.current = keepAlive(sessionApi);
       const csHashes = await api.getCsHashes();
       const current = heart.current;
+      const reported = new Set<CircuitName>();
       const accepted = await contributeAll(
         {
           api: sessionApi,
@@ -115,7 +124,8 @@ export function useTurn(me: api.Me, onEnded: () => void = () => {}) {
           sleep,
         },
         seq,
-        (p: Progress) =>
+        (p: Progress) => {
+          if (p.circuit !== null && p.stage === "accepted") reported.add(p.circuit);
           setState((s) =>
             s.kind !== "running"
               ? s
@@ -126,8 +136,13 @@ export function useTurn(me: api.Me, onEnded: () => void = () => {}) {
                     paused: false,
                     circuits: { ...s.circuits, [p.circuit]: { stage: p.stage, detail: p.detail } },
                   },
-          ),
+          );
+        },
       );
+      // Accepted in this session but not by this run (an upload made before a reload): by name.
+      for (const c of reported) {
+        if (!earlier.includes(c) && !accepted.some((a) => a.circuit === c)) earlier.push(c);
+      }
       if (accepted.length + earlier.length === 0) {
         await end(seq);
         return;

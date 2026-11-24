@@ -4,7 +4,7 @@
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { MAX_LOG_CHARS } from "@orbinum-ceremony/core";
+import { MAX_LOG_CHARS, signRequest } from "@orbinum-ceremony/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   claimOf,
@@ -81,7 +81,7 @@ describe("the verifier's routes", () => {
       400,
       "malformed",
     ]);
-    expect(await refusal(await signed("GET", "/internal/objects/1/nope/1"))).toEqual([
+    expect(await refusal(await signed("GET", "/internal/objects/1/Nope/1"))).toEqual([
       400,
       "malformed",
     ]);
@@ -110,15 +110,19 @@ describe("the verifier's routes", () => {
     expect((await stub.latestJob(1, "shield"))?.status).toBe("pending");
   });
 
-  it("refuses an oversized body before reading it or checking its MAC", async () => {
+  it("refuses an oversized body by its declared length, once the MAC holds, before reading it", async () => {
     const big = "x".repeat(2 * MAX_LOG_CHARS + 128 * 1024);
+    const signed = signRequest(
+      env.VERIFIER_HMAC_KEY,
+      env.CEREMONY_ID,
+      "POST",
+      "/internal/verifications",
+      big,
+      Date.now(),
+    );
     const r = await raw("/internal/verifications", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-ceremony-timestamp": String(Date.now()),
-        "x-ceremony-signature": "ab".repeat(32),
-      },
+      headers: { "content-type": "application/json", ...signed },
       body: big,
     });
     expect(await refusal(r)).toEqual([413, "too-large"]);

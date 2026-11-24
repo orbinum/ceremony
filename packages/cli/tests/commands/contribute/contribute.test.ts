@@ -67,6 +67,8 @@ interface Script {
   refuseToken?: boolean;
   /** The published transcript (default: no contribution yet); null when it is not published. */
   transcript?: Transcript | null;
+  /** What `/api/transcript` serves (the object's live records); none: 404. */
+  live?: Transcript;
 }
 
 let ceremony: TestCeremony;
@@ -143,6 +145,8 @@ async function coordinator(script: Script = {}) {
     "/artifacts/genesis/shield.genesis.zkey": (_q, res) => res.end(head),
     "/artifacts/transcript.json": (_q, res) =>
       transcript ? json(res, 200, transcript) : res.writeHead(404).end(),
+    "/api/transcript": (_q, res) =>
+      script.live ? json(res, 200, script.live) : res.writeHead(404).end(),
     "/api/queue/me": (_q, res) => {
       polls += 1;
       if (script.refuseToken) return json(res, 401, { error: { code: "unauthenticated" } });
@@ -299,6 +303,10 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
       /shield: cannot check the head: GET \/artifacts\/transcript.json: HTTP 404/,
     );
     expect(missing.uploaded()).toBeUndefined();
+    // Neither source checks: both reasons are named.
+    expect((await rejection(runContribute(missing.options, quiet))).message).toMatch(
+      /GET \/api\/transcript: HTTP 404/,
+    );
     const foreign = {
       ...(await transcriptWith(0)),
       anchor: { file: "ceremony.json" as const, sha256: "00".repeat(32) },
@@ -309,6 +317,18 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
     );
     expect(unanchored.uploaded()).toBeUndefined();
     expect(unanchored.finished()).toBe(1);
+  });
+
+  it("checks the head against the live transcript when the published one is withheld or behind", async () => {
+    const withheld = await coordinator({ transcript: null, live: await transcriptWith(0) });
+    await runContribute(withheld.options, quiet);
+    expect(withheld.uploaded()).toBeDefined();
+    // Behind (published) but recorded live: the closer of the two is judged.
+    const behind = await coordinator({
+      transcript: await transcriptWith(1),
+      live: await transcriptWith(1),
+    });
+    expect((await rejection(runContribute(behind.options, quiet))).message).toMatch(/is stale/);
   });
 
   it("refuses a coordinator whose ceremony.json is not the announced one", async () => {

@@ -10,7 +10,7 @@ useDefault = true
 [[rules]]
 id = "ceremony-secret"
 description = "A ceremony secret assigned a literal value in code or config"
-regex = '''(?i)\b(?:SESSION_KEY|VERIFIER_HMAC_KEY|GITHUB_CLIENT_SECRET|TURNSTILE_SECRET|CF_ACCESS_CLIENT_SECRET|ORBINUM_CEREMONY_TOKEN)\b["']?\s*[:=]\s*["'`]?([^"'`\s]{16,})["'`]?'''
+regex = '''(?i)\b(?:SESSION_KEY|VERIFIER_HMAC_KEY|GITHUB_CLIENT_SECRET|TURNSTILE_SECRET|CF_ACCESS_CLIENT_SECRET|VERIFIER_ACCESS_CLIENT_SECRET|ORBINUM_CEREMONY_TOKEN)\b["']?\s*[:=]\s*["'`]?([^"'`\s]{16,})["'`]?'''
 secretGroup = 1
 keywords = [
   "session_key",
@@ -18,6 +18,7 @@ keywords = [
   "github_client_secret",
   "turnstile_secret",
   "cf_access_client_secret",
+  "verifier_access_client_secret",
   "orbinum_ceremony_token",
 ]
 

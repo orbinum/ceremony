@@ -1,6 +1,6 @@
 /**
  * Attacks the SPEC §2.5 pre-check (checks 0–4) with hostile layouts and bytes built from the real
- * testnet-rehearsal-1 keys. Every mutation must end as `ok` or a definitive rejection, never a
+ * testnet-rehearsal-2 keys. Every mutation must end as `ok` or a definitive rejection, never a
  * throw (a throw is `infra`, a ceremony pause), and `ok` only where zkvi decides.
  * The default run covers shield fully and samples unshield and transfer; set
  * `ORBINUM_EXHAUSTIVE=1` for every key and the full random-flip counts (several minutes).
@@ -31,7 +31,7 @@ const EXHAUSTIVE = process.env.ORBINUM_EXHAUSTIVE === "1";
 /** The finished rehearsal with its whole chain (fetch-test-inputs.sh), or the local one. */
 const DIR =
   process.env.ORBINUM_REHEARSAL_DIR ??
-  join(import.meta.dirname, "..", "..", "..", "..", "..", "artifacts", "testnet-rehearsal-1");
+  join(import.meta.dirname, "..", "..", "..", "..", "..", "artifacts", "testnet-rehearsal-2");
 const CIRCUITS = ["shield", "unshield", "transfer"] as const;
 type Circuit = (typeof CIRCUITS)[number];
 const Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;

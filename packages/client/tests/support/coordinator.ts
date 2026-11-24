@@ -3,10 +3,13 @@
  * verified on the next poll with the verdict queued for its circuit (`valid` by default), and the
  * turn closes itself once nothing is left to do — as the queue does.
  */
-import { type CeremonyState, CIRCUIT_ORDER, type CircuitName } from "@orbinum-ceremony/core";
+import type { CeremonyState, CircuitName } from "@orbinum-ceremony/core";
 import type { Head, JobResult, Slot, UploadClaim } from "../../src/api";
 import type { SessionApi } from "../../src/contribution";
 import { chain } from "./fixtures";
+
+/** The fake ceremony's circuits, in session order. */
+export const CIRCUIT_NAMES: CircuitName[] = ["shield", "unshield", "transfer"];
 
 type CircuitStatus = "todo" | "verifying" | "accepted" | "skipped";
 type Outcome = NonNullable<JobResult["status"]>;
@@ -16,7 +19,7 @@ export class FakeCoordinator implements SessionApi {
   phase: CeremonyState = "OPEN";
   /** The head's bytes as served (an attack test serves others). */
   headBytes = () => chain().head;
-  readonly status = new Map<CircuitName, CircuitStatus>(CIRCUIT_ORDER.map((c) => [c, "todo"]));
+  readonly status = new Map<CircuitName, CircuitStatus>(CIRCUIT_NAMES.map((c) => [c, "todo"]));
   /** Verdicts to give, per circuit, in order; `valid` once none is left. */
   readonly verdicts = new Map<CircuitName, Outcome[]>();
   /** Errors the next uploads throw, in order. */
@@ -35,7 +38,7 @@ export class FakeCoordinator implements SessionApi {
             seq: this.seq,
             claimed: true,
             claimBy: null,
-            circuits: CIRCUIT_ORDER.map((circuit) => ({
+            circuits: CIRCUIT_NAMES.map((circuit) => ({
               circuit,
               status: this.status.get(circuit) ?? "todo",
               attempts: 0,

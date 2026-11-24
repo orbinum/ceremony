@@ -15,6 +15,12 @@ import {
 import { layout, type Loaded, loadAnnouncement, loadInit, loadTranscript } from "../../artifacts";
 import { errorMessage, type Stage } from "../../io";
 import type { Report } from "../../ui";
+import {
+  attemptGated as attemptGatedIn,
+  type Failed,
+  markFailed as markFailedIn,
+  PTAU_PREREQUISITE,
+} from "./gate";
 import type { VerifyOptions } from "./options";
 import { type StagedFiles, stageInputs } from "./staging";
 
@@ -31,7 +37,7 @@ export interface VerifyContext {
    * Cheap checks a circuit failed (staging, r1cs, genesis, final record): its snarkjs and Rust
    * checks are then reported failed without running on input already known to be wrong.
    */
-  failed: Map<CircuitName | "ptau", string[]>;
+  failed: Failed;
 }
 
 /** The staged ptau, or throws like `staged`. */
@@ -40,27 +46,20 @@ export const stagedPtau = (ctx: VerifyContext): string => {
   return ctx.files.ptau;
 };
 
-/** Records that `circuit` failed the check `id`. */
-export const markFailed = (ctx: VerifyContext, circuit: CircuitName | "ptau", id: string) =>
-  ctx.failed.set(circuit, [...(ctx.failed.get(circuit) ?? []), id]);
+/** Records that `circuit` (or the ptau) failed the check `id`. */
+export const markFailed = (
+  ctx: VerifyContext,
+  circuit: CircuitName | typeof PTAU_PREREQUISITE,
+  id: string,
+) => markFailedIn(ctx.failed, circuit, id);
 
-/**
- * Runs an expensive check only if its circuit (and the ptau) passed every prerequisite so far;
- * otherwise reports it failed and names what failed first.
- */
-export async function attemptGated(
+/** Runs an expensive check of `circuit` only if its prerequisites passed (`gate.ts`). */
+export const attemptGated = (
   ctx: VerifyContext,
   circuit: CircuitName,
   id: string,
   fn: () => Promise<string[] | void>,
-): Promise<boolean> {
-  const blocked = [...(ctx.failed.get("ptau") ?? []), ...(ctx.failed.get(circuit) ?? [])];
-  if (blocked.length > 0) {
-    ctx.report.fail(id, `not run: prerequisite failed (${blocked[0]})`);
-    return false;
-  }
-  return ctx.report.attempt(id, fn);
-}
+) => attemptGatedIn(ctx.report, ctx.failed, circuit, id, fn);
 
 /**
  * Loads the ceremony from private copies: ceremony.json must hash to the pin, announce the
@@ -122,12 +121,13 @@ export async function loadContext(
     return fatal("transcript.json is valid", error);
   }
 
-  const failed = new Map<CircuitName | "ptau", string[]>();
+  const failed: Failed = new Map();
   const files = await stageInputs(options.dir, options.ptau, init.value, report, stage);
   for (const c of init.value.circuits) {
-    if (!files.finalVk.has(c.name)) failed.set(c.name, [`${c.name}: inputs are regular files`]);
+    if (!files.finalVk.has(c.name))
+      markFailedIn(failed, c.name, `${c.name}: inputs are regular files`);
   }
-  if (!files.ptau) failed.set("ptau", ["ptau is a regular file"]);
+  if (!files.ptau) markFailedIn(failed, PTAU_PREREQUISITE, "ptau is a regular file");
   return { options, report, stage, announcement, init, transcript, files, failed };
 }
 

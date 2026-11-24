@@ -1,6 +1,6 @@
 /**
  * One circuit's final key, VK and vk_hash against the transcript (SPEC §2.6, §6.4), then the same
- * key re-verified by the independent Rust verifier (SPEC §8.4). snarkjs and Rust run only on a
+ * key re-verified by the independent verifier (`independent.ts`). snarkjs and Rust run only on a
  * circuit whose cheap checks all passed.
  */
 import {
@@ -9,7 +9,6 @@ import {
   checkDelta,
   checkFinalEntries,
   checkFinalRecord,
-  checkIndependent,
   createSha256,
   finalExpectationOf,
   type FinalRecord,
@@ -17,14 +16,10 @@ import {
   readMpcParams,
 } from "@orbinum-ceremony/core";
 import { hashFile, readBytes, readJsonFile } from "../../../io";
-import {
-  exportVerificationKey,
-  packedVkHash,
-  runIndependentVerifier,
-  verifyFromR1cs,
-} from "../../../tools";
+import { exportVerificationKey, packedVkHash, verifyFromR1cs } from "../../../tools";
 import { attemptGated, markFailed, stagedPtau, type VerifyContext } from "../context";
 import { staged } from "../staging";
+import { checkIndependently } from "./independent";
 
 const MAX_VK_BYTES = 1024 * 1024;
 
@@ -65,7 +60,8 @@ export async function checkFinal(
 
   await attemptGated(ctx, c.name, `${c.name}: final zkey verifies from r1cs + ptau`, async () => {
     const r1cs = staged(files.r1cs, c.name, "r1cs");
-    const res = await verifyFromR1cs(r1cs, stagedPtau(ctx), zkey(), limits);
+    const entries = readMpcParams(await readBytes(zkey())).entries.length;
+    const res = await verifyFromR1cs(r1cs, stagedPtau(ctx), zkey(), limits, entries);
     return res.ok ? [] : ["snarkjs verification failed"];
   });
 
@@ -107,32 +103,4 @@ export async function checkFinal(
   }
 
   await checkIndependently(ctx, beacon, c);
-}
-
-/**
- * The final key re-verified by a second implementation (Rust + arkworks), whose h_k must be
- * exactly the transcript's: two implementations, one chain. It also re-derives the genesis from
- * the pinned r1cs + ptau.
- */
-async function checkIndependently(
-  ctx: VerifyContext,
-  beacon: BeaconRecord,
-  c: InitCircuit,
-): Promise<void> {
-  const id = `${c.name}: independent verifier (Rust, no snarkjs) agrees`;
-  const bin = ctx.options.rustVerifier;
-  if (!bin) {
-    ctx.report.skip(id, "needs --rust-verifier", true);
-    return;
-  }
-  await attemptGated(ctx, c.name, id, async () => {
-    const verdict = await runIndependentVerifier(bin, {
-      genesis: staged(ctx.files.genesis, c.name, "genesis"),
-      final: staged(ctx.files.finalZkey, c.name, "final zkey"),
-      minContributions: ctx.announcement.value.min_contributions,
-      beacon: { randomness: beacon.randomness, iterationsExp: beacon.iterations_exp },
-      source: { r1cs: staged(ctx.files.r1cs, c.name, "r1cs"), ptau: stagedPtau(ctx) },
-    });
-    return checkIndependent(verdict, ctx.transcript.records, c);
-  });
 }

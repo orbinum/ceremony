@@ -197,9 +197,13 @@ describe("object path spellings", () => {
   });
 });
 
-describe("bounds before the MAC", () => {
+describe("the MAC before the body", () => {
   it("refuses unsigned or stale headers before reading a chunked body", async () => {
-    const stale = { "x-ceremony-timestamp": "1", "x-ceremony-signature": "ab".repeat(32) };
+    const stale = {
+      "x-ceremony-timestamp": "1",
+      "x-ceremony-signature": "ab".repeat(32),
+      "x-ceremony-body-sha256": "cd".repeat(32),
+    };
     for (const headers of [{}, stale]) {
       // More than the report bound: reading it would answer 413, not 401.
       const big = new Uint8Array(2 * MAX_LOG_CHARS + 128 * 1024);
@@ -221,8 +225,46 @@ describe("bounds before the MAC", () => {
     }
   });
 
-  it("refuses an oversized chunked report (no Content-Length) with 413", async () => {
-    const big = new TextEncoder().encode("x".repeat(2 * MAX_LOG_CHARS + 128 * 1024));
+  it("refuses forged headers with a fresh timestamp without reading the body", async () => {
+    const chunk = new Uint8Array(65_536);
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(c) {
+          pulled += 1;
+          if (pulled > 40) c.close();
+          else c.enqueue(chunk);
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const r = await raw("/internal/does-not-exist", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ceremony-timestamp": String(Date.now()),
+        "x-ceremony-signature": "ab".repeat(32),
+        "x-ceremony-body-sha256": "cd".repeat(32),
+      },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    expect(await refusal(r)).toEqual([401, "unauthenticated"]);
+    // The runtime may prime one chunk when it builds the request; the guard reads none of the 40.
+    expect(pulled).toBeLessThanOrEqual(1);
+  });
+
+  it("refuses an oversized chunked report (no Content-Length) with 413, once signed", async () => {
+    const text = "x".repeat(2 * MAX_LOG_CHARS + 128 * 1024);
+    const big = new TextEncoder().encode(text);
+    const headers = signRequest(
+      env.VERIFIER_HMAC_KEY,
+      env.CEREMONY_ID,
+      "POST",
+      "/internal/verifications",
+      text,
+      Date.now(),
+    );
     const body = new ReadableStream<Uint8Array>({
       start(c) {
         for (let i = 0; i < big.length; i += 65_536) c.enqueue(big.subarray(i, i + 65_536));
@@ -231,15 +273,27 @@ describe("bounds before the MAC", () => {
     });
     const r = await raw("/internal/verifications", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-ceremony-timestamp": String(Date.now()),
-        "x-ceremony-signature": "ab".repeat(32),
-      },
+      headers: { "content-type": "application/json", ...headers },
       body,
       duplex: "half",
     } as RequestInit);
     expect(await refusal(r)).toEqual([413, "too-large"]);
+  });
+
+  it("takes an authentic request once: the same signed request again is a replay", async () => {
+    const path = "/internal/does-not-exist";
+    const headers = signRequest(
+      env.VERIFIER_HMAC_KEY,
+      env.CEREMONY_ID,
+      "GET",
+      path,
+      "",
+      Date.now(),
+    );
+    const first = await raw(path, { headers });
+    expect(first.status).not.toBe(401);
+    await first.body?.cancel();
+    expect(await refusal(await raw(path, { headers }))).toEqual([401, "unauthenticated"]);
   });
 
   it("refuses a correctly signed but stale or future request before reading its body", async () => {

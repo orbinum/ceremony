@@ -1,8 +1,9 @@
 /** Read-only views of the queue for routes, the status page and the job store. */
-import { CIRCUIT_ORDER, type CircuitName, QUEUE_RULES } from "../../config";
+import { type CircuitName, QUEUE_RULES } from "../../config";
 import {
   CEREMONY_LAYOUT,
   type Chained,
+  circuitsOf,
   genesisOf,
   headChain,
   headOf,
@@ -68,7 +69,7 @@ export function headOfSetup(setup: Setup, records: readonly Chained[], circuit: 
 /** `status.json`: what a status page shows, without identities. */
 export function statusOf(setup: Setup, state: QueueState, records: readonly Chained[]) {
   const heads: Partial<Record<CircuitName, { index: number; output_sha256: string }>> = {};
-  for (const c of CIRCUIT_ORDER) {
+  for (const c of circuitsOf(setup.init)) {
     const head = headOfSetup(setup, records, c);
     if (head) heads[c] = { index: head.index, output_sha256: head.outputSha256 };
   }

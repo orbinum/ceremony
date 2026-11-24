@@ -52,14 +52,14 @@ function streamedBody(c: Context, max: number) {
   return { size, body };
 }
 
-/** `:circuit`, one of the pinned set. */
+/** `:circuit`, a well-formed name; whether the ceremony has it is the route's to say. */
 export const circuitParam = validator(
   "param",
   checked((p: Record<string, string>) => {
     try {
       return { circuit: asCircuitName(p.circuit, "circuit") };
     } catch {
-      throw new Malformed("unknown circuit");
+      throw new Malformed("not a circuit name");
     }
   }),
 );

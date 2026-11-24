@@ -46,7 +46,7 @@ function setup() {
     circomFlags: TOOLING.circomFlags,
     source: { ref: "v0.16.0", commit: "efe10bf3ef1d928c9c209fee4077750334410cfe" },
     circuits: [
-      initCircuitOf("shield", readR1csHeader(loadR1cs()), {
+      initCircuitOf("shield", { circuitId: 3, ceremonyVersion: 2 }, readR1csHeader(loadR1cs()), {
         r1csSha256: sha256Hex(loadR1cs()),
         genesisSha256: sha256Hex(genesis),
         csHash: readMpcParams(genesis).csHash,

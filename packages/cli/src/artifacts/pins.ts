@@ -19,9 +19,7 @@ export async function assertPinnedSetup(
   const paths = layout(dir);
   await assertPinnedPtau(ptau);
   for (const c of circuitsOf(init)) {
-    /* oxlint-disable no-await-in-loop -- a few files, checked in order before starting */
     await assertPinnedFile(init, c, "genesis", paths.zkey(c, 0));
     if (r1cs) await assertPinnedFile(init, c, "r1cs", paths.r1cs(c));
-    /* oxlint-enable no-await-in-loop */
   }
 }

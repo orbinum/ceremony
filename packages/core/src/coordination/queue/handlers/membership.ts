@@ -1,5 +1,4 @@
 /** Joining and leaving the queue. SPEC §4.1. */
-import { CIRCUIT_ORDER } from "../../../config";
 import { grantNext, release, standing, type StepContext } from "../context";
 import type { QueueEvent, QueueRefusal } from "../types";
 
@@ -17,7 +16,7 @@ export function join(
   if (s.slot?.githubId === e.githubId || s.queue.some((q) => q.githubId === e.githubId)) {
     return "already-queued";
   }
-  if (CIRCUIT_ORDER.every((c) => id.accepted.includes(c))) return "nothing-left";
+  if (s.circuits.every((c) => id.accepted.includes(c))) return "nothing-left";
   const entry = { githubId: e.githubId, enqueuedAt: now, invited: e.invited === true };
   const at = entry.invited ? s.queue.findIndex((q) => !q.invited) : -1;
   if (at === -1) s.queue.push(entry);

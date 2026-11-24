@@ -3,7 +3,6 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  CIRCUITS,
   createSha256,
   domainPower,
   INIT_SCHEMA,
@@ -44,8 +43,8 @@ export async function shieldInit(genesisSha256: string, csHash: string): Promise
     circuits: [
       {
         name: "shield",
-        circuit_id: CIRCUITS.shield.id,
-        ceremony_version: CIRCUITS.shield.ceremonyVersion,
+        circuit_id: 3,
+        ceremony_version: 2,
         r1cs_sha256: await hashFile(R1CS, createSha256()),
         constraints: header.constraints,
         public_signals: header.publicOutputs + header.publicInputs,

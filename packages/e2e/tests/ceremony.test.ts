@@ -19,7 +19,6 @@ import {
 import {
   ADMIN_PATHS,
   type Chained,
-  CIRCUIT_ORDER,
   type ContributionRecord,
   CONTRIBUTOR_PATHS,
   OPERATOR_HEADER,
@@ -32,6 +31,9 @@ import { verifyFromInit } from "@orbinum-ceremony/verifier";
 import { Wallet } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Contributor, type Stack, startStack } from "./support";
+
+/** The circuits of the rehearsal vectors, in session order. */
+const CIRCUIT_NAMES = ["shield", "unshield", "transfer"];
 
 /** The real ptau and a ceremony directory with all three genesis keys (a testnet rehearsal). */
 const PTAU = process.env.ORBINUM_PTAU;
@@ -123,7 +125,7 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
     // The very setup publish-init sent, again: an idempotent no-op that changes nothing.
     const genesisSizes = Object.fromEntries(
       await Promise.all(
-        CIRCUIT_ORDER.map(async (c) => [
+        CIRCUIT_NAMES.map(async (c) => [
           c,
           (await stat(join(stack.operator, "genesis", `${c}.genesis.zkey`))).size,
         ]),
@@ -233,7 +235,7 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
           // oxlint-disable-next-line no-await-in-loop -- the attacks happen inside the session
           await uploadAttacks(c);
         }
-        for (const circuit of CIRCUIT_ORDER) {
+        for (const circuit of CIRCUIT_NAMES) {
           // oxlint-disable-next-line no-await-in-loop -- circuits go in order (SPEC §4.1)
           expect(await c.contributeTo(circuit)).toMatchObject({ status: "valid", index: i + 1 });
         }
@@ -249,7 +251,7 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
       }
     }
 
-    expect(cli).toEqual(CIRCUIT_ORDER.map((circuit) => [circuit, 3]));
+    expect(cli).toEqual(CIRCUIT_NAMES.map((circuit) => [circuit, 3]));
     const t = await records();
     expect(verifyChain(t.records, t.chainGenesis).ok).toBe(true);
     const contributions = await accepted();
@@ -359,7 +361,7 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
   });
 
   it("publishes final heads that stock snarkjs verifies against the genesis", async () => {
-    for (const circuit of CIRCUIT_ORDER) {
+    for (const circuit of CIRCUIT_NAMES) {
       const path = join(stack.work, `${circuit}-head.zkey`);
       // oxlint-disable-next-line no-await-in-loop -- one 17 MB download and check at a time
       const response = await fetch(`${base}/artifacts/contributions/${circuit}/3.zkey`);

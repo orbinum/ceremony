@@ -6,7 +6,7 @@
  * `nextDeadline` being exactly the earliest pending deadline.
  */
 import { describe, expect, it } from "vitest";
-import { CIRCUIT_ORDER, QUEUE_RULES } from "../../src/config";
+import { QUEUE_RULES } from "../../src/config";
 import {
   attestStep,
   initialQueue,
@@ -17,7 +17,7 @@ import {
   type StepResult,
   step,
 } from "../../src/coordination/queue";
-import { ensure, mulberry32, pick } from "../support";
+import { ensure, mulberry32, pick, CIRCUIT_NAMES } from "../support";
 
 const R = QUEUE_RULES;
 const OPEN = 10_000_000;
@@ -64,7 +64,7 @@ function randomEvent(s: QueueState, rand: () => number, stall: boolean): Ev {
     case 6: {
       const next = slot?.circuits.find((c) => c.status === "todo");
       const circuit =
-        rand() < 0.85 ? (next?.circuit ?? "shield") : (CIRCUIT_ORDER[pick(rand, 3)] as "shield");
+        rand() < 0.85 ? (next?.circuit ?? "shield") : (CIRCUIT_NAMES[pick(rand, 3)] as "shield");
       return { type: "uploaded", githubId: holder, circuit };
     }
     case 7:
@@ -75,7 +75,7 @@ function randomEvent(s: QueueState, rand: () => number, stall: boolean): Ev {
       return {
         type: "verified",
         seq: forged ? pick(rand, 4) : (slot?.seq ?? 0),
-        circuit: forged || !v ? (CIRCUIT_ORDER[pick(rand, 3)] as "shield") : v.circuit,
+        circuit: forged || !v ? (CIRCUIT_NAMES[pick(rand, 3)] as "shield") : v.circuit,
         attempt: forged || !v ? pick(rand, 4) : v.uploads,
         outcome: OUTCOMES[pick(rand, 4)] as "valid",
       };
@@ -98,7 +98,9 @@ function randomEvent(s: QueueState, rand: () => number, stall: boolean): Ev {
 }
 
 const run = (s: QueueState, e: Ev, t: number): StepResult =>
-  e.type === "attest" ? attestStep(s, e.githubId, e.seq, t) : step(s, e, t);
+  e.type === "attest"
+    ? attestStep(s, e.githubId, e.seq, t, Number.MAX_SAFE_INTEGER)
+    : step(s, e, t);
 
 /** The next time: duplicates, small steps, exact deadline hits and misses, jumps, and (if allowed) going back. */
 function nextTime(
@@ -323,7 +325,7 @@ function fuzz(seeds: [number, number], length: number, backwards: boolean) {
     const closeAt = OPEN + (1 + pick(rand, 12)) * 3_600_000;
     const brisk = seed % 4 === 2 ? 0.995 : seed % 2 === 0 ? 0.9 : 0;
     const stall = seed % 4 === 2;
-    let s = initialQueue({ openAt: OPEN, closeAt });
+    let s = initialQueue({ openAt: OPEN, closeAt }, CIRCUIT_NAMES);
     let t = OPEN - pick(rand, 120_000);
     const shadow: Shadow = { counted: new Map(), maxActive: new Map() };
     for (let i = 0; i < length; i++) {

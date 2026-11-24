@@ -10,6 +10,7 @@ import {
   claimOf,
   expireNonces,
   GENESIS_SHA256,
+  INIT,
   linkDirect,
   readTranscript,
   rewind,
@@ -91,6 +92,17 @@ describe("CeremonyDO", () => {
       state.storage.sql.exec<{ json: string }>("SELECT json FROM queue_state").one(),
     );
     expect(JSON.parse(persisted.json)).toMatchObject({ phase: "SCHEDULED", schedule });
+  });
+
+  it("gives a queue state stored without its circuits the setup's", async () => {
+    const stub = await opened();
+    await runInDurableObject(stub, (_, state) => {
+      const row = state.storage.sql.exec<{ json: string }>("SELECT json FROM queue_state").one();
+      const { circuits: _dropped, ...old } = JSON.parse(row.json) as Record<string, unknown>;
+      state.storage.sql.exec("UPDATE queue_state SET json = ?", JSON.stringify(old));
+    });
+    expect((await stub.snapshot())?.circuits).toEqual(INIT.circuits.map((c) => c.name));
+    expect(await stub.apply({ type: "join", githubId: 99 })).toMatchObject({ ok: false });
   });
 
   it("opens through its alarm, then waits for the close", async () => {

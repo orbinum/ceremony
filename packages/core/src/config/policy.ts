@@ -84,6 +84,13 @@ export const GITHUB_THRESHOLDS = {
 /** Host names that reach only this machine: plaintext and development privileges only there. */
 export const LOOPBACK_HOSTS: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
 
+/**
+ * The circuits the session and verifier bounds were measured for (circuits v0.17.1: 3 circuits,
+ * 52,226 constraints, the largest 34,200), with a margin: a ceremony past it must have the active
+ * cap, the snarkjs bounds and the container re-measured first (KL-61).
+ */
+export const MEASURED_CIRCUITS = { maxTotalConstraints: 60_000, maxConstraints: 40_000 } as const;
+
 /** The session queue's timers and limits, in milliseconds. SPEC §4.2. */
 export const QUEUE_RULES = {
   claimWindowMs: 30_000,

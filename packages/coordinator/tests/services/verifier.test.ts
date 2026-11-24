@@ -5,9 +5,9 @@
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { sha256Hex, verifyRequest } from "@orbinum-ceremony/core";
+import { requestAuthOf, sha256Hex, verifyRequest } from "@orbinum-ceremony/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dispatch } from "../../src/services";
+import { dispatch, warmVerifier } from "../../src/services";
 import {
   appWith,
   claimOf,
@@ -75,10 +75,7 @@ describe("dispatch to the verifier", () => {
     expect([init?.method, init?.redirect]).toEqual(["POST", "manual"]);
     expect(JSON.parse(body).job).toEqual(job);
     expect(JSON.parse(body).claim.outputSha256).toBe(sha256Hex(BYTES));
-    const headers = {
-      timestamp: headerOf(init, "x-ceremony-timestamp"),
-      signature: headerOf(init, "x-ceremony-signature"),
-    };
+    const headers = requestAuthOf((header) => headerOf(init, header));
     const verify = (ceremonyId: string) =>
       verifyRequest(
         env.VERIFIER_HMAC_KEY,
@@ -108,6 +105,27 @@ describe("dispatch to the verifier", () => {
     fetch.mockResolvedValue(new Response(null, { status: 202 }));
     await dispatch({ ...env, VERIFIER_URL: "https://verifier.test", VERIFIER_CONTAINER }, spec);
     expect(enqueued).toHaveLength(1);
+  });
+
+  it("warms only the container, never failing the caller", async () => {
+    const warmed: string[] = [];
+    const VERIFIER_CONTAINER = {
+      getByName: (name: string) => ({ warm: async () => void warmed.push(name) }),
+    } as unknown as Env["VERIFIER_CONTAINER"];
+    await warmVerifier({ ...env, VERIFIER_URL: "", VERIFIER_CONTAINER });
+    expect(warmed).toEqual([env.CEREMONY_ID]);
+    // A verifier elsewhere is not the Worker's to start; no container, nothing to do.
+    await warmVerifier({ ...env, VERIFIER_URL: "https://verifier.test", VERIFIER_CONTAINER });
+    await warmVerifier({ ...env, VERIFIER_URL: "" });
+    expect(warmed).toHaveLength(1);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failing = {
+      getByName: () => ({ warm: () => Promise.reject(new Error("down")) }),
+    } as unknown as Env["VERIFIER_CONTAINER"];
+    await expect(
+      warmVerifier({ ...env, VERIFIER_URL: "", VERIFIER_CONTAINER: failing }),
+    ).resolves.toBeUndefined();
+    expect(errors).toHaveBeenCalled();
   });
 
   it("never fails the upload when the verifier is unreachable or answers otherwise", async () => {

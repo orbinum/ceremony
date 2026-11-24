@@ -8,6 +8,7 @@ import {
   step,
 } from "../../../src/coordination/queue";
 import { QUEUE_RULES } from "../../../src/config";
+import { CIRCUIT_NAMES } from "../../support";
 
 const S = 1000;
 const MIN = 60 * S;
@@ -17,7 +18,11 @@ const [ALICE, BOB, CAROL] = [1, 2, 3];
 
 /** An open ceremony; `t` is the clock. */
 function opened(): { s: QueueState; t: number } {
-  const r = step(initialQueue({ openAt: OPEN, closeAt: CLOSE }), { type: "tick" }, OPEN);
+  const r = step(
+    initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES),
+    { type: "tick" },
+    OPEN,
+  );
   return { s: r.state, t: OPEN };
 }
 
@@ -109,7 +114,7 @@ describe("a late alarm: every deadline applies before the event", () => {
 
 describe("ceremony states (SPEC §4.3)", () => {
   it("opens and closes on schedule, with a state record each time", () => {
-    const s0 = initialQueue({ openAt: OPEN, closeAt: CLOSE });
+    const s0 = initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES);
     expect(step(s0, { type: "tick" }, OPEN - 1).state.phase).toBe("SCHEDULED");
     const open = step(s0, { type: "tick" }, OPEN);
     expect(open.state.phase).toBe("OPEN");
@@ -120,7 +125,7 @@ describe("ceremony states (SPEC §4.3)", () => {
   });
 
   it("refuses joins before opening and invalid operator transitions", () => {
-    const s0 = initialQueue({ openAt: OPEN, closeAt: CLOSE });
+    const s0 = initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES);
     expect(refusal(s0, { type: "join", githubId: ALICE }, OPEN - 1)).toBe("not-open");
     expect(refusal(s0, { type: "resume" }, OPEN)).toBe("invalid-transition");
     expect(refusal(opened().s, { type: "finalize" }, OPEN)).toBe("invalid-transition");
@@ -406,7 +411,7 @@ describe("pause, close and the alarm", () => {
   });
 
   it("schedules the alarm at the earliest pending deadline, and none once finalized", () => {
-    const s0 = initialQueue({ openAt: OPEN, closeAt: CLOSE });
+    const s0 = initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES);
     expect(nextDeadline(s0)).toBe(OPEN);
     const { s, t } = opened();
     const granted = run(s, t, { type: "join", githubId: ALICE }).s;

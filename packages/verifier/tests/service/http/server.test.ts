@@ -110,6 +110,19 @@ describe("service http", () => {
       expect(submitted).toEqual([]);
     });
 
+    it("takes an authentic dispatch once: the same signed request again is a replay", async () => {
+      const headers = signedDispatch(body);
+      expect((await post(url, body, headers)).status).toBe(202);
+      const replay = await post(url, body, headers);
+      expect(replay.status).toBe(401);
+      expect(await replay.json()).toEqual({ error: "replayed request" });
+      expect(submitted).toHaveLength(1);
+      // Signed anew (as every retry is), it reaches the sink, which acknowledges a repeat.
+      await new Promise((r) => setTimeout(r, 2));
+      expect((await post(url, body)).status).toBe(202);
+      expect(submitted).toHaveLength(2);
+    });
+
     it("refuses a timestamp too far behind, computed when sent", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       try {
@@ -140,9 +153,19 @@ describe("service http", () => {
       expect(submitted).toEqual([]);
     });
 
-    it("refuses an oversized Content-Length with 413 before reading the body", async () => {
+    it("refuses forged headers with 401 before reading the body, whatever its size", async () => {
       const res = await raw(url, { ...SHAPED, "content-length": MAX_JOB_SPEC_BYTES + 1 }, (req) =>
         req.flushHeaders(),
+      );
+      expect(res).toEqual({ status: 401, body: '{"error":"bad signature"}', connection: "close" });
+    });
+
+    it("refuses an oversized Content-Length with 413 before reading the body, once signed", async () => {
+      const big = "x".repeat(MAX_JOB_SPEC_BYTES + 1);
+      const res = await raw(
+        url,
+        { ...signedDispatch(big), "content-length": MAX_JOB_SPEC_BYTES + 1 },
+        (req) => req.flushHeaders(),
       );
       expect(res).toEqual({ status: 413, body: '{"error":"body too large"}', connection: "close" });
     });
@@ -160,8 +183,8 @@ describe("service http", () => {
       }
     });
 
-    it("refuses an oversized chunked body with 413", async () => {
-      const res = await raw(url, SHAPED, (req) => {
+    it("refuses an oversized chunked body with 413, once signed", async () => {
+      const res = await raw(url, signedDispatch("x".repeat(MAX_JOB_SPEC_BYTES + 1)), (req) => {
         req.write("x".repeat(MAX_JOB_SPEC_BYTES));
         req.end("x");
       });

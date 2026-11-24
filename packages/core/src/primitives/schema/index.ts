@@ -1,8 +1,10 @@
 // core/primitives/schema: text patterns and field validators for data from outside.
 export {
   CEREMONY_ID,
+  CIRCUIT_NAME,
   COMMIT,
   GITHUB_LOGIN,
+  isCircuitName,
   LOG_TEXT,
   NONEMPTY_PRINTABLE,
   PRINTABLE,
@@ -16,6 +18,7 @@ export {
 export {
   asArray,
   asCeremonyId,
+  asCircuitName,
   asCommit,
   asCount,
   asDecimalId,

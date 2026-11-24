@@ -5,7 +5,7 @@
  */
 import { sha256Hex } from "@orbinum-ceremony/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ContributorRefusal, contributorCall, fetchAnnounced } from "../../src/io";
+import { CoordinatorRefusal, contributorCall, fetchAnnounced } from "../../src/io";
 import { rejection } from "../support/errors";
 import { json, localServer } from "../support/http";
 
@@ -54,7 +54,7 @@ describe("the contributor API", () => {
 
   it("reports a refusal on one line, bounded, with its code", async () => {
     const error = await rejection(contributorCall(who(), "POST", "/api/session/heartbeat"));
-    expect(error).toBeInstanceOf(ContributorRefusal);
+    expect(error).toBeInstanceOf(CoordinatorRefusal);
     expect(error).toMatchObject({ status: 409, code: "not-your-slot" });
     expect(error.message).not.toContain("\n");
     expect(error.message).not.toContain("\u001b");

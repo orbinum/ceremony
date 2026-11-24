@@ -155,12 +155,12 @@ describe("payload validation", () => {
   });
 
   it("rejects an attestation with more contributions than circuits, or uppercase hashes", () => {
-    const four = {
+    const many = {
       ...attestation(evm.address),
-      contributions: Array(4).fill(attestation(evm.address).contributions[0]),
+      contributions: Array(17).fill(attestation(evm.address).contributions[0]),
     };
-    expect(() => validateAttestationPayload(four, "eip712")).toThrow(
-      /attestation\.contributions: more than 3 items/,
+    expect(() => validateAttestationPayload(many, "eip712")).toThrow(
+      /attestation\.contributions: more than 16 items/,
     );
     const upper = attestation(evm.address);
     upper.contributions[0] = { ...upper.contributions[0]!, contribution_hash: "AA".repeat(64) };

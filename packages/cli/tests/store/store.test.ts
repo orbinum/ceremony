@@ -43,12 +43,12 @@ describe("the ceremony lock", () => {
 });
 
 /** Opens the transcript store of the ceremony in `ceremony`. */
-const open = async (ceremony: string) => openTranscript(ceremony, ...(await opened(ceremony)));
+const open = async (ceremony: string) => openTranscript(ceremony, (await opened(ceremony))[0]);
 
 describe("the transcript store", () => {
   it("refuses to start a transcript over contributions on disk", async () => {
     const c = await syntheticCeremony({ finalized: false });
-    expect(await hasContributions(c.dir, ["shield"])).toBe(true);
+    expect(await hasContributions(c.dir)).toBe(true);
     await rm(layout(c.dir).transcript);
     expect((await rejection(open(c.dir))).message).toBe(
       "transcript.json is missing but contributions are on disk",
@@ -79,7 +79,7 @@ describe("the transcript store", () => {
     const c = await syntheticCeremony({ contributors: 1, finalized: false });
     await rm(layout(c.dir).transcript);
     await rm(layout(c.dir).contributions("shield"), { recursive: true });
-    expect(await hasContributions(c.dir, ["shield"])).toBe(false);
+    expect(await hasContributions(c.dir)).toBe(false);
     const store = await open(c.dir);
     expect(store.transcript.records).toEqual([]);
     const record = c.transcript.records[0] as Transcript["records"][number];

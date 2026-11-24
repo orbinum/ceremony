@@ -23,7 +23,6 @@ export async function runVerify(options: VerifyOptions): Promise<Report> {
       report.fail("final keys", "no valid sealed beacon, cannot check the final keys");
     } else {
       for (const c of ctx.init.value.circuits) {
-        // oxlint-disable-next-line no-await-in-loop -- verification is memory-heavy
         await checkFinal(ctx, beacon, c);
       }
     }

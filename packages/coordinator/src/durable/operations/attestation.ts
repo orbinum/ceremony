@@ -24,8 +24,10 @@ export async function attest(
   const identity = db.readIdentity(store.sql, githubId);
   if (!identity) return refuse("not-linked");
   const state = db.readQueue(store.sql);
-  if (!state) return refuse("not-configured");
-  const result = attestStep(state, githubId, payload.seq, queueNow(store));
+  const setup = db.readSetup(store.sql);
+  if (!state || !setup) return refuse("not-configured");
+  const closesAt = Date.parse(setup.announcement.schedule.beacon);
+  const result = attestStep(state, githubId, payload.seq, queueNow(store), closesAt);
   if (!result.ok) return refuse(result.refusal);
   const why = checkAttestation(
     payload,

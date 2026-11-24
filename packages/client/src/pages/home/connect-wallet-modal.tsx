@@ -15,7 +15,7 @@ import {
   type WalletAccount,
   type WalletOption,
 } from "../../wallets";
-import { errorText } from "./text";
+import { errorText, shortAccount } from "./text";
 
 const FAMILIES: { key: Family; label: string; hint: string }[] = [
   {
@@ -162,7 +162,11 @@ export function ConnectWalletModal(props: {
               key={a.address}
               icon={picked.option.icon}
               title={a.name ?? "Unnamed"}
-              detail={`${a.scheme} · ${a.address}`}
+              detail={
+                a.native && a.native !== a.address
+                  ? `${a.scheme} · ${a.native} (Orbinum ${shortAccount(a.address)})`
+                  : `${a.scheme} · ${a.address}`
+              }
               action="Use"
               disabled={busy}
               onClick={() => void finish(a.connect())}

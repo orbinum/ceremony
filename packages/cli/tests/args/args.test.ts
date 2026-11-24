@@ -90,6 +90,18 @@ describe("every command's options", async () => {
       force: false,
     });
     expect(
+      cli.parseDownloadOptions([
+        "--from",
+        "https://x.org/",
+        "--dir",
+        "d",
+        "--announcement-sha256",
+        sha,
+        "--transcript-sha256",
+        "CD".repeat(32),
+      ]).transcriptSha256,
+    ).toBe("cd".repeat(32));
+    expect(
       cli.parsePublishInitOptions([
         "--dir",
         "d",

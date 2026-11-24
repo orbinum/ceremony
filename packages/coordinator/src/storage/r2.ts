@@ -32,6 +32,15 @@ export const headObject = (bucket: R2Bucket, key: string) =>
 export const getObject = (bucket: R2Bucket, key: string) =>
   guarded(`get ${key}`, () => bucket.get(key));
 
+/**
+ * Reads an object unless `ifNoneMatch` (a request's `If-None-Match`) already names its ETag: then
+ * its metadata only, no body. No other precondition is taken from the request.
+ */
+export const getObjectIfChanged = (bucket: R2Bucket, key: string, ifNoneMatch?: string) =>
+  guarded(`get ${key}`, () =>
+    bucket.get(key, ifNoneMatch ? { onlyIf: new Headers({ "if-none-match": ifNoneMatch }) } : {}),
+  );
+
 /** Writes an object; null when an `onlyIf` condition did not hold. */
 export const putObject = (
   bucket: R2Bucket,
@@ -85,7 +94,7 @@ export class BytesMismatch extends Error {
  * Streams `body` under `key`, refusing anything but exactly `size` bytes hashing to `sha256`. The
  * bytes are counted and hashed beside the write, so a wrong body is `BytesMismatch` (the
  * client's) and a failed write with the right bytes is `StorageError` (ours). A wrong body
- * written anyway is deleted.
+ * written anyway is deleted, only while it is still the version this call wrote.
  */
 export async function streamExact(
   bucket: R2Bucket,
@@ -125,13 +134,22 @@ export async function streamExact(
   ]);
   const actual = hashed.status === "fulfilled" ? hashed.value : null;
   if (bytes !== expected.size || actual !== expected.sha256) {
-    if (put.status === "fulfilled" && put.value) await deleteQuietly(bucket, key);
+    if (put.status === "fulfilled" && put.value) await deleteIfWritten(bucket, key, put.value.etag);
     throw new BytesMismatch(`expected ${expected.size} bytes hashing to the declared SHA-256`);
   }
   if (put.status === "rejected") {
     throw new StorageError(`put ${key}: ${(put.reason as Error).message}`, { cause: put.reason });
   }
   return put.value ? "stored" : existing(bucket, key, expected.sha256);
+}
+
+/** Deletes `key` only if it is still the version `etag` names (R2 has no conditional delete). */
+async function deleteIfWritten(bucket: R2Bucket, key: string, etag: string): Promise<void> {
+  try {
+    if ((await bucket.head(key))?.etag === etag) await bucket.delete(key);
+  } catch (error) {
+    console.error("delete:", error);
+  }
 }
 
 /**
