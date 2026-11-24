@@ -3,6 +3,7 @@ export { buildInit, checkGenesis, initCircuitOf } from "./build";
 export {
   checkInitAgainstAnnouncement,
   checkInitAgainstConfig,
+  checkMeasuredBounds,
   checkRelease,
   circuitOf,
   circuitsOf,

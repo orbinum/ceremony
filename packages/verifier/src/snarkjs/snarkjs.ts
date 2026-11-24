@@ -5,7 +5,8 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- the ambient snarkjs types must reach every package that compiles this module
 /// <reference path="./snarkjs-module.d.ts" />
 import { randomBytes } from "node:crypto";
-import { logLine, toHex, zkeyVerifyPassed } from "@orbinum-ceremony/core";
+// The light entry: this module runs in every snarkjs child (KL-33).
+import { logLine, toHex, zkeyVerifyPassed } from "@orbinum-ceremony/core/snarkjs-child";
 import { zKey } from "snarkjs";
 
 /** Collects snarkjs log lines so callers can require the success marker and keep the log. */

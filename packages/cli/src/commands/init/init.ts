@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildInit,
+  checkMeasuredBounds,
   CEREMONY_LAYOUT,
   type InitCircuit,
   type InitRecord,
@@ -85,6 +86,14 @@ async function init(options: InitOptions): Promise<InitRecord> {
         `  v${c.ceremony_version}, ${c.constraints} constraints, r1cs ${c.r1cs_sha256.slice(0, 16)}… csHash ${c.cs_hash.slice(0, 16)}…`,
       );
       circuits.push(c);
+      // Checked as each circuit is built: a ceremony past the measured bounds stops before more
+      // genesis builds, unless the operator re-measured them (KL-61).
+      const beyond = checkMeasuredBounds(circuits);
+      if (beyond.length > 0 && !options.beyondMeasuredBounds) {
+        throw new Error(
+          `${beyond.join("; ")}: re-measure the active cap, the snarkjs bounds and the container, raise them, then pass --beyond-measured-bounds`,
+        );
+      }
     }
 
     const record = buildInit({

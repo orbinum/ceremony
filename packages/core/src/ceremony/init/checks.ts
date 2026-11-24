@@ -1,7 +1,7 @@
 /**
  * `init.json` against the announcement, the pinned config and the audited release. SPEC §2.1, §6.2.
  */
-import { type CircuitName, PTAU, TOOLING } from "../../config";
+import { type CircuitName, MEASURED_CIRCUITS, PTAU, TOOLING } from "../../config";
 import type { CeremonyAnnouncement } from "../announcement";
 import { ceremonyVersionOf, type PublishedCircuit } from "./release";
 import type { InitCircuit, InitRecord } from "./types";
@@ -83,6 +83,30 @@ export function checkRelease(
   if (c.ceremony_version !== expected) {
     problems.push(
       `ceremony version v${c.ceremony_version}, the release's active v${published.version} needs v${expected}`,
+    );
+  }
+  return problems;
+}
+
+/**
+ * How `circuits` exceed what the session and verifier bounds were measured for (KL-61); empty
+ * when they fit.
+ */
+export function checkMeasuredBounds(
+  circuits: readonly Pick<InitCircuit, "name" | "constraints">[],
+): string[] {
+  const problems: string[] = [];
+  for (const c of circuits) {
+    if (c.constraints > MEASURED_CIRCUITS.maxConstraints) {
+      problems.push(
+        `${c.name}: ${c.constraints} constraints, the bounds were measured up to ${MEASURED_CIRCUITS.maxConstraints}`,
+      );
+    }
+  }
+  const total = circuits.reduce((sum, c) => sum + c.constraints, 0);
+  if (total > MEASURED_CIRCUITS.maxTotalConstraints) {
+    problems.push(
+      `${total} constraints in all, the bounds were measured up to ${MEASURED_CIRCUITS.maxTotalConstraints}`,
     );
   }
   return problems;

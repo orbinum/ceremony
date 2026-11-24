@@ -97,6 +97,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` downloads the ptau from Orbinum's copies first (the testnet coordinator's
   `/artifacts/ptau/…`, ceremony-verifier's `test-vectors-2` release), then the original hosts
   (KL-25 removed).
+- snarkjs children load core through `@orbinum-ceremony/core/snarkjs-child`, without the wallet
+  libraries: about 100 MB and 0.3 s less per child (KL-33 narrowed).
+- `init` refuses circuits past the envelope the session and verifier bounds were measured for
+  (`MEASURED_CIRCUITS`: 40,000 constraints per circuit, 60,000 in all) unless
+  `--beyond-measured-bounds` says they were re-measured (KL-61 narrowed).
 
 ### Fixed
 

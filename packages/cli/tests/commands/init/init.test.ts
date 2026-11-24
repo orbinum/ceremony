@@ -17,6 +17,7 @@ const options = (out: string, force: boolean) => ({
   ptau: "/nonexistent.ptau",
   checkDeterminism: false,
   force,
+  beyondMeasuredBounds: false,
 });
 
 describe("init over an existing ceremony", () => {

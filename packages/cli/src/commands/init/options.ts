@@ -25,6 +25,8 @@ export interface InitOptions {
   ptau?: string;
   checkDeterminism: boolean;
   force: boolean;
+  /** Accept circuits past what the session and verifier bounds were measured for (KL-61). */
+  beyondMeasuredBounds: boolean;
 }
 
 /** Usage text, printed by `--help` and on a usage error. */
@@ -36,7 +38,10 @@ export const INIT_USAGE = `orbinum-ceremony init --ceremony-id <id> --circuits-r
     [--out <dir>]            default: artifacts/<ceremony-id>
     [--ptau <file>]          use a local ptau instead of downloading it (hash is still checked)
     [--check-determinism]    build every genesis twice and require identical bytes (A1/A3)
-    [--force]                rebuild a ceremony directory not yet announced or contributed to`;
+    [--force]                rebuild a ceremony directory not yet announced or contributed to
+    [--beyond-measured-bounds]
+                             accept circuits larger than the session and verifier bounds were
+                             measured for, once those bounds have been re-measured and raised`;
 
 /** Parses argv; a bad option is a `UsageError`. */
 export function parseInitOptions(argv: string[]): InitOptions {
@@ -49,6 +54,7 @@ export function parseInitOptions(argv: string[]): InitOptions {
     ptau: { type: "string" },
     "check-determinism": { type: "boolean", default: false },
     force: { type: "boolean", default: false },
+    "beyond-measured-bounds": { type: "boolean", default: false },
   });
   let ceremonyId: string;
   try {
@@ -73,6 +79,7 @@ export function parseInitOptions(argv: string[]): InitOptions {
     ...(ptau ? { ptau } : {}),
     checkDeterminism: values["check-determinism"],
     force: values.force,
+    beyondMeasuredBounds: values["beyond-measured-bounds"],
   };
 }
 

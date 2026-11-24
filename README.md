@@ -103,7 +103,7 @@ pnpm ceremony contribute-local --dir artifacts/rehearsal-1 --ptau $PTAU --contri
 pnpm ceremony finalize --dir artifacts/rehearsal-1 --ptau $PTAU --vk-packer $PACKER           # after close + beacon round
 ```
 
-`init` takes the ceremony's circuits and their on-chain ids from `--circuit-ids` and everything else from the tagged release: each r1cs must be the one its `manifest.json` publishes for the active version, and the ceremony key becomes the next version. Any circuits of the release, including new ones, work without changing this code.
+`init` takes the ceremony's circuits and their on-chain ids from `--circuit-ids` and everything else from the tagged release: each r1cs must be the one its `manifest.json` publishes for the active version, and the ceremony key becomes the next version. Any circuits of the release, including new ones, work without changing this code; circuits larger than the session and verifier bounds were measured for (40,000 constraints each, 60,000 in all) are refused until those bounds are re-measured and `--beyond-measured-bounds` is passed.
 
 `ceremony.json` (written by `announce`) is the root of trust: it pins `init.json`, the circuits tag and commit, the minimum contributions and the drand round. Its SHA-256 is published before contributions open.
 

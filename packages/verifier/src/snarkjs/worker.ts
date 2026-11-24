@@ -1,5 +1,6 @@
 /** Child entry: runs one snarkjs operation in-process (see `isolated.ts`). */
-import { serveOnce } from "../isolate";
+// Not the isolate barrel: it would load the parent side, and core's wallet libraries with it.
+import { serveOnce } from "../isolate/child";
 import * as inProcess from "./snarkjs";
 import type { SnarkjsTask } from "./isolated";
 

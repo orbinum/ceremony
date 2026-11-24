@@ -7,6 +7,7 @@ import {
   checkGenesis,
   checkInitAgainstAnnouncement,
   checkInitAgainstConfig,
+  checkMeasuredBounds,
   checkRelease,
   circuitOf,
   circuitsOf,
@@ -111,6 +112,19 @@ describe("init.json against what pins it", () => {
     const start = performance.now();
     expect(() => lockedCircomlibOf(hostile)).toThrow(FormatError);
     expect(performance.now() - start).toBeLessThan(1_000);
+  });
+
+  it("fits circuits v0.17.1 in the measured bounds, and names what exceeds them (KL-61)", () => {
+    const v0171 = [
+      { name: "shield", constraints: 736 },
+      { name: "unshield", constraints: 17_290 },
+      { name: "transfer", constraints: 34_200 },
+    ];
+    expect(checkMeasuredBounds(v0171)).toEqual([]);
+    expect(checkMeasuredBounds([...v0171, { name: "big", constraints: 50_000 }])).toEqual([
+      "big: 50000 constraints, the bounds were measured up to 40000",
+      "102226 constraints in all, the bounds were measured up to 60000",
+    ]);
   });
 
   it("names its circuits and their pins", () => {

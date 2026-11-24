@@ -31,7 +31,9 @@ describe("parseInitOptions", () => {
       out: resolve(join("artifacts", "test-1")),
       checkDeterminism: false,
       force: false,
+      beyondMeasuredBounds: false,
     });
+    expect(parseInitOptions([...base, "--beyond-measured-bounds"]).beyondMeasuredBounds).toBe(true);
   });
 
   it("accepts a local ptau and the determinism check", () => {
