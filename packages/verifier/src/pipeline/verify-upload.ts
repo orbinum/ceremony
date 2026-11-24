@@ -146,7 +146,8 @@ export async function verifyUpload(
     let check;
     try {
       [check, ms.verify] = await timed(() =>
-        verifyFromInit(files.genesis, files.ptau, copy, limits),
+        // The upload's entries: every earlier one and its own (`pre.index`).
+        verifyFromInit(files.genesis, files.ptau, copy, limits, pre.index),
       );
     } catch (error) {
       return await snarkjsFailure(error, "snarkjs", ms, files, copy);
@@ -156,7 +157,7 @@ export async function verifyUpload(
       const start = performance.now();
       let full;
       try {
-        full = await verifyFromR1cs(files.r1cs, files.ptau, copy, limits);
+        full = await verifyFromR1cs(files.r1cs, files.ptau, copy, limits, pre.index);
       } catch (error) {
         ms.verifyFromR1cs = Math.round(performance.now() - start);
         return await snarkjsFailure(error, "snarkjs (from r1cs)", ms, files, copy);

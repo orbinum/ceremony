@@ -3,7 +3,7 @@
  * and the caller are all checked before or while the bytes move, and a refused upload leaves
  * nothing stored. Each test runs on a session of its own.
  */
-import { runDurableObjectAlarm } from "cloudflare:test";
+import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -165,6 +165,16 @@ describe("upload bounds (SPEC §2.5)", () => {
     const first = await stub.prepareUpload(request);
     expect(first.ok).toBe(true);
     expect(await stub.prepareUpload(request)).toEqual({ ok: false, refusal: "busy" });
+    // The hold is in SQLite (an evicted object still sees it), sized by the declared bytes.
+    const holds = await runInDurableObject(stub, (_, state) =>
+      state.storage.sql
+        .exec<{ id: string; until: number }>("SELECT id, until FROM holds")
+        .toArray(),
+    );
+    expect(holds.map((h) => h.id)).toEqual(["upload:1/shield/1"]);
+    const left = (holds[0]?.until ?? 0) - Date.now();
+    expect(left).toBeGreaterThan(110_000);
+    expect(left).toBeLessThanOrEqual(121_000);
     // A failed stream gives the job back at once.
     await stub.releaseUpload((first as { key: string }).key);
     expect((await stub.prepareUpload(request)).ok).toBe(true);

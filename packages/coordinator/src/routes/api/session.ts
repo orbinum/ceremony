@@ -4,7 +4,7 @@
  */
 import { headView, jobResultView } from "@orbinum-ceremony/core";
 import { type Context, Hono } from "hono";
-import { attestSession } from "../../actions";
+import { attestSession, claimTurn } from "../../actions";
 import { ceremony } from "../../durable";
 import type { AppEnv } from "../../env";
 import {
@@ -22,14 +22,16 @@ import { browserOnly, contributor, rateLimit } from "../../middleware";
 const MAX_ATTESTATION_BYTES = 64 * 1024;
 
 /** The caller's slot event. */
-const slotEvent = (type: "claim" | "heartbeat" | "finish") => async (c: Context<AppEnv>) =>
+const slotEvent = (type: "heartbeat" | "finish") => async (c: Context<AppEnv>) =>
   respond(c, await ceremony(c.env).apply({ type, githubId: c.get("githubId") }));
 
 /** The `/api/session` router. */
 export const session = new Hono<AppEnv>()
   // A CLI drives the slot with its token (SPEC §4.4); the attestation stays with the browser.
   .use(contributor)
-  .post("/claim", rateLimit("ACTION_LIMIT"), slotEvent("claim"))
+  .post("/claim", rateLimit("ACTION_LIMIT"), async (c) =>
+    respond(c, await claimTurn(c.env, c.get("githubId"), (p) => c.executionCtx.waitUntil(p))),
+  )
   .post("/heartbeat", rateLimit("ACTION_LIMIT"), slotEvent("heartbeat"))
   .post("/finish", rateLimit("ACTION_LIMIT"), slotEvent("finish"))
   .get("/head/:circuit", rateLimit("POLL_LIMIT"), noStore, circuitParam, async (c) => {

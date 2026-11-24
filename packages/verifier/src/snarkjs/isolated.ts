@@ -63,20 +63,39 @@ export type LimitsOverride = Partial<Limits>;
 const lower = (bound: number, override: number | undefined) =>
   override !== undefined && override > 0 ? Math.min(bound, override) : bound;
 
-/** The bounds `op` runs under: its class's, lowered (never raised) by `override`. */
-export function limitsFor(op: keyof Ops, override?: LimitsOverride): Limits {
+/**
+ * Time a verification adds per MPC entry it re-walks: about 11 ms measured (shield, Apple
+ * M-series, 4,500 entries), three times that for slower hardware. Without it, honest uploads of a
+ * long chain would outgrow a fixed bound (KL-47).
+ */
+export const PER_ENTRY_MS = 35;
+
+/** The operations whose time grows with the chain: they re-walk every MPC entry. */
+const WALKS_CHAIN: ReadonlySet<keyof Ops> = new Set(["verifyFromR1cs", "verifyFromInit"]);
+
+/**
+ * The bounds `op` runs under: its class's, grown by `entries` (the MPC entries it re-walks) for a
+ * verification, then lowered (never raised) by `override`.
+ */
+export function limitsFor(op: keyof Ops, override?: LimitsOverride, entries = 0): Limits {
   const bound = LIMITS[CLASS[op]];
+  const walk = WALKS_CHAIN.has(op) ? Math.max(0, Math.trunc(entries)) * PER_ENTRY_MS : 0;
   return {
-    timeoutMs: lower(bound.timeoutMs, override?.timeoutMs),
+    timeoutMs: lower(bound.timeoutMs + walk, override?.timeoutMs),
     maxRssBytes: lower(bound.maxRssBytes, override?.maxRssBytes),
   };
 }
 
-const call = <K extends keyof Ops>(op: K, args: Parameters<Ops[K]>, limits?: LimitsOverride) =>
+const call = <K extends keyof Ops>(
+  op: K,
+  args: Parameters<Ops[K]>,
+  limits?: LimitsOverride,
+  entries = 0,
+) =>
   runIsolated<SnarkjsTask, Awaited<ReturnType<Ops[K]>>>(
     WORKER,
     { op, args } as SnarkjsTask,
-    limitsFor(op, limits),
+    limitsFor(op, limits, entries),
     REPLY_CHECKS[op],
   );
 
@@ -113,18 +132,23 @@ export const exportVerificationKey = (
   limits?: LimitsOverride,
 ): Promise<Record<string, unknown>> => call("exportVerificationKey", [zkey], limits);
 
-/** `zkey verify` from r1cs + ptau: valid only if snarkjs returns true and logs "ZKey Ok!". */
+/**
+ * `zkey verify` from r1cs + ptau: valid only if snarkjs returns true and logs "ZKey Ok!". `entries`
+ * is how many MPC entries the zkey holds: its bound grows with them.
+ */
 export const verifyFromR1cs = (
   r1cs: string,
   ptau: string,
   zkey: string,
   limits?: LimitsOverride,
-): Promise<VerifyOutcome> => call("verifyFromR1cs", [r1cs, ptau, zkey], limits);
+  entries = 0,
+): Promise<VerifyOutcome> => call("verifyFromR1cs", [r1cs, ptau, zkey], limits, entries);
 
-/** `zkey verifyfrominit`: the same checks from the genesis zkey. */
+/** `zkey verifyfrominit`: the same checks from the genesis zkey, `entries` as above. */
 export const verifyFromInit = (
   genesis: string,
   ptau: string,
   zkey: string,
   limits?: LimitsOverride,
-): Promise<VerifyOutcome> => call("verifyFromInit", [genesis, ptau, zkey], limits);
+  entries = 0,
+): Promise<VerifyOutcome> => call("verifyFromInit", [genesis, ptau, zkey], limits, entries);

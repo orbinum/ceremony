@@ -65,7 +65,8 @@ export async function checkFinal(
 
   await attemptGated(ctx, c.name, `${c.name}: final zkey verifies from r1cs + ptau`, async () => {
     const r1cs = staged(files.r1cs, c.name, "r1cs");
-    const res = await verifyFromR1cs(r1cs, stagedPtau(ctx), zkey(), limits);
+    const entries = readMpcParams(await readBytes(zkey())).entries.length;
+    const res = await verifyFromR1cs(r1cs, stagedPtau(ctx), zkey(), limits, entries);
     return res.ok ? [] : ["snarkjs verification failed"];
   });
 

@@ -69,6 +69,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SS58 accounts are checked (checksum, one spelling) wherever core reads an account, without
   @polkadot.
 - KL-32, KL-35, KL-43, KL-44, KL-46 and KL-62 removed; KL-45 narrowed (no body before the MAC).
+- The verifier container is warmed when a turn is claimed, so its start no longer counts inside
+  the first upload's deadline; its Durable Object keeps each job until that deadline and posts it
+  again to a container that crashed or was replaced by a deploy (KL-59 removed, KL-27 narrowed to
+  a verifier run elsewhere).
+- Upload and final-write holds live in the Durable Object's SQLite, so an evicted object keeps
+  them; an upload's hold lasts 2 minutes plus its size at 128 KiB/s instead of 15 minutes (KL-51
+  narrowed).
+- snarkjs verification bounds grow with the MPC entries a zkey holds (KL-47 narrowed).
 
 ### Fixed
 

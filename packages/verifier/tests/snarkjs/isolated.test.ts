@@ -9,7 +9,7 @@ import { readMpcParams } from "@orbinum-ceremony/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { IsolationError, LIMITS } from "../../src/isolate";
 import { applyBeacon, contribute, exportVerificationKey } from "../../src/snarkjs";
-import { limitsFor, REPLY_CHECKS } from "../../src/snarkjs/isolated";
+import { limitsFor, PER_ENTRY_MS, REPLY_CHECKS } from "../../src/snarkjs/isolated";
 
 const FX = join(import.meta.dirname, "..", "fixtures");
 const GENESIS = join(FX, "multiplier_0.zkey");
@@ -114,6 +114,20 @@ describe("bounds of a call", () => {
       timeoutMs: LIMITS.heavy.timeoutMs,
       maxRssBytes: 1024 ** 3,
     });
+  });
+
+  it("grow a verification's time with the MPC entries it re-walks, and nothing else's (KL-47)", () => {
+    expect(limitsFor("verifyFromInit", undefined, 4_500)).toEqual({
+      ...LIMITS.medium,
+      timeoutMs: LIMITS.medium.timeoutMs + 4_500 * PER_ENTRY_MS,
+    });
+    expect(limitsFor("verifyFromR1cs", undefined, 100).timeoutMs).toBe(
+      LIMITS.heavy.timeoutMs + 100 * PER_ENTRY_MS,
+    );
+    expect(limitsFor("exportVerificationKey", undefined, 4_500)).toEqual(LIMITS.light);
+    expect(limitsFor("verifyFromInit", undefined, -5)).toEqual(LIMITS.medium);
+    // A tighter override (what is left of a deadline) still wins.
+    expect(limitsFor("verifyFromInit", { timeoutMs: 5_000 }, 4_500).timeoutMs).toBe(5_000);
   });
 
   it("ignores an override that is not a positive number", () => {

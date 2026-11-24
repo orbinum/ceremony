@@ -56,10 +56,17 @@ export async function finalizeCircuit(
     ctx.beacon.iterations_exp,
   );
 
-  const full = await verifyFromR1cs(paths.r1cs(circuit), ctx.ptau, final);
+  const params = readMpcParams(await readBytes(final));
+  const full = await verifyFromR1cs(
+    paths.r1cs(circuit),
+    ctx.ptau,
+    final,
+    undefined,
+    params.entries.length,
+  );
   if (!full.ok) throw new Error(`${circuit}: final zkey failed verification from r1cs`);
   const rewalk = checkFinalEntries(
-    readMpcParams(await readBytes(final)),
+    params,
     finalExpectationOf(ctx.store.transcript.records, pinned, ctx.announcement, ctx.beacon),
   );
   if (rewalk.length > 0) throw new Error(`${circuit}: ${rewalk.join("; ")}`);

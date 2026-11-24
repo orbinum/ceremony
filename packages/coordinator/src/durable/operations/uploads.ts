@@ -28,10 +28,13 @@ const checked = (store: Store, upload: UploadRequest) => {
 };
 
 /**
- * How long a started upload holds its job. Every exit releases it sooner; this only bounds one
- * whose Worker died mid-stream. ponytail: in memory, so an evicted object forgets holds early.
+ * How long a started upload holds its job: its declared size at a slow 128 KiB/s, plus 2 minutes.
+ * Every exit releases it sooner; this only bounds one whose Worker died mid-stream, so its holder
+ * can upload again within minutes. Kept in SQLite: an evicted object still sees it.
  */
-const STREAM_HOLD_MS = 15 * 60_000;
+const streamHoldMs = (size: number) => 2 * 60_000 + Math.ceil(size / (128 * 1024)) * 1000;
+
+const uploadHold = (job: string) => `upload:${job}`;
 
 /**
  * Where to stream an upload (a random suffix keeps two uploads apart). One upload streams per job
@@ -43,17 +46,17 @@ export function prepareUpload(
 ): { ok: true; key: string } | { ok: false; refusal: CeremonyRefusal } {
   const c = checked(store, upload);
   if (!c.ok) return c;
-  const id = jobKey(c.job);
+  const id = uploadHold(jobKey(c.job));
   const now = Date.now();
-  if ((store.streaming.get(id)?.until ?? 0) > now) return refuse("busy");
+  if (db.holdLive(store.sql, id, now)) return refuse("busy");
   const key = jobObjectKey(c.job, randomHex(8));
-  store.streaming.set(id, { key, until: now + STREAM_HOLD_MS });
+  db.takeHold(store.sql, id, key, now + streamHoldMs(upload.size), now);
   return { ok: true, key };
 }
 
 /** The upload streaming to `key` ended (stored or not): its job may take another. */
 export function releaseUpload(store: Store, key: string): void {
-  for (const [id, hold] of store.streaming) if (hold.key === key) store.streaming.delete(id);
+  db.releaseHoldsOn(store.sql, key);
 }
 
 /** The bytes are under `key`: record the job, freeze the clock, return what to dispatch. */

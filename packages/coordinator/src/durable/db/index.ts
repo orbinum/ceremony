@@ -1,4 +1,5 @@
 // coordinator/durable/db: the Durable Object's SQLite tables.
+export { anyHoldLive, holdLive, releaseHold, releaseHoldsOn, takeHold } from "./holds";
 export { consumeNonce, insertNonce, readIdentity, walletTaken, writeIdentity } from "./identities";
 export { latestJob, pendingJobs, readJob, writeJob } from "./jobs";
 export { publishedVersion, readRecords, setPublishedVersion, writeRecord } from "./records";
