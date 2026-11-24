@@ -25,7 +25,7 @@ export interface InitOptions {
   ptau?: string;
   checkDeterminism: boolean;
   force: boolean;
-  /** Accept circuits past what the session and verifier bounds were measured for (KL-61). */
+  /** Accept circuits past what the session and verifier bounds were measured for. */
   beyondMeasuredBounds: boolean;
 }
 

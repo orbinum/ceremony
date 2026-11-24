@@ -25,7 +25,6 @@ export async function hasContributions(dir: string): Promise<boolean> {
   if (!existsSync(root)) return false;
   for (const entry of await readdir(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    // oxlint-disable-next-line no-await-in-loop -- a few directories
     if ((await readdir(join(root, entry.name))).length > 0) return true;
   }
   return false;

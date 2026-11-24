@@ -1140,6 +1140,12 @@
           }
         ]
       }
+    },
+    {
+      "files": ["packages/cli/src/**"],
+      "rules": {
+        "no-await-in-loop": "off"
+      }
     }
   ]
 }

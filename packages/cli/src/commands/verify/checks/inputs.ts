@@ -1,5 +1,6 @@
 /**
- * Frozen inputs: ptau, circuit set, r1cs (vs init, release, source) and genesis. SPEC §1, §2.1–2.3.
+ * Frozen inputs: the ptau, the circuit set, each r1cs (against init.json, the release and its
+ * rebuilt source) and each genesis. SPEC §1, §2.1–2.3.
  */
 import { join } from "node:path";
 import {
@@ -13,24 +14,12 @@ import {
   TOOLING,
 } from "@orbinum-ceremony/core";
 import { assertPinnedPtau, ensureDir, hashFile, readBytes } from "../../../io";
-import {
-  type CircuitRelease,
-  compileCircuit,
-  type ExportedSource,
-  exportSource,
-  repoId,
-  resolveRelease,
-} from "../../../source";
-import { circomVersion, newGenesisZkey, originUrl } from "../../../tools";
-import {
-  attemptGated,
-  markFailed,
-  PTAU_PREREQUISITE,
-  stagedPtau,
-  type VerifyContext,
-  workDir,
-} from "../context";
+import { compileCircuit } from "../../../source";
+import { newGenesisZkey } from "../../../tools";
+import { attemptGated, markFailed, stagedPtau, type VerifyContext, workDir } from "../context";
+import { PTAU_PREREQUISITE } from "../gate";
 import { staged } from "../staging";
+import { exportRelease, resolveAnnouncedRelease } from "./release";
 
 async function r1csMatches(ctx: VerifyContext, c: InitCircuit): Promise<string[]> {
   const path = staged(ctx.files.r1cs, c.name, "r1cs");
@@ -57,59 +46,6 @@ async function genesisRebuilds(ctx: VerifyContext, c: InitCircuit) {
   return same ? [] : ["rebuilt genesis differs"];
 }
 
-const ORIGIN_ID = "circuits clone's origin is the announced repo";
-
-/**
- * Resolves the announced tag in the verifier's own clone, which must be a clone of the announced
- * repository; the tag must be the announced commit.
- */
-async function resolveAnnouncedRelease(ctx: VerifyContext): Promise<CircuitRelease | undefined> {
-  const { report, options, announcement } = ctx;
-  const id = "announced tag resolves to the announced commit";
-  const src = announcement.value.circuits_source;
-  const repo = options.circuitsRepo;
-  if (!repo) {
-    report.skip(ORIGIN_ID, "needs --circuits-repo", true);
-    report.skip(id, "needs --circuits-repo", true);
-    return undefined;
-  }
-  const clone = repo;
-  await report.attempt(ORIGIN_ID, async () => {
-    const origin = repoId(await originUrl(clone));
-    return origin === repoId(src.repo) ? [] : [`origin is ${origin}`];
-  });
-  try {
-    const r = await resolveRelease(clone, src.tag, src.commit);
-    report.pass(id, `${src.tag} @ ${r.commit.slice(0, 12)}`);
-    return r;
-  } catch (error) {
-    report.fail(id, (error as Error).message);
-    return undefined;
-  }
-}
-
-/** The release source, exported, with the circomlib init.json recorded. */
-async function exportRelease(ctx: VerifyContext, rel: CircuitRelease) {
-  const { report, init } = ctx;
-  let source: ExportedSource | undefined;
-  await report.attempt(`local circom is ${init.value.tooling.circom} (as at init)`, async () =>
-    (await circomVersion()) === init.value.tooling.circom ? [] : ["different circom version"],
-  );
-  await report.attempt(
-    "release source exported, with the circomlib init.json recorded",
-    async () => {
-      await ensureDir(workDir(ctx));
-      const s = await exportSource(rel, workDir(ctx));
-      if (s.circomlib !== init.value.tooling.circomlib) {
-        return [`circomlib ${s.circomlib}, init.json recorded ${init.value.tooling.circomlib}`];
-      }
-      source = s;
-      return [];
-    },
-  );
-  return source;
-}
-
 /** Every input check; failures of the cheap ones gate the expensive ones per circuit. */
 export async function checkInputs(ctx: VerifyContext): Promise<void> {
   const { report, init, options } = ctx;
@@ -127,8 +63,6 @@ export async function checkInputs(ctx: VerifyContext): Promise<void> {
   const source = rel ? await exportRelease(ctx, rel) : undefined;
 
   for (const c of init.value.circuits) {
-    /* oxlint-disable no-await-in-loop -- per-circuit checks run in order; compiling and groth16
-       setup are memory-heavy */
     const r1csId = `${c.name}: r1cs matches init.json (hash and shape)`;
     if (!(await report.attempt(r1csId, () => r1csMatches(ctx, c)))) markFailed(ctx, c.name, r1csId);
 
@@ -158,6 +92,5 @@ export async function checkInputs(ctx: VerifyContext): Promise<void> {
     } else {
       report.skip(rebuiltId, "pass --rebuild-genesis");
     }
-    /* oxlint-enable no-await-in-loop */
   }
 }

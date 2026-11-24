@@ -57,12 +57,10 @@ export async function preflight(
     const accepted = contributionsOf(store.transcript.records, circuit);
     const head = accepted.at(-1) as Chained<ContributionRecord>;
     const headZkey = paths.zkey(circuit, head.index);
-    /* oxlint-disable no-await-in-loop -- a few files, checked in order before sealing */
     await assertPinnedFile(init, circuit, "r1cs", paths.r1cs(circuit));
     if ((await hashFile(headZkey, createSha256())) !== head.output_sha256) {
       throw new Error(`${circuit}: head zkey differs from the transcript`);
     }
-    /* oxlint-enable no-await-in-loop */
     plans.push({ circuit, accepted, headZkey });
   }
   return plans;

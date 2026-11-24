@@ -46,12 +46,10 @@ export async function stageInputs(
     [files.finalVk, paths.finalVk, "vk.json"],
   ];
   for (const c of circuitsOf(init)) {
-    // oxlint-disable-next-line no-await-in-loop -- copies are sequential to bound memory
     await report.attempt(
       `${c}: inputs are regular files (r1cs, genesis, final zkey, vk)`,
       async () => {
         for (const [map, source, suffix] of copies) {
-          // oxlint-disable-next-line no-await-in-loop -- one file at a time
           map.set(c, await stage.copy(source(c), `${c}.${suffix}`));
         }
       },

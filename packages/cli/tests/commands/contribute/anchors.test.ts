@@ -1,6 +1,6 @@
 /** A head against the published transcript: the same contributions, hash and name, in order. */
 import { describe, expect, it } from "vitest";
-import { headMismatch } from "../../../src/commands/contribute/session";
+import { headMismatch } from "../../../src/commands/contribute/anchors";
 
 const entry = (i: number) => ({ hash: String(i).repeat(128).slice(0, 128), name: String(i) });
 const chain = (n: number) => Array.from({ length: n }, (_, i) => entry(i + 1));

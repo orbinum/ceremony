@@ -5,8 +5,8 @@
  */
 import type { ServerResponse } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { AdminRefusal, adminCall } from "../../src/io";
-import { accessHeaders } from "../../src/io/coordinator";
+import { CoordinatorRefusal, adminCall } from "../../src/io";
+import { accessHeaders } from "../../src/io/admin";
 import { rejection } from "../support/errors";
 import { json, localServer } from "../support/http";
 
@@ -103,7 +103,7 @@ describe("the coordinator's admin API", () => {
 
   it("reports a refusal with a bounded, terminal-safe body", async () => {
     const error = await rejection(adminCall(server.url, "PUT", "/refused", {}, "x"));
-    expect(error).toBeInstanceOf(AdminRefusal);
+    expect(error).toBeInstanceOf(CoordinatorRefusal);
     expect(error).toMatchObject({ status: 409, code: "immutable" });
     expect(error.message).toMatch(/^PUT \/refused: 409 /);
     expect(error.message.includes("\u001b")).toBe(false);
@@ -136,7 +136,7 @@ describe("retries", () => {
   it("never sends a refusal or a redirect again", async () => {
     const refused = callsTo("/refused");
     await expect(adminCall(server.url, "PUT", "/refused", {}, "x", FAST)).rejects.toThrow(
-      AdminRefusal,
+      CoordinatorRefusal,
     );
     expect(callsTo("/refused") - refused).toBe(1);
     const redirected = callsTo("/redirect");

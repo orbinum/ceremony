@@ -47,9 +47,7 @@ function signalGroup(pid: number | undefined, signal: NodeJS.Signals): void {
   if (pid === undefined) return;
   try {
     process.kill(-pid, signal);
-  } catch {
-    // The group is already gone.
-  }
+  } catch {}
 }
 
 /** Runs a program; resolves with its raw output once every stream closed. */

@@ -27,7 +27,6 @@ export async function withLock<T>(path: string, fn: () => Promise<T>): Promise<T
     // deleted by hand. Compared while the descriptor is open, so its inode cannot be reused.
     const mine = await handle.stat().catch(() => null);
     const now = await lstat(path).catch(() => null);
-    // ponytail: lstat-then-rm race is a window of microseconds between two operators' runs.
     if (mine && now?.ino === mine.ino && now.dev === mine.dev) await rm(path, { force: true });
     await handle.close();
   }

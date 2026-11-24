@@ -86,6 +86,18 @@ describe("verify, rooted in the pin and the expected network", () => {
     );
   });
 
+  it("does not run snarkjs at all when the ptau cannot be staged", async () => {
+    const failed = await failures(options(c));
+    expect(failed).toContainEqual(
+      expect.objectContaining({ id: "ptau is a regular file", status: "fail" }),
+    );
+    expect(failed).toContainEqual({
+      id: "shield: final zkey verifies from r1cs + ptau",
+      status: "fail",
+      detail: "not run: prerequisite failed (ptau is a regular file)",
+    });
+  });
+
   it("exits 1 when the verification fails", async () => {
     const before = process.exitCode;
     try {

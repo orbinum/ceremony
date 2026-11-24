@@ -8,22 +8,14 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  buildInit,
-  checkMeasuredBounds,
-  CEREMONY_LAYOUT,
-  type InitCircuit,
-  type InitRecord,
-  PTAU,
-  TOOLING,
-} from "@orbinum-ceremony/core";
+import { buildInit, CEREMONY_LAYOUT, type InitRecord, PTAU, TOOLING } from "@orbinum-ceremony/core";
 import { layout } from "../../artifacts";
 import { writeJson } from "../../io";
 import { exportSource, resolveRelease } from "../../source";
 import { hasContributions, withLock } from "../../store";
 import { circomVersion } from "../../tools";
 import type { Command } from "../types";
-import { buildCircuit } from "./build-circuit";
+import { buildCircuits } from "./build-circuit";
 import { INIT_USAGE, type InitOptions, parseInitOptions } from "./options";
 import { obtainPtau } from "./ptau";
 
@@ -70,31 +62,11 @@ async function init(options: InitOptions): Promise<InitRecord> {
     const source = await exportSource(release, work);
     console.log(`  commit ${release.commit}, circomlib ${source.circomlib}`);
 
-    const circuits: InitCircuit[] = [];
-    for (const { name, circuitId } of options.circuits) {
-      console.log(`${name} (id ${circuitId}): compile, check, genesis`);
-      // oxlint-disable-next-line no-await-in-loop -- sequential: groth16 setup is memory-heavy
-      const c = await buildCircuit(name, circuitId, {
-        release,
-        source,
-        ptau,
-        out: staging,
-        work,
-        checkDeterminism: options.checkDeterminism,
-      });
-      console.log(
-        `  v${c.ceremony_version}, ${c.constraints} constraints, r1cs ${c.r1cs_sha256.slice(0, 16)}… csHash ${c.cs_hash.slice(0, 16)}…`,
-      );
-      circuits.push(c);
-      // Checked as each circuit is built: a ceremony past the measured bounds stops before more
-      // genesis builds, unless the operator re-measured them (KL-61).
-      const beyond = checkMeasuredBounds(circuits);
-      if (beyond.length > 0 && !options.beyondMeasuredBounds) {
-        throw new Error(
-          `${beyond.join("; ")}: re-measure the active cap, the snarkjs bounds and the container, raise them, then pass --beyond-measured-bounds`,
-        );
-      }
-    }
+    const circuits = await buildCircuits(
+      options.circuits,
+      { release, source, ptau, out: staging, work, checkDeterminism: options.checkDeterminism },
+      options.beyondMeasuredBounds,
+    );
 
     const record = buildInit({
       ceremonyId: options.ceremonyId,
@@ -108,9 +80,7 @@ async function init(options: InitOptions): Promise<InitRecord> {
     // init.json lives in genesis/: the genesis zkeys and the record that pins them move together.
     await writeJson(join(staging, CEREMONY_LAYOUT.init), record);
     for (const dir of ["r1cs", "genesis"]) {
-      // oxlint-disable-next-line no-await-in-loop -- two renames, in order
       await rm(join(options.out, dir), { recursive: true, force: true });
-      // oxlint-disable-next-line no-await-in-loop -- two renames, in order
       await rename(join(staging, dir), join(options.out, dir));
     }
     const path = layout(options.out).init;

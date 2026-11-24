@@ -102,6 +102,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` refuses circuits past the envelope the session and verifier bounds were measured for
   (`MEASURED_CIRCUITS`: 40,000 constraints per circuit, 60,000 in all) unless
   `--beyond-measured-bounds` says they were re-measured (KL-61 narrowed).
+- The CLI's code is split by responsibility: one reader of the coordinator's answers and one
+  `CoordinatorRefusal` for the contributor and operator APIs; `contribute` as retry, token, session
+  API, anchors and head checks, one contribution, and the session; `download` as pinned files and
+  transcript acceptance; `verify`'s prerequisite gate, release and independent checks on their own.
+  The sequential loops no longer carry a lint suppression each.
+- `verify` gates every circuit's expensive checks on a ptau that could not be staged again (its
+  prerequisite was recorded under the wrong key).
 
 ### Fixed
 
