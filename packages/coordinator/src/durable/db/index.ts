@@ -3,4 +3,5 @@ export { consumeNonce, insertNonce, readIdentity, walletTaken, writeIdentity } f
 export { latestJob, pendingJobs, readJob, writeJob } from "./jobs";
 export { publishedVersion, readRecords, setPublishedVersion, writeRecord } from "./records";
 export { SCHEMA } from "./schema";
+export { spendOnce } from "./spent";
 export { readFinals, readQueue, readSetup, writeFinals, writeQueue, writeSetup } from "./state";

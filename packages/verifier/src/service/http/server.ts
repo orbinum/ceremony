@@ -11,6 +11,7 @@ import {
   type JobSpec,
   MAX_JOB_SPEC_BYTES,
   parseJsonText,
+  REQUEST_AUTH,
   requestAuthOf,
   validateJobSpec,
   VERIFIER_PATHS,
@@ -54,6 +55,20 @@ const SERVER_LIMITS = {
 
 class TooLarge extends Error {}
 
+/**
+ * The MACs of dispatches already taken, until their window closes: an authentic dispatch is taken
+ * once. Only authenticated requests are kept, so only the key holder can grow it.
+ */
+function spentMacs() {
+  const spent = new Map<string, number>();
+  return (signature: string, timestamp: number, now: number): boolean => {
+    for (const [mac, until] of spent) if (until <= now) spent.delete(mac);
+    if (spent.has(signature)) return false;
+    spent.set(signature, timestamp + REQUEST_AUTH.skewMs + 1);
+    return true;
+  };
+}
+
 /** The body's bytes, failing past `MAX_JOB_SPEC_BYTES` whatever the headers said. */
 async function readBody(req: IncomingMessage): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
@@ -81,14 +96,23 @@ const reply = (res: ServerResponse, status: number, body: unknown) => {
 };
 
 /** `POST /verify`: the MAC and the size first, then the body against its digest and the job spec. */
-function dispatch(req: IncomingMessage, res: ServerResponse, auth: DispatchAuth, jobs: JobSink) {
+function dispatch(
+  req: IncomingMessage,
+  res: ServerResponse,
+  auth: DispatchAuth,
+  jobs: JobSink,
+  spend: ReturnType<typeof spentMacs>,
+) {
   const headers = requestAuthOf((name) => one(req.headers[name]));
   const { hmacKey, ceremonyId } = auth;
+  const now = Date.now();
   // An unauthenticated request is refused before its body is read.
-  if (
-    !verifyRequestHeaders(hmacKey, ceremonyId, "POST", VERIFIER_PATHS.verify, headers, Date.now())
-  ) {
+  if (!verifyRequestHeaders(hmacKey, ceremonyId, "POST", VERIFIER_PATHS.verify, headers, now)) {
     return reply(res, 401, { error: "bad signature" });
+  }
+  // Authentic, and once: a replay inside the freshness window is refused.
+  if (!spend(headers.signature as string, Number(headers.timestamp), now)) {
+    return reply(res, 401, { error: "replayed request" });
   }
   const length = req.headers["content-length"];
   if (length !== undefined && !(Number(length) <= MAX_JOB_SPEC_BYTES)) {
@@ -124,6 +148,7 @@ function dispatch(req: IncomingMessage, res: ServerResponse, auth: DispatchAuth,
 
 /** The service's HTTP server; jobs go to `jobs`, which runs them. */
 export function createVerifierServer(auth: DispatchAuth, jobs: JobSink): Server {
+  const spend = spentMacs();
   const server = createServer(
     {
       requestTimeout: SERVER_LIMITS.requestTimeoutMs,
@@ -137,7 +162,7 @@ export function createVerifierServer(auth: DispatchAuth, jobs: JobSink): Server 
         return reply(res, ok ? 200 : 503, { ok });
       }
       if (req.method === "POST" && req.url === VERIFIER_PATHS.verify) {
-        return dispatch(req, res, auth, jobs);
+        return dispatch(req, res, auth, jobs, spend);
       }
       return reply(res, 404, { error: "not found" });
     },

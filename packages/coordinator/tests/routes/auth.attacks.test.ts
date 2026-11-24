@@ -123,17 +123,15 @@ describe("OAuth state", () => {
     expect(String(exchanges[0]?.code_verifier)).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  // Accepted limit (KL-44 in docs/KNOWN_LIMITS.md): GitHub's single-use code and PKCE stop the replay.
-  it("lets a state cookie be replayed within its 10 min lifetime, reaching GitHub with the same verifier", async () => {
+  it("spends a state once: a replayed cookie never reaches GitHub again", async () => {
     mockGithub(OCTOCAT);
     const { cookie, state } = await start();
     exchanges.length = 0;
     const first = await back(`code=c1&state=${state}`, cookie);
     expect(first.headers.get("location")).toBe("/?auth=ok");
     const replay = await back(`code=c2&state=${state}`, cookie);
-    expect(replay.headers.get("location")).toBe("/?auth=ok");
-    expect(exchanges.map((e) => e.code)).toEqual(["c1", "c2"]);
-    expect(exchanges[0]?.code_verifier).toBe(exchanges[1]?.code_verifier);
+    expect(replay.headers.get("location")).toBe("/?auth=error&reason=state");
+    expect(exchanges.map((e) => e.code)).toEqual(["c1"]);
     exchanges.length = 0;
   });
 

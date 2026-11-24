@@ -280,6 +280,22 @@ describe("the MAC before the body", () => {
     expect(await refusal(r)).toEqual([413, "too-large"]);
   });
 
+  it("takes an authentic request once: the same signed request again is a replay", async () => {
+    const path = "/internal/does-not-exist";
+    const headers = signRequest(
+      env.VERIFIER_HMAC_KEY,
+      env.CEREMONY_ID,
+      "GET",
+      path,
+      "",
+      Date.now(),
+    );
+    const first = await raw(path, { headers });
+    expect(first.status).not.toBe(401);
+    await first.body?.cancel();
+    expect(await refusal(await raw(path, { headers }))).toEqual([401, "unauthenticated"]);
+  });
+
   it("refuses a correctly signed but stale or future request before reading its body", async () => {
     for (const at of [Date.now() - 61_000, Date.now() + 61_000]) {
       const headers = signRequest(

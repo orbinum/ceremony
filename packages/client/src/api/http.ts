@@ -65,8 +65,8 @@ export async function putBytes<T>(
 
 /** A public file's bytes (`/artifacts/…`), or an `ApiError` if it is not there. */
 export async function getBytes(path: string): Promise<Uint8Array> {
-  // Revalidated: a contribution served as immutable may be a leftover the coordinator replaced
-  // (KL-46), and a stale copy would fail its hash check and end the turn.
+  // Revalidated: a stale copy (a leftover the coordinator replaced) would fail its hash check and
+  // end the turn.
   const r = await fetch(path, { credentials: "same-origin", cache: "no-cache" });
   if (!r.ok) await answerOf(r);
   return new Uint8Array(await r.arrayBuffer());

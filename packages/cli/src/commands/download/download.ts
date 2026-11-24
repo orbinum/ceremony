@@ -116,7 +116,11 @@ async function download(options: DownloadOptions): Promise<number> {
       incoming,
       MAX_TRANSCRIPT_BYTES,
     );
-    transcript = (await loadTranscript(options.dir, incoming)).value;
+    const loaded = await loadTranscript(options.dir, incoming);
+    if (options.transcriptSha256 && loaded.sha256 !== options.transcriptSha256) {
+      throw new Error("transcript.json refused: it is not the one --transcript-sha256 pins");
+    }
+    transcript = loaded.value;
     const broken = checkTranscriptIntegrity(
       transcript,
       announcement.value,

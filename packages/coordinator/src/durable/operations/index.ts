@@ -3,6 +3,7 @@ export { attest } from "./attestation";
 export { tick } from "./clock";
 export { finalize, holdFinalWrite, releaseFinalWrite } from "./finalize";
 export { changeRefusal, issueNonce, link } from "./identity";
+export { spendOAuthState, spendRequestMac } from "./once";
 export { done, type Outcome, refuse } from "./outcome";
 export { apply } from "./queue";
 export {

@@ -20,6 +20,7 @@ export const SCHEMA = `
     github_id INTEGER NOT NULL,
     expires_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS spent (key TEXT PRIMARY KEY, expires_at INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS jobs (
     seq INTEGER NOT NULL,
     circuit TEXT NOT NULL,

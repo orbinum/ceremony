@@ -149,6 +149,8 @@ export type QueueRefusal =
   | "busy"
   | "no-verification"
   | "invalid-transition"
+  /** The announced beacon time passed: the transcript is being sealed, no attestation enters it. */
+  | "attestation-closed"
   /** The ceremony is sealed: read-only. */
   | "finalized";
 

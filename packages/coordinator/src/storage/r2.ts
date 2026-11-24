@@ -32,6 +32,15 @@ export const headObject = (bucket: R2Bucket, key: string) =>
 export const getObject = (bucket: R2Bucket, key: string) =>
   guarded(`get ${key}`, () => bucket.get(key));
 
+/**
+ * Reads an object unless `ifNoneMatch` (a request's `If-None-Match`) already names its ETag: then
+ * its metadata only, no body. No other precondition is taken from the request.
+ */
+export const getObjectIfChanged = (bucket: R2Bucket, key: string, ifNoneMatch?: string) =>
+  guarded(`get ${key}`, () =>
+    bucket.get(key, ifNoneMatch ? { onlyIf: new Headers({ "if-none-match": ifNoneMatch }) } : {}),
+  );
+
 /** Writes an object; null when an `onlyIf` condition did not hold. */
 export const putObject = (
   bucket: R2Bucket,

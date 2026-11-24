@@ -11,17 +11,19 @@ export const noStore = createMiddleware(async (c, next) => {
 });
 
 /**
- * Files written once and never changed, each pinned by a hash upstream: genesis, accepted
- * contributions and their logs. `transcript.json` and `status.json` change.
+ * Files frozen before any contribution and pinned by `init.json`: the genesis keys. Everything else
+ * is revalidated by its ETag: a contribution or log at an index the transcript does not record (a
+ * failed promotion) is replaced later, so no reader may keep it; `final/` may be corrected until
+ * FINALIZED; `transcript.json` and `status.json` change.
  */
-// `final/` is not: a final file may be corrected until FINALIZED, so it is revalidated.
-const IMMUTABLE = ["genesis/", "contributions/", "logs/"];
+const IMMUTABLE = ["genesis/"];
 
 /**
  * A public file as inert bytes: never a page (`nosniff`, a sandboxing CSP), with its stored type
- * or octet-stream; cached for good when it never changes, revalidated on every use otherwise.
+ * or octet-stream; cached for good when it never changes, revalidated on every use otherwise. An
+ * object without a body is one whose ETag the reader already has: `304`.
  */
-export function artifactResponse(object: R2ObjectBody): Response {
+export function artifactResponse(object: R2Object | R2ObjectBody): Response {
   const immutable = IMMUTABLE.some((prefix) => object.key.startsWith(prefix));
   const headers = new Headers({
     "content-length": String(object.size),
@@ -33,6 +35,10 @@ export function artifactResponse(object: R2ObjectBody): Response {
   // Set after the stored metadata, which never overrides it.
   headers.set("cache-control", immutable ? "public, max-age=31536000, immutable" : "no-cache");
   if (!headers.has("content-type")) headers.set("content-type", "application/octet-stream");
+  if (!("body" in object)) {
+    headers.delete("content-length");
+    return new Response(null, { status: 304, headers });
+  }
   return new Response(object.body, { headers });
 }
 

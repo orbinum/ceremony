@@ -57,7 +57,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `verify` keeps the ptau's prerequisite apart from a circuit named `ptau`.
 - After a reload mid-verification, the browser still signs a circuit accepted meanwhile.
 - Gitleaks also catches a literal `VERIFIER_ACCESS_CLIENT_SECRET`.
-- A late attestation in CLOSED can make the operator re-run `finalize` (KL-62).
+- No attestation is taken from the announced beacon time on: a transcript downloaded after it is
+  the one the beacon follows, so `finalize` never has to run again for a late attestation.
+- Each OAuth state completes one sign-in, and each authentic coordinator ↔ verifier request is
+  taken once (its MAC is spent until its window closes): a copied cookie or a replayed request
+  inside the ±60 s window is refused.
+- Contributions and logs are revalidated by ETag (`304` when unchanged) instead of cached for a
+  year, so a leftover of a failed promotion is never kept by a reader; `genesis/` stays immutable.
+- `download --transcript-sha256` pins the sealed transcript from an official channel: a mirror
+  can no longer make it fetch an invented chain.
+- SS58 accounts are checked (checksum, one spelling) wherever core reads an account, without
+  @polkadot.
+- KL-32, KL-35, KL-43, KL-44, KL-46 and KL-62 removed; KL-45 narrowed (no body before the MAC).
 
 ### Fixed
 

@@ -130,7 +130,7 @@ pnpm ceremony publish-final --dir artifacts/rehearsal-1 --coordinator https://<c
 Mirror what was published, every file checked against the chain of pins rooted in the announced SHA-256, then verify the copy:
 
 ```bash
-pnpm ceremony download --from https://<public bucket> --dir published --announcement-sha256 <hex>
+pnpm ceremony download --from https://<public bucket> --dir published --announcement-sha256 <hex> [--transcript-sha256 <hex>]
 ```
 
 ```bash

@@ -12,7 +12,7 @@ export {
   validateLinkRequest,
 } from "./linked";
 export { sr25519Message } from "./sr25519";
-export { ORBINUM_SS58_PREFIX, ss58Address } from "./ss58";
+export { ORBINUM_SS58_PREFIX, ss58Address, ss58PublicKey } from "./ss58";
 export {
   type AttestationPayload,
   type AttestedContribution,

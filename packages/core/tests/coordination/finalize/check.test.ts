@@ -166,7 +166,10 @@ describe("checkFinalize", () => {
       ok: false,
       refusal: "finalized",
     });
-    expect(attestStep(sealed, 101, 1, NOW)).toMatchObject({ ok: false, refusal: "finalized" });
+    expect(attestStep(sealed, 101, 1, NOW, Number.MAX_SAFE_INTEGER)).toMatchObject({
+      ok: false,
+      refusal: "finalized",
+    });
   });
 
   it("refuses a beacon sealed on a transcript that moved since the download", () => {

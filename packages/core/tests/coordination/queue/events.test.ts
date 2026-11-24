@@ -38,6 +38,9 @@ function holding(githubId: number): QueueState {
   return s;
 }
 
+/** An announced beacon time no test reaches. */
+const NEVER = Number.MAX_SAFE_INTEGER;
+
 describe("who may send which event", () => {
   it("keeps uploads, results and finalization to their own checked paths", () => {
     expect(clientEventRefusal({ type: "join", githubId: 1 }, true)).toBeNull();
@@ -62,7 +65,7 @@ describe("who may send which event", () => {
 
   it("records an attestation whose session lapsed meanwhile, as the alarm would have", () => {
     const s = holding(5);
-    const lapsed = attestStep(s, 5, 1, OPEN + 90_000);
+    const lapsed = attestStep(s, 5, 1, OPEN + 90_000, NEVER);
     expect(lapsed.ok && lapsed.effects).toEqual([
       { type: "release", githubId: 5, seq: 1, reason: "no-show" },
     ]);
@@ -71,27 +74,37 @@ describe("who may send which event", () => {
 
   it("refuses an attestation while the session's verification is in flight", () => {
     const up = step(holding(5), { type: "uploaded", githubId: 5, circuit: "shield" }, OPEN).state;
-    expect(attestStep(up, 5, 1, OPEN)).toEqual({ ok: false, state: up, refusal: "busy" });
+    expect(attestStep(up, 5, 1, OPEN, NEVER)).toEqual({ ok: false, state: up, refusal: "busy" });
   });
 
   it("refuses an attestation once the ceremony is sealed", () => {
     const sealed: QueueState = { ...opened(), phase: "FINALIZED" };
-    expect(attestStep(sealed, 5, 1, OPEN)).toEqual({
+    expect(attestStep(sealed, 5, 1, OPEN, NEVER)).toEqual({
       ok: false,
       state: sealed,
       refusal: "finalized",
     });
   });
 
+  it("refuses every attestation from the announced beacon time on, so the head stops moving", () => {
+    const s = holding(5);
+    expect(attestStep(s, 5, 1, OPEN, OPEN)).toEqual({
+      ok: false,
+      state: s,
+      refusal: "attestation-closed",
+    });
+    expect(attestStep(s, 5, 1, OPEN - 1, OPEN).ok).toBe(true);
+  });
+
   it("ends a session by its attestation only if it is still the caller's slot", () => {
     const s = holding(5);
-    const ends = attestStep(s, 5, 1, OPEN);
+    const ends = attestStep(s, 5, 1, OPEN, NEVER);
     expect(ends.ok && ends.state.slot).toBeNull();
     for (const [gid, seq] of [
       [5, 2],
       [6, 1],
     ] as const) {
-      const r = attestStep(s, gid, seq, OPEN);
+      const r = attestStep(s, gid, seq, OPEN, NEVER);
       expect(r).toEqual({ ok: true, state: s, effects: [] });
     }
   });

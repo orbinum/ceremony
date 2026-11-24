@@ -98,7 +98,9 @@ function randomEvent(s: QueueState, rand: () => number, stall: boolean): Ev {
 }
 
 const run = (s: QueueState, e: Ev, t: number): StepResult =>
-  e.type === "attest" ? attestStep(s, e.githubId, e.seq, t) : step(s, e, t);
+  e.type === "attest"
+    ? attestStep(s, e.githubId, e.seq, t, Number.MAX_SAFE_INTEGER)
+    : step(s, e, t);
 
 /** The next time: duplicates, small steps, exact deadline hits and misses, jumps, and (if allowed) going back. */
 function nextTime(

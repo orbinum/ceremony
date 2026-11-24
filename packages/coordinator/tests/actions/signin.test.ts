@@ -45,20 +45,35 @@ describe("completeSignIn", () => {
       outcome: { auth: "error", reason: "not-configured" },
     });
     await stubOf(name).configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
+    // Each attempt is a new state: a state completes once.
+    let n = 0;
+    const attempt = () => {
+      n += 1;
+      const state = `${n}`.padStart(32, "s");
+      return [
+        { code: "c", state },
+        { ...expected, state },
+      ] as const;
+    };
     github(() => new Response("down", { status: 500 }));
-    expect(await completeSignIn(e, ORIGIN, q, expected)).toEqual({
+    expect(await completeSignIn(e, ORIGIN, ...attempt())).toEqual({
       outcome: { auth: "error", reason: "github" },
     });
     vi.restoreAllMocks();
     github(() => Response.json({ ...OCTOCAT, followers: 0 }));
-    expect(await completeSignIn(e, ORIGIN, q, expected)).toEqual({
+    expect(await completeSignIn(e, ORIGIN, ...attempt())).toEqual({
       outcome: { auth: "ineligible", reasons: ["too-few-followers"] },
     });
     vi.restoreAllMocks();
     github(() => Response.json(OCTOCAT));
-    expect(await completeSignIn(e, ORIGIN, q, expected)).toMatchObject({
+    const ok = attempt();
+    expect(await completeSignIn(e, ORIGIN, ...ok)).toMatchObject({
       outcome: { auth: "ok" },
       profile: { id: 583231, login: "octocat" },
+    });
+    // The same state again (a copied cookie): refused before GitHub is asked.
+    expect(await completeSignIn(e, ORIGIN, ...ok)).toEqual({
+      outcome: { auth: "error", reason: "state" },
     });
   });
 });

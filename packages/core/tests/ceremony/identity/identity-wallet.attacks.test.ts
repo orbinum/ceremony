@@ -1,5 +1,5 @@
 /**
- * Attacks wallet link and attestation signatures and their validators (SPEC §3.3–3.9, KL-32):
+ * Attacks wallet link and attestation signatures and their validators (SPEC §3.3–3.9):
  * cross-domain replay, malleated or misspelled signatures, account spellings and hostile payloads.
  */
 import { Keyring } from "@polkadot/keyring";
@@ -361,7 +361,7 @@ describe("sr25519 signatures", () => {
     expect(verifyLink("sr25519", pe2, ecSig)).toBe(false);
   });
 
-  it("maps one key under several prefixes to one account_key (KL-32)", () => {
+  it("maps one key under several prefixes to one account_key", () => {
     const pk = decodeAddress(pair.address);
     const spellings = [0, 2, 42, 63].map((f) => encodeAddress(pk, f));
     const keys = spellings.map((a) => accountKey("sr25519", a));

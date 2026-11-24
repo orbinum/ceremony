@@ -82,6 +82,16 @@ export class CeremonyDO extends DurableObject<Env> {
     return op.head(this.store, circuit);
   }
 
+  /** Spends a sign-in's OAuth state; false if it completed already. */
+  async spendOAuthState(state: string) {
+    return op.spendOAuthState(this.store, state);
+  }
+
+  /** Spends a verifier request's MAC; false for a replay inside its freshness window. */
+  async spendRequestMac(signature: string, timestamp: number) {
+    return op.spendRequestMac(this.store, signature, timestamp);
+  }
+
   /** A fresh single-use nonce for this identity's link signature. */
   async issueNonce(githubId: number) {
     return op.issueNonce(this.store, githubId);

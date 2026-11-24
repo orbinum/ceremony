@@ -110,14 +110,18 @@ describe("artifacts", () => {
     }
   });
 
-  it("caches for good only the files that never change", async () => {
-    const immutable = [
-      "genesis/shield.genesis.zkey",
+  it("caches for good only the genesis keys, frozen before any contribution", async () => {
+    const immutable = ["genesis/shield.genesis.zkey"];
+    // A contribution at an unrecorded index is replaced later; a final file may be corrected
+    // until FINALIZED.
+    const revalidated = [
       "contributions/shield/1.zkey",
       "logs/shield/1.log",
+      "transcript.json",
+      "status.json",
+      "ceremony.json",
+      "final/shield.vk.json",
     ];
-    // A final file may be corrected until FINALIZED.
-    const revalidated = ["transcript.json", "status.json", "ceremony.json", "final/shield.vk.json"];
     for (const key of [...immutable, ...revalidated]) {
       // A stored Cache-Control never overrides the rule.
       // oxlint-disable-next-line no-await-in-loop -- a few writes
@@ -133,6 +137,28 @@ describe("artifacts", () => {
       const r = await raw(`/artifacts/${key}`);
       expect(r.headers.get("cache-control")).toBe("no-cache");
     }
+  });
+
+  it("answers 304 without the bytes when the reader's ETag is current, and the bytes otherwise", async () => {
+    await env.PUBLIC.put("contributions/shield/1.zkey", "bytes");
+    const first = await raw("/artifacts/contributions/shield/1.zkey");
+    const etag = first.headers.get("etag") ?? "";
+    expect([first.status, await first.text()]).toEqual([200, "bytes"]);
+    const again = await raw("/artifacts/contributions/shield/1.zkey", {
+      headers: { "if-none-match": etag },
+    });
+    expect([again.status, await again.text(), again.headers.get("etag")]).toEqual([304, "", etag]);
+    // Replaced (a failed promotion's leftover): the old ETag gets the new bytes.
+    await env.PUBLIC.put("contributions/shield/1.zkey", "other");
+    const replaced = await raw("/artifacts/contributions/shield/1.zkey", {
+      headers: { "if-none-match": etag },
+    });
+    expect([replaced.status, await replaced.text()]).toEqual([200, "other"]);
+    // A precondition other than If-None-Match is not taken from the request.
+    const ifMatch = await raw("/artifacts/contributions/shield/1.zkey", {
+      headers: { "if-match": '"nope"' },
+    });
+    expect(ifMatch.status).toBe(200);
   });
 
   it("answers a failed bucket as storage, and an unexpected error without internals", async () => {

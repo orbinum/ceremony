@@ -110,6 +110,19 @@ describe("service http", () => {
       expect(submitted).toEqual([]);
     });
 
+    it("takes an authentic dispatch once: the same signed request again is a replay", async () => {
+      const headers = signedDispatch(body);
+      expect((await post(url, body, headers)).status).toBe(202);
+      const replay = await post(url, body, headers);
+      expect(replay.status).toBe(401);
+      expect(await replay.json()).toEqual({ error: "replayed request" });
+      expect(submitted).toHaveLength(1);
+      // Signed anew (as every retry is), it reaches the sink, which acknowledges a repeat.
+      await new Promise((r) => setTimeout(r, 2));
+      expect((await post(url, body)).status).toBe(202);
+      expect(submitted).toHaveLength(2);
+    });
+
     it("refuses a timestamp too far behind, computed when sent", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       try {

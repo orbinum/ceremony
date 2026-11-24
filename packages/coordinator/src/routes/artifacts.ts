@@ -13,6 +13,7 @@ export const artifacts = new Hono<AppEnv>()
     c.res.headers.set("content-security-policy", "default-src 'none'; sandbox");
   })
   .get("/*", rateLimit("ARTIFACT_LIMIT", byNetwork), artifactKey, async (c) => {
-    const object = await publicArtifact(c.env, c.req.valid("param").key);
+    const key = c.req.valid("param").key;
+    const object = await publicArtifact(c.env, key, c.req.header("if-none-match"));
     return object ? artifactResponse(object) : fail(c, "not-found", "no such artifact");
   });

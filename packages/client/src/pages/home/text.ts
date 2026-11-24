@@ -54,6 +54,8 @@ const REFUSALS: Partial<Record<ApiErrorCode, string>> = {
   "already-linked":
     "The wallet can no longer change: a contribution already names it in the transcript.",
   "wallet-taken": "That wallet is linked to another GitHub account. Pick another one.",
+  "attestation-closed":
+    "Signing has closed: the ceremony is being sealed with its public beacon. Your contribution is still in the transcript.",
 };
 
 /** An error as one sentence for the page. */

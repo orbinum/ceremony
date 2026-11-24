@@ -8,6 +8,11 @@ export interface DownloadOptions {
   dir: string;
   /** SHA-256 of ceremony.json from an official channel: every other file is checked from it. */
   announcementSha256: string;
+  /**
+   * SHA-256 of the final transcript.json from an official channel, once the ceremony is sealed:
+   * the transcript is then refused unless it is exactly that one, before any file it names.
+   */
+  transcriptSha256?: string;
   /** Also fetch the ptau mirror (75 MB), checked against its pinned BLAKE2b-512. */
   withPtau: boolean;
   /** Replace a local transcript the new one does not extend (a sealed beacon, finals). */
@@ -22,6 +27,8 @@ export const DOWNLOAD_USAGE = `orbinum-ceremony download --from <published https
     ceremony.json with an intact chain before any file it names is fetched.
     A local transcript is only replaced by one that extends it: never by an older one, nor one
     without its sealed beacon or finals.
+    [--transcript-sha256 <hex>]  the sealed transcript.json's SHA-256 from an official channel:
+                    no other transcript (an invented chain from a mirror) is fetched from
     [--with-ptau]   also fetch ptau/ (checked against the pinned BLAKE2b-512)
     [--force]       replace the local transcript even when the new one does not extend it`;
 
@@ -31,6 +38,7 @@ export function parseDownloadOptions(argv: string[]): DownloadOptions {
     from: { type: "string" },
     dir: { type: "string" },
     "announcement-sha256": { type: "string" },
+    "transcript-sha256": { type: "string" },
     "with-ptau": { type: "boolean", default: false },
     force: { type: "boolean", default: false },
   });
@@ -41,6 +49,9 @@ export function parseDownloadOptions(argv: string[]): DownloadOptions {
       required(values["announcement-sha256"], "announcement-sha256"),
       "announcement-sha256",
     ),
+    ...(values["transcript-sha256"] === undefined
+      ? {}
+      : { transcriptSha256: sha256Option(values["transcript-sha256"], "transcript-sha256") }),
     withPtau: values["with-ptau"],
     force: values.force,
   };
