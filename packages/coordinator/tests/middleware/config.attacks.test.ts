@@ -196,4 +196,13 @@ describe("configuration errors never leak", () => {
       }),
     ).toEqual([]);
   });
+
+  it("takes an announcement pin only as 64 lowercase hex digits, or none", () => {
+    const problem = ["ANNOUNCEMENT_SHA256 must be empty or 64 lowercase hex digits"];
+    for (const pin of ["AB".repeat(32), "ab".repeat(31), "x"]) {
+      expect(problemsWith({ ANNOUNCEMENT_SHA256: pin })).toEqual(problem);
+    }
+    for (const pin of ["", "ab".repeat(32)])
+      expect(problemsWith({ ANNOUNCEMENT_SHA256: pin })).toEqual([]);
+  });
 });

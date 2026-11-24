@@ -38,6 +38,9 @@ importers:
       '@orbinum-ceremony/verifier':
         specifier: workspace:*
         version: link:../verifier
+      undici:
+        specifier: 7.30.1
+        version: 7.30.1
 
   packages/client:
     dependencies:

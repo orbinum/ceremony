@@ -77,6 +77,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them; an upload's hold lasts 2 minutes plus its size at 128 KiB/s instead of 15 minutes (KL-51
   narrowed).
 - snarkjs verification bounds grow with the MPC entries a zkey holds (KL-47 narrowed).
+- `download` connects to a redirect hop over https only at a public address, checked at the
+  connection's own DNS lookup (CGNAT and NAT64 count as internal); `undici` 7.30.1 (already in the
+  lockfile) is now a direct dependency of the CLI (KL-56 removed).
+- `ANNOUNCEMENT_SHA256` (empty by default) pins a deployment to one `ceremony.json`:
+  `/admin/configure` refuses any other (KL-58 narrowed).
+- A verifier test rebuilds every genesis key of the real-key vectors and requires the pinned
+  bytes; CI runs it on Linux, the vectors were built on macOS (KL-14 removed).
+- CI clones the circuits repo in a job of its own, the only one that sees `CIRCUITS_READ_TOKEN`;
+  the test jobs get the tree as an artifact (KL-53 removed).
 
 ### Fixed
 

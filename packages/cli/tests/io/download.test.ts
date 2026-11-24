@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/prom
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { downloadFirst, redirectRefusal } from "../../src/io";
+import { downloadFirst, isInternalAddress, publicOnlyLookup, redirectRefusal } from "../../src/io";
 import { localServer } from "../support/http";
 
 let dir: string;
@@ -108,5 +108,59 @@ describe("redirect hops", () => {
         "redirected from plain http to neither https nor loopback",
       ]);
     }
+  });
+});
+
+/** A resolver answering `addresses` for any name. */
+const answering =
+  (...addresses: string[]) =>
+  (
+    _: string,
+    __: object,
+    cb: (e: Error | null, a: { address: string; family: number }[]) => void,
+  ) =>
+    cb(
+      null,
+      addresses.map((address) => ({ address, family: address.includes(":") ? 6 : 4 })),
+    );
+/** What `lookup` answers for one name: its error, or null. */
+const resolve = (lookup: ReturnType<typeof publicOnlyLookup>) =>
+  new Promise<Error | null>((done) => lookup("mirror.example", { all: true }, (e) => done(e)));
+
+describe("connections of an https hop", () => {
+  it("count every private, loopback, link-local, CGNAT, NAT64 and mapped address as internal", () => {
+    for (const a of [
+      "10.1.2.3",
+      "172.20.0.1",
+      "192.168.1.1",
+      "127.0.0.2",
+      "169.254.169.254",
+      "100.64.0.1",
+      "100.127.255.254",
+      "0.0.0.0",
+      "::1",
+      "::",
+      "fd00::1",
+      "fe80::1",
+      "64:ff9b::a00:1",
+      "64:ff9b:1::1",
+      "::ffff:127.0.0.1",
+      "::ffff:10.0.0.1",
+      "not-an-ip",
+    ]) {
+      expect([a, isInternalAddress(a)]).toEqual([a, true]);
+    }
+    for (const a of ["1.1.1.1", "100.128.0.1", "2606:4700:4700::1111"]) {
+      expect([a, isInternalAddress(a)]).toEqual([a, false]);
+    }
+  });
+
+  it("refuse a name that resolves to an internal address, at the connection's own lookup", async () => {
+    expect(await resolve(publicOnlyLookup(answering("1.1.1.1")))).toBeNull();
+    // One internal address among public ones is enough to refuse (DNS rebinding).
+    const rebinding = await resolve(publicOnlyLookup(answering("1.1.1.1", "127.0.0.1")));
+    expect(rebinding?.message).toBe("mirror.example resolves to an internal address");
+    expect((await resolve(publicOnlyLookup(answering("100.64.1.1"))))?.message).toMatch(/internal/);
+    expect((await resolve(publicOnlyLookup(answering())))?.message).toMatch(/internal/);
   });
 });

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@orbinum-ceremony/core": "workspace:*",
-    "@orbinum-ceremony/verifier": "workspace:*"
+    "@orbinum-ceremony/verifier": "workspace:*",
+    "undici": "7.30.1"
   }
 }

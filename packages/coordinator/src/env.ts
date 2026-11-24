@@ -130,6 +130,9 @@ export function configProblems(env: Env): string[] {
       "COORDINATOR_URL must be this deployment's https origin (the verifier container)",
     );
   }
+  if (env.ANNOUNCEMENT_SHA256 && !/^[0-9a-f]{64}$/.test(env.ANNOUNCEMENT_SHA256)) {
+    problems.push("ANNOUNCEMENT_SHA256 must be empty or 64 lowercase hex digits");
+  }
   if (!env.VERIFIER_ACCESS_CLIENT_ID !== !env.VERIFIER_ACCESS_CLIENT_SECRET) {
     problems.push("VERIFIER_ACCESS_CLIENT_ID and VERIFIER_ACCESS_CLIENT_SECRET go together");
   }

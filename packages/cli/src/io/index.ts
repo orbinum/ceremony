@@ -23,5 +23,5 @@ export {
   fetchAnnounced,
   fetchPublic,
 } from "./contributor";
-export { downloadFirst, redirectRefusal } from "./download";
+export { downloadFirst, isInternalAddress, publicOnlyLookup, redirectRefusal } from "./download";
 export { fetchJson } from "./http";

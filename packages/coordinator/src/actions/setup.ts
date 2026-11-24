@@ -231,6 +231,11 @@ export async function configureCeremony(env: Env, input: SetupInput): Promise<Re
   if (network && setup.announcement.network !== network) {
     return refuse("malformed-setup", `a ${env.ENVIRONMENT} coordinator runs ${network} ceremonies`);
   }
+  // A deployment pinned to one announcement (from the official channel) freezes no other: the
+  // setup the verifier container mirrors its inputs from is then fixed in the deployed config.
+  if (env.ANNOUNCEMENT_SHA256 && setup.announcementSha256 !== env.ANNOUNCEMENT_SHA256) {
+    return refuse("malformed-setup", "this deployment is pinned to another ceremony.json");
+  }
   const problems = await publishedProblems(env.PUBLIC, input, setup);
   if (problems.length > 0) return refuse("malformed-setup", problems.join("; "));
   return fromOutcome(await ceremony(env).configure(input));
