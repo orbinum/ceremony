@@ -35,6 +35,7 @@ import {
   ContributorRefusal,
   contributorCall,
   fetchAnnounced,
+  fetchLiveTranscript,
   fetchPublic,
 } from "../../io";
 
@@ -301,17 +302,26 @@ export interface Recorded {
   sha256: string;
 }
 
+/** Where a transcript is read: the published file, or the coordinator's live one. */
+type TranscriptSource = "published" | "live";
+
 /**
- * The accepted contributions of `circuit` in the published `transcript.json`, once it is
- * anchored in the announcement and passes core's integrity checks.
+ * The accepted contributions of `circuit` in the transcript `source` serves, once it is anchored
+ * in the announcement and passes core's integrity checks. The live one (`/api/transcript`) is read
+ * from the coordinator's object: never behind its commit, nor withheld by a failed publication.
  */
 async function recordedContributions(
   who: Contributor,
   anchors: Anchors,
   circuit: CircuitName,
+  source: TranscriptSource = "published",
 ): Promise<Recorded[]> {
-  const path = `/artifacts/${CEREMONY_LAYOUT.transcript}`;
-  const bytes = await fetchPublic(who.origin, path, MAX_TRANSCRIPT_BYTES);
+  const path =
+    source === "published" ? `/artifacts/${CEREMONY_LAYOUT.transcript}` : "/api/transcript";
+  const bytes =
+    source === "published"
+      ? await fetchPublic(who.origin, path, MAX_TRANSCRIPT_BYTES)
+      : await fetchLiveTranscript(who.origin, MAX_TRANSCRIPT_BYTES);
   const transcript = validateTranscript(parseJsonText(fromUtf8(bytes), path));
   const failed = checkTranscriptIntegrity(
     transcript,
@@ -355,8 +365,9 @@ export function headMismatch(
 /**
  * Refuses a head that is not the end of the circuit's chain in the published transcript (a fork
  * or a stale head, or other bytes than the key it records last: the genesis pinned by `init.json`
- * before any), failing closed when that transcript cannot be fetched or checked. A transcript
- * only behind the head may still be catching up, and is waited for a while.
+ * before any), failing closed when no transcript can be fetched or checked. The published file is
+ * read first and the coordinator's live transcript when that one is behind or unreadable; one only
+ * behind the head may still be catching up, and is waited for a while.
  */
 export async function assertRecordedHead(
   who: Contributor,
@@ -369,16 +380,31 @@ export async function assertRecordedHead(
   const genesis = anchors.init.circuits.find((c) => c.name === circuit)?.genesis_sha256;
   const deadline = Date.now() + TRANSCRIPT_LAG_MS;
   for (;;) {
-    let recorded: Recorded[];
-    try {
-      // oxlint-disable-next-line no-await-in-loop -- polls until the transcript catches up
-      recorded = await recordedContributions(who, anchors, circuit);
-    } catch (error) {
-      throw new Error(`${circuit}: cannot check the head: ${(error as Error).message}`, {
-        cause: error,
-      });
+    // The published file first; the live transcript when that one is behind or unreadable (a
+    // publication that lags or was withheld), held to the same checks.
+    let recorded: Recorded[] | null = null;
+    let mismatch: string | null = null;
+    const failures: Error[] = [];
+    for (const source of ["published", "live"] as const) {
+      let read: Recorded[];
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- the live transcript only if needed
+        read = await recordedContributions(who, anchors, circuit, source);
+      } catch (error) {
+        failures.push(error as Error);
+        continue;
+      }
+      // The closer of the two to the head is judged.
+      if (recorded === null || read.length > recorded.length) {
+        recorded = read;
+        mismatch = headMismatch(entries, read);
+      }
+      if (mismatch === null) break;
     }
-    const mismatch = headMismatch(entries, recorded);
+    if (recorded === null) {
+      const reasons = failures.map((f) => f.message).join("; ");
+      throw new Error(`${circuit}: cannot check the head: ${reasons}`, { cause: failures[0] });
+    }
     if (mismatch === null) {
       if (head.sha256 === (recorded.at(-1)?.sha256 ?? genesis)) return;
       throw new Error(`${circuit}: refusing the head, which is not the key the transcript records`);

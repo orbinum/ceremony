@@ -4,6 +4,8 @@ import {
   type GithubIneligibility,
   QUEUE_RULES,
   type SignInOutcome,
+  ss58PublicKey,
+  toBase58,
 } from "@orbinum-ceremony/core";
 import { ApiError } from "../../api";
 
@@ -67,3 +69,22 @@ export function errorText(e: unknown): string {
 
 /** A long account, its start and end. */
 export const shortAccount = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
+
+/**
+ * An ed25519 account as a Solana address (the same key, base58): how a Solana contributor finds
+ * their own records, which the transcript names in SS58. Null for any other account.
+ */
+export function solanaFormOf(scheme: string, account: string): string | null {
+  if (scheme !== "ed25519") return null;
+  try {
+    return toBase58(ss58PublicKey(account));
+  } catch {
+    return null;
+  }
+}
+
+/** A linked account as the page shows it: scheme, SS58 and, for ed25519, its Solana form. */
+export function accountLine(scheme: string, account: string): string {
+  const solana = solanaFormOf(scheme, account);
+  return `${scheme} · ${shortAccount(account)}${solana ? ` · Solana ${shortAccount(solana)}` : ""}`;
+}

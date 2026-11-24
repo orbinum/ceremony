@@ -34,7 +34,10 @@ export interface WalletAccount {
   walletId: string;
   walletName: string;
   scheme: Scheme;
+  /** The Orbinum (SS58) account, as the transcript names it. */
   address: string;
+  /** The wallet's own spelling of the same key, when it differs (a Solana base58 address). */
+  native?: string;
   name: string | undefined;
   connect(): Wallet;
 }

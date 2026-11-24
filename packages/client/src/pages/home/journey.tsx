@@ -11,7 +11,7 @@ import { Notice, Skeleton, Step, type StepState } from "../../ui";
 import { CliOption } from "./cli";
 import { QueueStep } from "./queue";
 import { ContributeStep, SignStep } from "./turn";
-import { NOT_ANNOUNCED, shortAccount } from "./text";
+import { accountLine, NOT_ANNOUNCED } from "./text";
 import { WalletStep } from "./wallet";
 
 const TITLES = [
@@ -94,7 +94,7 @@ function Linked(props: { me: Me; config: Config | undefined; reloadMe: () => voi
         n={2}
         title={TITLES[1]}
         state="done"
-        summary={linked && `${linked.scheme} · ${shortAccount(linked.account)}`}
+        summary={linked && accountLine(linked.scheme, linked.account)}
       >
         <WalletStep me={me} onLinked={reloadMe} />
       </Step>

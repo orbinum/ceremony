@@ -108,6 +108,20 @@ export async function fetchPublic(
 }
 
 /**
+ * The coordinator's live transcript (`GET /api/transcript`, read from its object, so never behind
+ * the commit): fetched without the token, never through a redirect, at most `maxBytes`.
+ */
+export async function fetchLiveTranscript(origin: string, maxBytes: number): Promise<Uint8Array> {
+  const what = "GET /api/transcript";
+  const res = await fetch(`${origin}/api/transcript`, {
+    redirect: "error",
+    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`${what}: HTTP ${res.status}`);
+  return readCapped(res, maxBytes, what);
+}
+
+/**
  * A public artifact the coordinator announced (`path`, `sha256`), fetched as `fetchPublic` does
  * and returned only if it hashes to `sha256`.
  */

@@ -87,6 +87,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI clones the circuits repo in a job of its own, the only one that sees `CIRCUITS_READ_TOKEN`;
   the test jobs get the tree as an artifact (KL-53 removed).
 
+### Changed (known limits, UX and operations)
+
+- `contribute` checks the head against the coordinator's live transcript (`/api/transcript`)
+  when the published `transcript.json` is withheld or behind, under the same anchor and checks,
+  instead of ending the session (KL-52 removed).
+- The wallet picker and the wallet step show the Solana (base58) form of an ed25519 account
+  beside its SS58 form (KL-50 removed).
+- `init` downloads the ptau from Orbinum's copies first (the testnet coordinator's
+  `/artifacts/ptau/…`, ceremony-verifier's `test-vectors-2` release), then the original hosts
+  (KL-25 removed).
+
 ### Fixed
 
 - The sign-in step shows a placeholder until the session and the ceremony's status are known,

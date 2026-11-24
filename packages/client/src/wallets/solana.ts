@@ -98,6 +98,7 @@ export async function solanaAccounts(option: WalletOption): Promise<WalletAccoun
         walletName: option.name,
         scheme: "ed25519",
         address,
+        native: a.address,
         name: a.label ?? a.address.slice(0, 8),
         connect,
       };

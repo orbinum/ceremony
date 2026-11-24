@@ -48,7 +48,7 @@ export async function obtainPtau(
 function unreachable(error: unknown): string {
   return [
     `could not download ${PTAU.file}: ${(error as Error).message}`,
-    "The original Hermez hosts answer 403 since September 2026 (docs/KNOWN_LIMITS.md, KL-25).",
+    "No mirror answered (Orbinum's copies, then the original Hermez hosts, 403 since September 2026).",
     "Any copy works: pass it with --ptau <file>. Its BLAKE2b-512 must be",
     `  ${PTAU.blake2b512}`,
     "(check with `b2sum -l 512 <file>`; init checks it as well).",
