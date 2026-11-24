@@ -32,13 +32,13 @@ End-to-end tests run a real (shield-only) ceremony and need the 75 MB Hermez pta
 ORBINUM_PTAU=/path/to/powersOfTau28_hez_final_16.ptau pnpm test
 ```
 
-`packages/e2e` also needs a ceremony directory with all three genesis keys and its `genesis/init.json` (e.g. the output of `init`, or `ceremony-verifier`'s `testnet-rehearsal-1` vectors). It runs the coordinator with `wrangler dev`, the verifier service, three contributors (one through stock snarkjs, as the CLI path) and a tampered upload:
+`packages/e2e` also needs a ceremony directory with all three genesis keys and its `genesis/init.json` (e.g. the output of `init`, or `ceremony-verifier`'s `testnet-rehearsal-2` vectors). It runs the coordinator with `wrangler dev`, the verifier service, three contributors (one through stock snarkjs, as the CLI path) and a tampered upload:
 
 ```bash
-ORBINUM_PTAU=... ORBINUM_REHEARSAL_DIR=artifacts/testnet-rehearsal-1 pnpm --filter @orbinum-ceremony/e2e test
+ORBINUM_PTAU=... ORBINUM_REHEARSAL_DIR=artifacts/testnet-rehearsal-2 pnpm --filter @orbinum-ceremony/e2e test
 ```
 
-The attack suites of `core` and `verifier` walk the same rehearsal's whole chain: every contribution, each final's `vk.json` and `transcript.json` (`artifacts/testnet-rehearsal-1` when `ORBINUM_REHEARSAL_DIR` is unset).
+The attack suites of `core` and `verifier` walk the same rehearsal's whole chain: every contribution, each final's `vk.json` and `transcript.json` (`artifacts/testnet-rehearsal-2` when `ORBINUM_REHEARSAL_DIR` is unset).
 
 Both inputs can be fetched, checked against their pins, from `ceremony-verifier`'s `test-vectors-1` release; the script prints the environment to use:
 
@@ -95,12 +95,15 @@ On testnet and mainnet it runs as a **Cloudflare Container** (`packages/verifier
 PTAU=<path to powersOfTau28_hez_final_16.ptau>
 PACKER=../groth16-proofs/target/release/pack-verifying-key
 
-pnpm ceremony init     --ceremony-id rehearsal-1 --circuits-repo ../circuits --circuits-ref v0.16.0 --ptau $PTAU
+pnpm ceremony init     --ceremony-id rehearsal-1 --circuits-repo ../circuits --circuits-ref v0.17.1 \
+                       --circuit-ids shield=3,unshield=2,transfer=1 --ptau $PTAU
 pnpm ceremony announce --dir artifacts/rehearsal-1 --network testnet --circuits-repo ../circuits \
-                       --circuits-tag v0.16.0 --min-contributions 3 --close <ISO time>      # prints the SHA-256 to publish
+                       --circuits-tag v0.17.1 --min-contributions 3 --close <ISO time>      # prints the SHA-256 to publish
 pnpm ceremony contribute-local --dir artifacts/rehearsal-1 --ptau $PTAU --contributors 3
 pnpm ceremony finalize --dir artifacts/rehearsal-1 --ptau $PTAU --vk-packer $PACKER           # after close + beacon round
 ```
+
+`init` takes the ceremony's circuits and their on-chain ids from `--circuit-ids` and everything else from the tagged release: each r1cs must be the one its `manifest.json` publishes for the active version, and the ceremony key becomes the next version. Any circuits of the release, including new ones, work without changing this code.
 
 `ceremony.json` (written by `announce`) is the root of trust: it pins `init.json`, the circuits tag and commit, the minimum contributions and the drand round. Its SHA-256 is published before contributions open.
 

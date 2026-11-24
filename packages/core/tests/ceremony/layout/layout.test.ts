@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import { CEREMONY_LAYOUT, pinnedFiles, setupFiles } from "../../../src/ceremony/layout";
 import { buildFinalRecord, transcriptOf } from "../../../src/ceremony/transcript";
 import {
-  asCircuitName,
   contentTypeOf,
   finalFiles,
   isFinalFileKey,
   isSetupFileKey,
 } from "../../../src/ceremony/layout";
 import { FormatError } from "../../../src/primitives/errors";
+import { asCircuitName } from "../../../src/primitives/schema";
 import { ANNOUNCEMENT_SHA256, chain, contribution, ID, INIT } from "../../support";
 
 describe("published layout (SPEC §6.1)", () => {
@@ -62,15 +62,17 @@ describe("published layout (SPEC §6.1)", () => {
 });
 
 describe("layout helpers", () => {
-  it("accepts only pinned circuit names and setup keys", () => {
+  it("accepts only well-formed circuit names and setup keys", () => {
     expect(asCircuitName("transfer", "c")).toBe("transfer");
-    for (const bad of ["../x", "Shield", "", 1])
+    expect(asCircuitName("private_sweep", "c")).toBe("private_sweep");
+    for (const bad of ["../x", "Shield", "", "1x", "a-b", "a".repeat(33), "constructor", 1])
       expect(() => asCircuitName(bad, "c")).toThrow(FormatError);
     for (const key of [
       "ceremony.json",
       "genesis/init.json",
       "r1cs/transfer.r1cs",
       "genesis/unshield.genesis.zkey",
+      "r1cs/private_sweep.r1cs",
       "ptau/powersOfTau28_hez_final_16.ptau",
     ]) {
       expect(isSetupFileKey(key)).toBe(true);
@@ -79,6 +81,9 @@ describe("layout helpers", () => {
       "transcript.json",
       "contributions/shield/1.zkey",
       "genesis/../ceremony.json",
+      "r1cs/../x.r1cs",
+      "genesis/init.genesis.zkey.json",
+      "r1cs/constructor.r1cs",
       "",
     ]) {
       expect(isSetupFileKey(key)).toBe(false);
@@ -101,7 +106,14 @@ describe("layout helpers", () => {
     ]);
     expect(isFinalFileKey("final/transfer.final.zkey")).toBe(true);
     expect(isFinalFileKey("final/shield.vk.json")).toBe(true);
-    for (const key of ["final/x.vk.json", "final/../ceremony.json", "ceremony.json", "final/"]) {
+    expect(isFinalFileKey("final/private_sweep.vk.json")).toBe(true);
+    for (const key of [
+      "final/X.vk.json",
+      "final/a/b.vk.json",
+      "final/../ceremony.json",
+      "ceremony.json",
+      "final/",
+    ]) {
       expect(isFinalFileKey(key)).toBe(false);
     }
     expect(isSetupFileKey("final/shield.vk.json")).toBe(false);

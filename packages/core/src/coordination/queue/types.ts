@@ -84,6 +84,8 @@ export interface QueueState {
   phase: CeremonyState;
   pausedBy: "operator" | "verifier" | null;
   schedule: { openAt: number; closeAt: number };
+  /** The ceremony's circuits, in session order (from `init.json`). */
+  circuits: CircuitName[];
   queue: QueueEntry[];
   /** By GitHub id (decimal string). */
   identities: Record<string, IdentityStanding>;

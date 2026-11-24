@@ -3,6 +3,16 @@
 /** Ceremony ids: lowercase, digits and hyphens (they become path segments and EIP-712 salts). */
 export const CEREMONY_ID = /^[a-z0-9-]{1,64}$/;
 
+/** A circuit name: it becomes a file name and a route segment. */
+export const CIRCUIT_NAME = /^[a-z][a-z0-9_]{0,31}$/;
+
+/**
+ * A well-formed circuit name that is not an `Object.prototype` key (`constructor`): circuit names
+ * index plain objects.
+ */
+export const isCircuitName = (v: string): boolean =>
+  CIRCUIT_NAME.test(v) && !(v in Object.prototype);
+
 /** GitHub logins: alphanumerics and single inner hyphens, at most 39 characters. */
 export const GITHUB_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 

@@ -6,6 +6,7 @@ import { copyFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   CEREMONY_LAYOUT,
+  ceremonyVersionOf,
   type CircuitName,
   checkGenesis,
   checkR1csShape,
@@ -40,14 +41,26 @@ async function genesis(r1cs: string, ptau: string, zkey: string) {
   return { sha256: await hashFile(zkey, createSha256()), csHash: params.csHash };
 }
 
-/** Builds one circuit's r1cs and genesis into `ctx.out`; returns its init.json entry. */
-export async function buildCircuit(name: CircuitName, ctx: BuildContext): Promise<InitCircuit> {
+/**
+ * Builds one circuit's r1cs and genesis into `ctx.out`; returns its init.json entry. Its ceremony
+ * version is the release's active version + 1.
+ */
+export async function buildCircuit(
+  name: CircuitName,
+  circuitId: number,
+  ctx: BuildContext,
+): Promise<InitCircuit> {
   const build = join(ctx.work, "build", name);
+  const published = ctx.release.published(name);
+  const ceremonyVersion = ceremonyVersionOf(published);
   const compiled = await compileCircuit(ctx.source, name, build, TOOLING.circomFlags);
-  const release = checkRelease(ctx.release.published(name), { name, r1cs_sha256: compiled.sha256 });
+  const release = checkRelease(published, {
+    r1cs_sha256: compiled.sha256,
+    ceremony_version: ceremonyVersion,
+  });
   if (release.length > 0) throw new Error(`${name}: ${release.join("; ")}`);
   const header = readR1csHeader(await readBytes(compiled.path));
-  const shape = checkR1csShape(name, header);
+  const shape = checkR1csShape(header);
   if (shape.length > 0) throw new Error(`${name}: ${shape.join("; ")}`);
 
   const r1cs = join(ctx.out, CEREMONY_LAYOUT.r1cs(name));
@@ -63,7 +76,7 @@ export async function buildCircuit(name: CircuitName, ctx: BuildContext): Promis
     }
   }
 
-  return initCircuitOf(name, header, {
+  return initCircuitOf(name, { circuitId, ceremonyVersion }, header, {
     r1csSha256: compiled.sha256,
     genesisSha256: first.sha256,
     csHash: first.csHash,

@@ -119,7 +119,7 @@ jobs:
       # disables deploy keys, so a fine-grained token reads it: Contents read-only, that repo
       # only. It is not left in the clone, whose origin stays the plain HTTPS URL the
       # verification compares with the announced repo. It is checked out by the commit the tests
-      # pin (v0.16.0, packages/cli/tests/support/ceremony.ts; a test keeps the two equal), never by
+      # pin (v0.17.1, packages/cli/tests/support/ceremony.ts; a test keeps the two equal), never by
       # a ref name someone could move. The token reaches only this step; pull-request code already
       # runs earlier in the job (pnpm/action-setup, the pnpm cache), so what keeps it from a
       # pull request is that forks never get secrets (KL-53).
@@ -128,7 +128,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: orbinum/circuits
-          ref: efe10bf3ef1d928c9c209fee4077750334410cfe # v0.16.0
+          ref: 05e7d6fa7cde898b34b30d522a1fb38cfcafb5e7 # v0.17.1
           token: ${{ secrets.CIRCUITS_READ_TOKEN }}
           persist-credentials: false
           path: .test-inputs/circuits

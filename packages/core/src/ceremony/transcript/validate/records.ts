@@ -2,18 +2,14 @@
  * Strict schema per record type: exact fields, canonical hex, bounded printable strings, and the
  * same field rules the online paths apply (identities, client builds, signatures). SPEC §6.3.
  */
-import {
-  BEACON_ITERATIONS_RANGE,
-  CIRCUIT_ORDER,
-  MAX_PAYLOAD_BYTES,
-  MAX_RELAYS,
-} from "../../../config";
+import { BEACON_ITERATIONS_RANGE, MAX_PAYLOAD_BYTES, MAX_RELAYS } from "../../../config";
 import { utf8 } from "../../../primitives/encoding";
 import { FormatError } from "../../../primitives/errors";
 import { canonicalJson } from "../../../primitives/hashing";
 import {
   asArray,
   asCeremonyId,
+  asCircuitName,
   asHex,
   asIsoTime,
   asNullable,
@@ -83,7 +79,7 @@ function contribution(v: unknown, p: string): ContributionRecord {
     type: "contribution",
     ceremony_id: asCeremonyId(o.ceremony_id, `${p}.ceremony_id`),
     seq: asU32(o.seq, `${p}.seq`),
-    circuit: asOneOf(o.circuit, `${p}.circuit`, CIRCUIT_ORDER),
+    circuit: asCircuitName(o.circuit, `${p}.circuit`),
     index: asU32(o.index, `${p}.index`),
     input_sha256: asHex(o.input_sha256, `${p}.input_sha256`, 32),
     output_sha256: asHex(o.output_sha256, `${p}.output_sha256`, 32),

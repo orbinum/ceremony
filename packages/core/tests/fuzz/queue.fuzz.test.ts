@@ -1,6 +1,5 @@
 /** The queue machine under random event sequences keeps its invariants. SPEC §4.1–4.3. */
 import { describe, expect, it } from "vitest";
-import { CIRCUIT_ORDER } from "../../src/config";
 import {
   initialQueue,
   nextDeadline,
@@ -8,7 +7,7 @@ import {
   type QueueState,
   step,
 } from "../../src/coordination/queue";
-import { ensure, mulberry32, pick } from "../support";
+import { ensure, mulberry32, pick, CIRCUIT_NAMES } from "../support";
 
 const OPEN = 1_000_000;
 const CLOSE = OPEN + 3 * 3600_000;
@@ -40,7 +39,7 @@ function randomEvent(s: QueueState, rand: () => number): QueueEvent {
       return {
         type: "verified",
         seq: slot?.seq ?? 0,
-        circuit: v?.circuit ?? (CIRCUIT_ORDER[pick(rand, 3)] as "shield"),
+        circuit: v?.circuit ?? (CIRCUIT_NAMES[pick(rand, 3)] as "shield"),
         attempt: rand() < 0.9 ? (v?.uploads ?? 1) : pick(rand, 4),
         outcome: OUTCOMES[pick(rand, 4)] as "valid",
       };
@@ -86,7 +85,11 @@ describe("fuzz: the queue machine under random event sequences", () => {
     let applied = 0;
     for (let seed = 1; seed <= 300; seed++) {
       const rand = mulberry32(seed);
-      let s = step(initialQueue({ openAt: OPEN, closeAt: CLOSE }), { type: "tick" }, OPEN).state;
+      let s = step(
+        initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES),
+        { type: "tick" },
+        OPEN,
+      ).state;
       let t = OPEN;
       let lastSeq = 0;
       const dispatched = new Set<string>();

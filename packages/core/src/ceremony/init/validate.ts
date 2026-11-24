@@ -1,19 +1,19 @@
 /**
- * `genesis/init.json` read from outside. Circuit names come from the pinned set only (they become
- * file paths), each at most once; the source is a full commit id; the published text is
+ * `genesis/init.json` read from outside. Circuit names are well formed (they become file paths),
+ * each name and on-chain id at most once; the source is a full commit id; the published text is
  * canonical. SPEC §2.1, §6.1.
  */
-import { CIRCUIT_ORDER } from "../../config";
+import { MAX_CIRCUITS } from "../../config";
 import { parseCanonicalJson } from "../../primitives/encoding";
 import { FormatError } from "../../primitives/errors";
 import {
   asArray,
   asCeremonyId,
+  asCircuitName,
   asCommit,
   asCount,
   asHex,
   asIsoTime,
-  asOneOf,
   asRecord,
   asSafeInt,
   asSchema,
@@ -37,8 +37,8 @@ function circuit(v: unknown, p: string): InitCircuit {
     "cs_hash",
   ]);
   return {
-    name: asOneOf(o.name, `${p}.name`, CIRCUIT_ORDER),
-    circuit_id: asCount(o.circuit_id, `${p}.circuit_id`),
+    name: asCircuitName(o.name, `${p}.name`),
+    circuit_id: asSafeInt(o.circuit_id, `${p}.circuit_id`, 1, 0xffff_ffff),
     ceremony_version: asCount(o.ceremony_version, `${p}.ceremony_version`),
     r1cs_sha256: asHex(o.r1cs_sha256, `${p}.r1cs_sha256`, 32),
     constraints: asCount(o.constraints, `${p}.constraints`),
@@ -69,11 +69,14 @@ export function validateInit(v: unknown): InitRecord {
     "circom_flags",
   ]);
   const source = asRecord(o.source, "init.source", ["ref", "commit"]);
-  const circuits = asArray(o.circuits, "init.circuits", CIRCUIT_ORDER.length, 1).map((c, i) =>
+  const circuits = asArray(o.circuits, "init.circuits", MAX_CIRCUITS, 1).map((c, i) =>
     circuit(c, `init.circuits[${i}]`),
   );
   if (new Set(circuits.map((c) => c.name)).size !== circuits.length) {
     throw new FormatError("init.circuits: duplicate circuit");
+  }
+  if (new Set(circuits.map((c) => c.circuit_id)).size !== circuits.length) {
+    throw new FormatError("init.circuits: duplicate circuit_id");
   }
 
   return {

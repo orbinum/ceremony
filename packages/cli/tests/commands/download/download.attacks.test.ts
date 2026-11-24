@@ -160,7 +160,7 @@ describe("download against a hostile mirror", () => {
     const s = await serve(copy);
     const out = await fresh();
     const e = await rejection(download(c, s.url, out));
-    expect(e.message).toMatch(/circuit: expected one of/);
+    expect(e.message).toMatch(/circuit: does not match/);
     expect(s.requests.map((r) => r.path)).toEqual([
       "/ceremony.json",
       "/genesis/init.json",

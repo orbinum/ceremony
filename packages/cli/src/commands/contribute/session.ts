@@ -6,6 +6,7 @@
  */
 import {
   asArray,
+  asCircuitName,
   asObject,
   asOneOf,
   asSafeInt,
@@ -13,12 +14,12 @@ import {
   CEREMONY_LAYOUT,
   CEREMONY_STATES,
   checkTranscriptIntegrity,
-  CIRCUIT_ORDER,
   type CircuitName,
   contributionsOf,
   CONTRIBUTOR_PATHS,
   fromUtf8,
   type InitRecord,
+  MAX_CIRCUITS,
   MAX_DOCUMENT_BYTES,
   MAX_TRANSCRIPT_BYTES,
   type MpcParams,
@@ -135,10 +136,10 @@ export async function placeOf(who: Contributor, signal?: AbortSignal): Promise<S
     slot: slot && {
       seq: asSafeInt(slot.seq, "me.slot.seq", 1, 2 ** 32),
       claimed: slot.claimed === true,
-      circuits: asArray(slot.circuits, "me.slot.circuits", CIRCUIT_ORDER.length).map((c, i) => {
+      circuits: asArray(slot.circuits, "me.slot.circuits", MAX_CIRCUITS).map((c, i) => {
         const o = asObject(c, `me.slot.circuits[${i}]`);
         return {
-          circuit: asOneOf(o.circuit, `me.slot.circuits[${i}].circuit`, CIRCUIT_ORDER),
+          circuit: asCircuitName(o.circuit, `me.slot.circuits[${i}].circuit`),
           status: asOneOf(o.status, `me.slot.circuits[${i}].status`, SLOT_STATUSES),
         };
       }),

@@ -4,11 +4,9 @@
  */
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
+import { join } from "node:path";
 import {
   appendRecord,
-  type CircuitName,
-  circuitsOf,
-  type InitRecord,
   type CeremonyAnnouncement,
   type Chained,
   chainGenesis,
@@ -21,16 +19,14 @@ import {
 import { layout, type Loaded, loadTranscript } from "../artifacts";
 import { writeJson } from "../io";
 
-/** Whether any of `circuits` has a contribution file on disk. */
-export async function hasContributions(
-  dir: string,
-  circuits: readonly CircuitName[],
-): Promise<boolean> {
-  const paths = layout(dir);
-  for (const c of circuits) {
-    const d = paths.contributions(c);
+/** Whether any circuit has a contribution file on disk (every directory under `contributions/`). */
+export async function hasContributions(dir: string): Promise<boolean> {
+  const root = layout(dir).allContributions;
+  if (!existsSync(root)) return false;
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
     // oxlint-disable-next-line no-await-in-loop -- a few directories
-    if (existsSync(d) && (await readdir(d)).length > 0) return true;
+    if ((await readdir(join(root, entry.name))).length > 0) return true;
   }
   return false;
 }
@@ -51,13 +47,12 @@ export interface TranscriptStore {
 export async function openTranscript(
   dir: string,
   announcement: Loaded<CeremonyAnnouncement>,
-  init: InitRecord,
 ): Promise<TranscriptStore> {
   const paths = layout(dir);
   const path = paths.transcript;
   const id = announcement.value.ceremony_id;
   const genesis = chainGenesis(id, announcement.value);
-  if (!existsSync(path) && (await hasContributions(dir, circuitsOf(init)))) {
+  if (!existsSync(path) && (await hasContributions(dir))) {
     throw new Error("transcript.json is missing but contributions are on disk");
   }
   const transcript: Transcript = existsSync(path)

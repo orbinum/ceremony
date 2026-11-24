@@ -1,8 +1,8 @@
-import { CIRCUIT_ORDER, type CircuitName } from "@orbinum-ceremony/core";
+import type { CircuitName } from "@orbinum-ceremony/core";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../src/api";
 import { CheckFailed, contributeAll, type Progress, type RunDeps } from "../../src/contribution";
-import { chain, FakeCoordinator, flip } from "../support";
+import { chain, CIRCUIT_NAMES, FakeCoordinator, flip } from "../support";
 
 const CLIENT = { name: "test", version: "0.0.0", commit: "abcdef0" };
 
@@ -15,7 +15,7 @@ function depsFor(fake: FakeCoordinator, lost: () => Error | null = () => null): 
       output: chain().output,
       contributionHash: c.contributionHash,
     })),
-    csHashes: new Map(CIRCUIT_ORDER.map((circuit) => [circuit, c.csHash])),
+    csHashes: new Map(CIRCUIT_NAMES.map((circuit) => [circuit, c.csHash])),
     client: CLIENT,
     text: "my own text",
     lost,
@@ -34,9 +34,9 @@ describe("contributeAll", () => {
     const accepted = await contributeAll(deps, fake.seq, (p) => progress.push(p));
 
     const c = chain();
-    expect(accepted.map((a) => a.circuit)).toEqual([...CIRCUIT_ORDER]);
+    expect(accepted.map((a) => a.circuit)).toEqual([...CIRCUIT_NAMES]);
     expect(accepted[0]).toEqual({
-      circuit: CIRCUIT_ORDER[0],
+      circuit: CIRCUIT_NAMES[0],
       index: c.headIndex + 1,
       inputSha256: c.headSha256,
       outputSha256: c.outputSha256,

@@ -99,8 +99,8 @@ describe("the operator's transcript and metrics", { timeout: 60_000 }, () => {
     await writeFile(real, await readFile(layout(c.dir).transcript));
     await rm(layout(c.dir).transcript);
     await symlink(real, layout(c.dir).transcript);
-    const [announcement, init] = await opened(c.dir);
-    await expect(openTranscript(c.dir, announcement, init)).rejects.toThrow(/ELOOP/);
+    const [announcement] = await opened(c.dir);
+    await expect(openTranscript(c.dir, announcement)).rejects.toThrow(/ELOOP/);
     await mkdir(layout(c.dir).local, { recursive: true });
     await writeFile(join(c.dir, "m.json"), serializeJson({}));
     await symlink(join(c.dir, "m.json"), layout(c.dir).metrics);

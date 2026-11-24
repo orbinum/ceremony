@@ -1,5 +1,4 @@
 /** The mutable context of one step and the moves every handler shares. */
-import { CIRCUIT_ORDER } from "../../config";
 import type { CeremonyState } from "../../ceremony";
 import type {
   IdentityStanding,
@@ -74,7 +73,7 @@ export function grantNext(ctx: StepContext): void {
     if (!entry) break;
     const id = standing(s, entry.githubId);
     if (id.banned || id.held || id.cooldownUntil > ctx.now) continue;
-    const circuits = CIRCUIT_ORDER.filter((c) => !id.accepted.includes(c));
+    const circuits = s.circuits.filter((c) => !id.accepted.includes(c));
     if (circuits.length === 0) continue;
     s.slot = {
       seq: s.nextSeq++,

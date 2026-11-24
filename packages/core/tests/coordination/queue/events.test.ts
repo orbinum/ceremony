@@ -16,11 +16,15 @@ import {
 } from "../../../src/coordination/queue";
 import { buildBeaconRecord } from "../../../src/ceremony/transcript";
 import { DRAND } from "../../../src/config";
-import { contribution, ID, R1000 } from "../../support";
+import { contribution, ID, R1000, CIRCUIT_NAMES } from "../../support";
 
 const OPEN = 1_000_000;
 const opened = (): QueueState =>
-  step(initialQueue({ openAt: OPEN, closeAt: OPEN + 3_600_000 }), { type: "tick" }, OPEN).state;
+  step(
+    initialQueue({ openAt: OPEN, closeAt: OPEN + 3_600_000 }, CIRCUIT_NAMES),
+    { type: "tick" },
+    OPEN,
+  ).state;
 function holding(githubId: number): QueueState {
   let s = opened();
   for (const e of [

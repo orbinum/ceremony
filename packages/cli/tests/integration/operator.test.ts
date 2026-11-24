@@ -221,6 +221,7 @@ describe.skipIf(!PTAU_PATH)("operator commands against their peers", { timeout: 
         ceremonyId: "e2e-local",
         circuitsRepo: "/nonexistent",
         circuitsRef: "v0.16.0",
+        circuits: [{ name: "shield", circuitId: 3 }],
         out: ceremony.dir,
         checkDeterminism: false,
       };

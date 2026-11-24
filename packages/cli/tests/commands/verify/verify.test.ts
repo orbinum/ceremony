@@ -204,7 +204,9 @@ describe("verify with the verifier's own circuits clone", () => {
     await rm(log, { force: true });
     const failed = await failures(options(c, { circuitsRepo: repo }));
     expect(failed).toContainEqual(
-      expect.objectContaining({ id: "init.json covers exactly the pinned circuits and tooling" }),
+      expect.objectContaining({
+        id: "init.json pins the ptau and the tooling, and every circuit fits the ptau",
+      }),
     );
     const calls = (await readFile(log, "utf8")).trim().split("\n");
     expect(calls).toHaveLength(1);

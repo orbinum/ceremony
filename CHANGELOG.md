@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-24
+
+### Changed
+
+- **Circuits come from the circuits release, not from code.** `init --circuit-ids
+  <name>=<id>,…` names the ceremony's circuits and their on-chain `CircuitId`; each r1cs must be
+  the one the release's `manifest.json` publishes for its active version, the ceremony key becomes
+  the next version, and the constraints and public signals are read from the r1cs. `init.json`
+  pins them all, in session order (fewest constraints first), and every component (coordinator,
+  verifier, `verify`, browser client) takes the circuit list from it. A new circuits release or a
+  new circuit needs no code change. With circuits v0.17.1: transfer v3 → v4 (34,200 constraints),
+  unshield v3 → v4 (17,290), shield v1 → v2 (736).
+- A ceremony may cover any circuits of its release on every network (the full-coverage check is
+  gone); circuit names are `[a-z][a-z0-9_]{0,31}` and never an `Object.prototype` key.
+- An attestation lists the session's contributions in transcript order, which is the session
+  order (uploads are sequential); a payload in another order still fails to match.
+- Before the setup freezes, the coordinator takes a circuit's `r1cs/` or `genesis/` file only
+  for a circuit of the already published `genesis/init.json` (`publish-init` uploads it first).
+- `verify` fails a `transcript.finals` that names a circuit outside `init.json`.
+- A queue state stored before this release takes its circuits from the frozen setup.
+- The CI clones circuits v0.17.1, the release of the test vectors (shield's r1cs is unchanged).
+- Session and verifier bounds stay sized for circuits v0.17.1 (KL-61).
+- The real-key test vectors are `testnet-rehearsal-2` (circuits v0.17.1), from ceremony-verifier's
+  `test-vectors-2` release.
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

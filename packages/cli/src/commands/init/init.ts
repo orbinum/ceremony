@@ -11,7 +11,6 @@ import { join } from "node:path";
 import {
   buildInit,
   CEREMONY_LAYOUT,
-  CIRCUIT_ORDER,
   type InitCircuit,
   type InitRecord,
   PTAU,
@@ -34,7 +33,7 @@ import { obtainPtau } from "./ptau";
  */
 async function assertRebuildable(options: InitOptions): Promise<void> {
   const paths = layout(options.out);
-  if (existsSync(paths.transcript) || (await hasContributions(options.out, CIRCUIT_ORDER))) {
+  if (existsSync(paths.transcript) || (await hasContributions(options.out))) {
     throw new Error(`${options.out} already has contributions: it cannot be rebuilt`);
   }
   if (existsSync(paths.announcement)) {
@@ -71,10 +70,10 @@ async function init(options: InitOptions): Promise<InitRecord> {
     console.log(`  commit ${release.commit}, circomlib ${source.circomlib}`);
 
     const circuits: InitCircuit[] = [];
-    for (const name of CIRCUIT_ORDER) {
-      console.log(`${name}: compile, check, genesis`);
+    for (const { name, circuitId } of options.circuits) {
+      console.log(`${name} (id ${circuitId}): compile, check, genesis`);
       // oxlint-disable-next-line no-await-in-loop -- sequential: groth16 setup is memory-heavy
-      const c = await buildCircuit(name, {
+      const c = await buildCircuit(name, circuitId, {
         release,
         source,
         ptau,
@@ -82,7 +81,9 @@ async function init(options: InitOptions): Promise<InitRecord> {
         work,
         checkDeterminism: options.checkDeterminism,
       });
-      console.log(`  r1cs ${c.r1cs_sha256.slice(0, 16)}… csHash ${c.cs_hash.slice(0, 16)}…`);
+      console.log(
+        `  v${c.ceremony_version}, ${c.constraints} constraints, r1cs ${c.r1cs_sha256.slice(0, 16)}… csHash ${c.cs_hash.slice(0, 16)}…`,
+      );
       circuits.push(c);
     }
 

@@ -4,7 +4,15 @@ import { scheduleOf, parseSetup } from "../../../src/ceremony/setup";
 import { initialQueue, type QueueState, step } from "../../../src/coordination/queue";
 import { checkUpload } from "../../../src/coordination/upload";
 import { BYTES_PER_CONTRIBUTION } from "../../../src/config";
-import { chain as chainFrom, contribution, h, ID, OPEN, SETUP_INPUT } from "../../support";
+import {
+  chain as chainFrom,
+  contribution,
+  h,
+  ID,
+  OPEN,
+  SETUP_INPUT,
+  CIRCUIT_NAMES,
+} from "../../support";
 
 const SETUP = parseSetup(SETUP_INPUT, ID);
 const chain = (records: Parameters<typeof chainFrom>[0]) => chainFrom(records, SETUP.chainGenesis);
@@ -21,7 +29,7 @@ const CLOSE = scheduleOf(SETUP).closeAt;
 
 /** ALICE holds a claimed, idle slot from `t`. */
 function claimedAt(t: number): QueueState {
-  let s = step(initialQueue(scheduleOf(SETUP)), { type: "tick" }, t).state;
+  let s = step(initialQueue(scheduleOf(SETUP), CIRCUIT_NAMES), { type: "tick" }, t).state;
   for (const e of [
     { type: "join", githubId: ALICE },
     { type: "claim", githubId: ALICE },

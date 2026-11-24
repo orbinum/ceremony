@@ -9,6 +9,9 @@ export const MAX_FILE_BYTES = 128 * 1024 * 1024;
  */
 export const MAX_CONTRIBUTIONS = 9_999;
 
+/** Circuits in one ceremony. */
+export const MAX_CIRCUITS = 16;
+
 /** Records in one transcript: contributions, attestations, state changes and the beacon. */
 export const MAX_RECORDS = 100_000;
 

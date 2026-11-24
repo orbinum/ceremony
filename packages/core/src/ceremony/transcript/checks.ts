@@ -17,7 +17,7 @@ import {
 } from "../identity";
 import { circuitsOf, type InitRecord } from "../init";
 import { chainGenesis, verifyChain } from "./chain";
-import type { BeaconRecord, Chained, ContributionRecord, Transcript } from "./types";
+import type { BeaconRecord, Chained, ContributionRecord, FinalRecord, Transcript } from "./types";
 import { attestedContributionsOf, contributionsOf, sealedBeaconOf } from "./views";
 
 /** One named check and its problems. */
@@ -67,6 +67,12 @@ export function checkKnownCircuits(records: readonly Chained[], init: InitRecord
   return records.flatMap((r, i) =>
     r.type === "contribution" && !known.has(r.circuit) ? [`record ${i}: unknown circuit`] : [],
   );
+}
+
+/** Final records of circuits the ceremony does not have. */
+export function checkKnownFinals(finals: readonly FinalRecord[], init: InitRecord): string[] {
+  const known = new Set(circuitsOf(init));
+  return finals.flatMap((f) => (known.has(f.circuit) ? [] : [`${f.circuit} is not in init.json`]));
 }
 
 /** Every record is this ceremony's; contributions were accepted inside the window. */
@@ -357,6 +363,10 @@ export function checkTranscript(
         id: "beacon is the announced drand round, sealed once after all contributions",
         problems,
         ...(beacon ? { detail: `round ${beacon.round}` } : {}),
+      },
+      {
+        id: "final records name only this ceremony's circuits",
+        problems: checkKnownFinals(transcript.finals, init),
       },
     ],
     ...(beacon ? { beacon } : {}),

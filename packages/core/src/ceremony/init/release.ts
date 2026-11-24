@@ -3,16 +3,25 @@
  * version and published r1cs per circuit) and the circomlib version `pnpm-lock.yaml` locks.
  * SPEC §2.1.
  */
-import { CIRCUIT_ORDER, type CircuitName } from "../../config";
+import type { CircuitName } from "../../config";
 import { parseJsonText } from "../../primitives/encoding";
-import { FormatError } from "../../primitives/errors";
-import { asHex, asObject, asSafeInt, asString, VERSION } from "../../primitives/schema";
+import {
+  asCircuitName,
+  asHex,
+  asObject,
+  asSafeInt,
+  asString,
+  VERSION,
+} from "../../primitives/schema";
 
 /** What the release published for one circuit. */
 export interface PublishedCircuit {
   version: number;
   r1csSha256: string;
 }
+
+/** The version a ceremony key becomes: the one after the release's active version. */
+export const ceremonyVersionOf = (circuit: PublishedCircuit): number => circuit.version + 1;
 
 /** A circuit's entry in `manifest.json`; extra fields of the release format are ignored. */
 function published(manifest: Record<string, unknown>, name: CircuitName): PublishedCircuit {
@@ -28,15 +37,12 @@ function published(manifest: Record<string, unknown>, name: CircuitName): Publis
 }
 
 /**
- * The release manifest: a reader per circuit, so a manifest missing a circuit the ceremony does
- * not use is not an error. Throws `FormatError` on text that is not JSON.
+ * The release manifest: a reader per circuit, so only the circuits the ceremony uses must be in
+ * it. Throws `FormatError` on text that is not JSON and on a circuit the release does not have.
  */
 export function readReleaseManifest(text: string): (name: CircuitName) => PublishedCircuit {
   const manifest = asObject(parseJsonText(text, "manifest.json"), "manifest");
-  return (name) => {
-    if (!CIRCUIT_ORDER.includes(name)) throw new FormatError(`unknown circuit ${String(name)}`);
-    return published(manifest, name);
-  };
+  return (name) => published(manifest, asCircuitName(name, "circuit"));
 }
 
 const LOCKED_CIRCOMLIB = /\n\s+circomlib:\s*\n\s+specifier:[^\n]*\n\s+version:\s*([^\s(]+)/;

@@ -136,7 +136,8 @@ describe("PUT /admin/artifacts/*", () => {
       "genesis/init.json/",
       "genesis//init.json",
       "genesis/%2e%2e/ceremony.json.x",
-      "final/nope.final.zkey",
+      "final/Nope.final.zkey",
+      "final/constructor.vk.json",
       "verify/1/shield/1-x.zkey",
     ]) {
       // oxlint-disable-next-line no-await-in-loop -- one path at a time

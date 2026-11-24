@@ -4,11 +4,18 @@ import { parseSetup, scheduleOf } from "../../../src/ceremony/setup";
 import { publicFilesOf } from "../../../src/coordination/publish";
 import { serializeJson } from "../../../src/primitives/encoding";
 import { initialQueue } from "../../../src/coordination/queue";
-import { chain as chainFrom, contribution, ID, OPEN, SETUP_INPUT } from "../../support";
+import {
+  chain as chainFrom,
+  contribution,
+  ID,
+  OPEN,
+  SETUP_INPUT,
+  CIRCUIT_NAMES,
+} from "../../support";
 
 const SETUP = parseSetup(SETUP_INPUT, ID);
 const chain = (records: Parameters<typeof chainFrom>[0]) => chainFrom(records, SETUP.chainGenesis);
-const STATE = initialQueue(scheduleOf(SETUP));
+const STATE = initialQueue(scheduleOf(SETUP), CIRCUIT_NAMES);
 
 describe("public files (SPEC §6.1)", () => {
   it("publishes a consistent transcript and the status, versioned by content", () => {

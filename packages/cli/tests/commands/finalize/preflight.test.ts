@@ -18,7 +18,7 @@ import {
 /** Runs preflight on `dir` (a synthetic ceremony, maybe tampered) at `now`. */
 async function check(c: Synthetic, dir = c.dir, now = CLOCK.finalize(), packer?: string) {
   const [announcement, init] = await opened(dir);
-  const store = await openTranscript(dir, announcement, init);
+  const store = await openTranscript(dir, announcement);
   const records = store.transcript.records.length;
   const error = await rejection(
     preflight(dir, init, announcement.value, announcement.sha256, store, now, packer),

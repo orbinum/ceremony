@@ -3,6 +3,7 @@
  * refused; the schedule comes from the announcement.
  */
 import {
+  circuitsOf,
   initialQueue,
   parseSetup,
   sameSetup,
@@ -25,7 +26,7 @@ export async function configure(store: Store, input: SetupInput): Promise<Outcom
   }
   const current = db.readSetup(store.sql);
   if (current) return sameSetup(current, setup) ? done() : refuse("already-configured");
-  await commit(store, initialQueue(scheduleOf(setup)), [], undefined, () =>
+  await commit(store, initialQueue(scheduleOf(setup), circuitsOf(setup.init)), [], undefined, () =>
     db.writeSetup(store.sql, setup),
   );
   return done();

@@ -6,7 +6,10 @@ import type { CircuitName } from "../../config";
 /** Schema id of the document. */
 export const INIT_SCHEMA = "orbinum-ceremony/init/v1";
 
-/** One circuit's frozen inputs and genesis. */
+/**
+ * One circuit's frozen inputs and genesis. `circuit_id` is the on-chain `CircuitId` the operator
+ * names; `ceremony_version` is the release's active version + 1, the version the final key becomes.
+ */
 export interface InitCircuit {
   name: CircuitName;
   circuit_id: number;
@@ -28,5 +31,9 @@ export interface InitRecord {
   ptau: { file: string; blake2b512: string; size: number };
   tooling: { snarkjs: string; circom: string; circomlib: string; circom_flags: readonly string[] };
   source: { ref: string; commit: string };
+  /**
+   * In session order, which every component follows; `init` writes fewest constraints first, so
+   * client problems surface fast (SPEC §4.1).
+   */
   circuits: InitCircuit[];
 }

@@ -81,7 +81,7 @@ describe("the verifier's routes", () => {
       400,
       "malformed",
     ]);
-    expect(await refusal(await signed("GET", "/internal/objects/1/nope/1"))).toEqual([
+    expect(await refusal(await signed("GET", "/internal/objects/1/Nope/1"))).toEqual([
       400,
       "malformed",
     ]);

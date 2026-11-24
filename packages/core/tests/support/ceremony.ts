@@ -22,6 +22,8 @@ import { serializeJson, utf8 } from "../../src/primitives/encoding";
 import { sha256Hex } from "../../src/primitives/hashing";
 
 export const ID = "unit-test-1";
+/** The test ceremonies' circuits, in session order. */
+export const CIRCUIT_NAMES = ["shield", "unshield", "transfer"];
 export const OPEN = Date.parse("2026-10-01T00:00:00.000Z");
 export const CLOSE = Date.parse("2026-10-02T00:00:00.000Z");
 const COMMIT = "efe10bf3ef1d928c9c209fee4077750334410cfe";
@@ -159,6 +161,7 @@ export const FULL_INIT: InitRecord = buildInit({
       name: "unshield",
       circuit_id: 2,
       ceremony_version: 3,
+      constraints: 16_904,
       genesis_sha256: h(110),
     },
     {
@@ -166,6 +169,7 @@ export const FULL_INIT: InitRecord = buildInit({
       name: "transfer",
       circuit_id: 1,
       ceremony_version: 3,
+      constraints: 33_688,
       genesis_sha256: h(120),
     },
   ],

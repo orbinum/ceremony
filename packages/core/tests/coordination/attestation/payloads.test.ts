@@ -89,6 +89,18 @@ describe("attestations (SPEC §3.5)", () => {
     );
   });
 
+  it("list the session's circuits in transcript order, and only in that order", () => {
+    const two = chain([
+      contribution(1, 1),
+      { ...contribution(2, 1, undefined, ALICE), circuit: "unshield" },
+    ]);
+    const p = buildAttestationPayload({ ...linked, seq: 1, records: two, client: CLIENT });
+    expect(p.contributions.map((c) => c.circuit)).toEqual(["shield", "unshield"]);
+    expect(checkAttestation(p, linked, two)).toBeNull();
+    const reversed = { ...p, contributions: p.contributions.toReversed() };
+    expect(checkAttestation(reversed, linked, two)).toBe("attestation-mismatch");
+  });
+
   it("are recorded once per session", () => {
     const signed = chain([
       contribution(1, 1),

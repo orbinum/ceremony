@@ -177,7 +177,7 @@ describe("a malicious coordinator's transcript", () => {
     ]);
   });
 
-  it("ignores a final record for a circuit the ceremony does not have", () => {
+  it("flags a final record for a circuit the ceremony does not have", () => {
     const records = chain([contribution(1), contribution(2), beacon()]);
     const extra = buildFinalRecord({
       circuit: "transfer",
@@ -192,6 +192,6 @@ describe("a malicious coordinator's transcript", () => {
     const problems = checkTranscript(t, ANN, ANNOUNCEMENT_SHA256, INIT).checks.flatMap(
       (c) => c.problems,
     );
-    expect(problems).toEqual([]);
+    expect(problems).toEqual(["transfer is not in init.json"]);
   });
 });

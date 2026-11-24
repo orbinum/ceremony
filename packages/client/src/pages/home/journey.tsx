@@ -26,7 +26,7 @@ const ABOUT = [
   "Your GitHub account keeps the line fair: one contribution per person.",
   "It signs your contribution. No transaction, no fee.",
   "One contributor at a time; you wait your turn on this page.",
-  "Your browser adds its randomness to the three circuits. A few minutes.",
+  "Your browser adds its randomness to every circuit of the ceremony. A few minutes.",
   "Your wallet signs what you contributed, for the public record.",
 ] as const;
 

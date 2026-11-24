@@ -1,9 +1,10 @@
 /** Validators for identities, client info and the payloads wallets sign. SPEC §3.4–3.5, §6.3. */
-import { CIRCUIT_ORDER, LINK_RULES } from "../../config";
+import { MAX_CIRCUITS, LINK_RULES } from "../../config";
 import { FormatError } from "../../primitives/errors";
 import {
   asArray,
   asCeremonyId,
+  asCircuitName,
   asHex,
   asOneOf,
   asPositiveInt,
@@ -98,8 +99,9 @@ export function validateLinkPayload(v: unknown, scheme: Scheme, p = "link"): Lin
 }
 
 /**
- * An attestation payload for `scheme`: at least one contribution, circuits in session order and
- * each at most once, so one session has exactly one signable form.
+ * An attestation payload for `scheme`: at least one contribution, each circuit at most once. The
+ * coordinator holds it against the session's accepted records in transcript order (the session
+ * order), so one session has exactly one signable form.
  */
 export function validateAttestationPayload(
   v: unknown,
@@ -114,7 +116,7 @@ export function validateAttestationPayload(
     "contributions",
     "client",
   ]);
-  const contributions = asArray(o.contributions, `${p}.contributions`, CIRCUIT_ORDER.length, 1).map(
+  const contributions = asArray(o.contributions, `${p}.contributions`, MAX_CIRCUITS, 1).map(
     (c, i) => {
       const q = `${p}.contributions[${i}]`;
       const e = asRecord(c, q, [
@@ -125,7 +127,7 @@ export function validateAttestationPayload(
         "contribution_hash",
       ]);
       return {
-        circuit: asOneOf(e.circuit, `${q}.circuit`, CIRCUIT_ORDER),
+        circuit: asCircuitName(e.circuit, `${q}.circuit`),
         index: asU32(e.index, `${q}.index`),
         input_sha256: asHex(e.input_sha256, `${q}.input_sha256`, 32),
         output_sha256: asHex(e.output_sha256, `${q}.output_sha256`, 32),
@@ -133,9 +135,8 @@ export function validateAttestationPayload(
       };
     },
   );
-  const order = contributions.map((c) => CIRCUIT_ORDER.indexOf(c.circuit));
-  if (order.some((x, i) => i > 0 && x <= (order[i - 1] as number))) {
-    throw new FormatError(`${p}.contributions: circuits out of session order or repeated`);
+  if (new Set(contributions.map((c) => c.circuit)).size !== contributions.length) {
+    throw new FormatError(`${p}.contributions: a circuit appears twice`);
   }
   return {
     ceremony_id: asCeremonyId(o.ceremony_id, `${p}.ceremony_id`),

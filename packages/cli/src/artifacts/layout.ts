@@ -15,6 +15,7 @@ export const layout = (dir: string) => ({
   r1cs: (c: CircuitName) => join(dir, L.r1cs(c)),
   /** Index 0 is the genesis. */
   zkey: (c: CircuitName, index: number) => join(dir, L.zkey(c, index)),
+  allContributions: join(dir, L.allContributions),
   contributions: (c: CircuitName) => join(dir, L.contributions(c)),
   log: (c: CircuitName, index: number) => join(dir, L.log(c, index)),
   final: join(dir, L.final),

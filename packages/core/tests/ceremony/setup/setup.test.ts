@@ -66,11 +66,10 @@ const partial = (network: "local" | "testnet") => ({
 });
 
 describe("parseSetup coverage and canonical texts", () => {
-  it("requires every pinned circuit outside a local ceremony", () => {
-    expect(() => parseSetup(partial("testnet"), ID)).toThrow(
-      "setup: unshield missing; transfer missing",
-    );
-    expect(parseSetup(partial("local"), ID).init.circuits.map((c) => c.name)).toEqual(["shield"]);
+  it("takes the circuits init.json names, on every network", () => {
+    for (const network of ["local", "testnet"] as const) {
+      expect(parseSetup(partial(network), ID).init.circuits.map((c) => c.name)).toEqual(["shield"]);
+    }
   });
 
   it("refuses pinned texts that are not canonical", () => {

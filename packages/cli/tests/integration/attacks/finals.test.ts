@@ -76,4 +76,17 @@ describe.skipIf(!PTAU_PATH)("attacks on the final keys", { timeout: 180_000 }, (
       detail: "contribution count",
     });
   });
+
+  it("rejects a final record for a circuit the ceremony does not have", async () => {
+    const copy = await tamperedCopy(ceremony.dir, (d) =>
+      editJson<{ finals: { circuit: string }[] }>(layout(d).transcript, (t) => {
+        t.finals.push({ ...(t.finals[0] as { circuit: string }), circuit: "evil" });
+      }),
+    );
+    expect(await failures(verify(copy))).toContainEqual({
+      id: "final records name only this ceremony's circuits",
+      status: "fail",
+      detail: "evil is not in init.json",
+    });
+  });
 });

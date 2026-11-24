@@ -11,6 +11,7 @@ import {
   type QueueState,
   step,
 } from "../../../src/coordination/queue";
+import { CIRCUIT_NAMES } from "../../support";
 
 const MIN = 60_000;
 const OPEN = 1_000_000;
@@ -32,7 +33,7 @@ function apply(
   return { s, fx };
 }
 const opened = () =>
-  step(initialQueue({ openAt: OPEN, closeAt: CLOSE }), { type: "tick" }, OPEN).state;
+  step(initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES), { type: "tick" }, OPEN).state;
 const inFlight = (s: QueueState) => s.slot?.circuits.find((c) => c.status === "verifying");
 const result = (s: QueueState, outcome: "valid" | "rejected" | "infra"): QueueEvent => {
   const c = inFlight(s);
@@ -172,7 +173,11 @@ describe("clock edge cases", () => {
   // never counts as a no-show.
   it("releases a session whose verify deadline passes after T_close as closed", () => {
     const close = OPEN + MIN;
-    let s = step(initialQueue({ openAt: OPEN, closeAt: close }), { type: "tick" }, OPEN).state;
+    let s = step(
+      initialQueue({ openAt: OPEN, closeAt: close }, CIRCUIT_NAMES),
+      { type: "tick" },
+      OPEN,
+    ).state;
     s = apply(s, OPEN, { type: "join", githubId: EVE }, { type: "claim", githubId: EVE }).s;
     s = apply(s, OPEN, { type: "uploaded", githubId: EVE, circuit: "shield" }).s;
     s = apply(s, OPEN, result(s, "infra"), { type: "resume" }).s;

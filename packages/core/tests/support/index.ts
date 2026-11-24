@@ -13,6 +13,7 @@ export {
   ANNOUNCEMENT_SHA256,
   ANNOUNCEMENT_TEXT,
   chain,
+  CIRCUIT_NAMES,
   CLOSE,
   contribution,
   contributor,

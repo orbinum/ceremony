@@ -304,9 +304,9 @@ describe("job spec bounds (KL-41)", () => {
       /spec\.job\.seq: expected an integer/,
     ],
     [
-      "a circuit outside the pinned set",
+      "a circuit name that is not well formed",
       { ...(spec([]) as object), job: { seq: 1, circuit: "../x", attempt: 1, index: 1 } },
-      /spec\.job\.circuit: expected one of/,
+      /spec\.job\.circuit: does not match/,
     ],
   ])("refuses %s", (_, value, message) => {
     expect(() => validateJobSpec(value)).toThrow(message);

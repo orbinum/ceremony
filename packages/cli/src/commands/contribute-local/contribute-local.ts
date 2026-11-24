@@ -55,7 +55,7 @@ export async function runContributeLocal(
   await assertPinnedSetup(options.dir, init.value, options.ptau, { r1cs: options.crossCheckR1cs });
 
   await withLock(layout(options.dir).lock, async () => {
-    const store = await openTranscript(options.dir, announcement, init.value);
+    const store = await openTranscript(options.dir, announcement);
     const records = () => store.transcript.records;
     const metrics = await loadMetrics(options.dir);
     const first = nextSeq(records());

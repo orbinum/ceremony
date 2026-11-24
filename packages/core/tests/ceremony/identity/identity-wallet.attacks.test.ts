@@ -264,10 +264,10 @@ describe("payload validators", () => {
       /index: expected an integer/,
     );
     expect(() => validateAttestationPayload(bad([c0, c0]), "eip712")).toThrow(
-      /out of session order or repeated/,
+      /a circuit appears twice/,
     );
     expect(() => validateAttestationPayload(bad([{ ...c0, circuit: "Shield" }]), "eip712")).toThrow(
-      /circuit: expected one of/,
+      /circuit: does not match/,
     );
     expect(() =>
       validateAttestationPayload(bad([{ ...c0, contribution_hash: "33".repeat(32) }]), "eip712"),

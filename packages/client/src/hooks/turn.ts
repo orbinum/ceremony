@@ -39,7 +39,14 @@ export type CircuitStages = Partial<Record<CircuitName, { stage: Stage; detail?:
 /** Where the turn is. */
 export type TurnState =
   | { kind: "idle" }
-  | { kind: "running"; seq: number; circuits: CircuitStages; paused: boolean }
+  | {
+      kind: "running";
+      seq: number;
+      /** The session's circuits, in session order. */
+      order: CircuitName[];
+      circuits: CircuitStages;
+      paused: boolean;
+    }
   | {
       kind: "signing";
       seq: number;
@@ -99,7 +106,8 @@ export function useTurn(me: api.Me, onEnded: () => void = () => {}) {
       for (const c of view.slot.circuits) {
         if (c.status === "accepted") circuits[c.circuit] = { stage: "accepted" };
       }
-      setState({ kind: "running", seq, circuits, paused: false });
+      const order = view.slot.circuits.map((c) => c.circuit);
+      setState({ kind: "running", seq, order, circuits, paused: false });
       await claim(sessionApi);
       heart.current = keepAlive(sessionApi);
       const csHashes = await api.getCsHashes();

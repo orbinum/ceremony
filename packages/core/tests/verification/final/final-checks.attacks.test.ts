@@ -1,6 +1,6 @@
 /**
  * Attacks on the SPEC §2.6 final-key checks (re-walk, beacon policy, minimum, δ ≠ γ and δ ≠
- * genesis δ) with hostile variations of the real testnet-rehearsal-1 finals and their vk.json.
+ * genesis δ) with hostile variations of the real testnet-rehearsal-2 finals and their vk.json.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +11,7 @@ import { checkDelta, checkFinalEntries, type FinalExpectation } from "../../../s
 /** The finished rehearsal with its whole chain (fetch-test-inputs.sh), or the local one. */
 const DIR =
   process.env.ORBINUM_REHEARSAL_DIR ??
-  join(import.meta.dirname, "..", "..", "..", "..", "..", "artifacts", "testnet-rehearsal-1");
+  join(import.meta.dirname, "..", "..", "..", "..", "..", "artifacts", "testnet-rehearsal-2");
 const Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
 const CIRCUITS = ["shield", "unshield", "transfer"] as const;
 

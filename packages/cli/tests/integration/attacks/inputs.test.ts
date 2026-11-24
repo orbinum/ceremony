@@ -19,7 +19,6 @@ import {
 } from "../../support";
 
 const FIXTURES = join(import.meta.dirname, "..", "..", "fixtures");
-const COVERAGE = "init.json covers exactly the pinned circuits and tooling";
 
 describe.skipIf(!PTAU_PATH)("attacks on the frozen inputs", { timeout: 300_000 }, () => {
   const ptau = PTAU_PATH as string;
@@ -43,7 +42,7 @@ describe.skipIf(!PTAU_PATH)("attacks on the frozen inputs", { timeout: 300_000 }
       copyFile(join(FIXTURES, "multiplier.r1cs"), layout(d).r1cs("shield")),
     );
     expect(await failures(verify(copy))).toContainEqual({
-      id: "shield: r1cs matches init.json and the pinned shape",
+      id: "shield: r1cs matches init.json (hash and shape)",
       status: "fail",
       detail: "SHA-256 differs from init.json",
     });
@@ -108,7 +107,7 @@ describe.skipIf(!PTAU_PATH)("attacks on the frozen inputs", { timeout: 300_000 }
       const failed = await failedChecks(
         verify(ceremony.dir, { circuitsRepo: CIRCUITS_REPO as string }),
       );
-      expect(failed).toEqual([COVERAGE]);
+      expect(failed).toEqual([]);
     });
 
     it("rejects an announcement whose commit is not what its tag resolves to", async () => {

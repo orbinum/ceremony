@@ -203,7 +203,7 @@ describe("strict verification on a synthetic testnet ceremony", { timeout: 120_0
     const ids = [
       "circuits clone's origin is the announced repo",
       "announced tag resolves to the announced commit",
-      "shield: r1cs is the one the release published",
+      "shield: r1cs is the one the release published, at the next version",
       "shield: r1cs rebuilt from the release is identical",
       "shield: vk_hash = blake2_256(packed VK)",
       "shield: independent verifier (Rust, no snarkjs) agrees",

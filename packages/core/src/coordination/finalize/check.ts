@@ -11,6 +11,7 @@ import {
   type Chained,
   checkFinalizable,
   checkFinalRecord,
+  checkKnownFinals,
   checkTranscript,
   circuitsOf,
   type FinalRecord,
@@ -56,9 +57,10 @@ export function checkFinalize(
 
   const all = [...records, sealed];
   const circuits = circuitsOf(init);
+  // The request's circuits are distinct (validateFinalizeRequest): as many and all known is all.
   if (
     request.finals.length !== circuits.length ||
-    circuits.some((c) => !request.finals.some((f) => f.circuit === c))
+    checkKnownFinals(request.finals, init).length > 0
   ) {
     problems.push(`one final record per circuit is required: ${circuits.join(", ")}`);
   }

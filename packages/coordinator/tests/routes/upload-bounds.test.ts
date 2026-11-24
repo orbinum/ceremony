@@ -198,9 +198,12 @@ describe("upload bounds (SPEC §2.5)", () => {
     });
     const none = await call("GET", "/api/session/result/transfer", ALICE + 5, as);
     expect(await refusal(none)).toEqual([404, "unknown-job"]);
-    for (const path of ["/api/session/result/nope", "/api/session/head/nope"]) {
+    for (const path of ["/api/session/result/Nope", "/api/session/head/Nope"]) {
       // oxlint-disable-next-line no-await-in-loop -- one route at a time
       expect(await refusal(await call("GET", path, ALICE, as))).toEqual([400, "malformed"]);
     }
+    // A well-formed name the ceremony does not have: nothing to find.
+    const other = await call("GET", "/api/session/result/nope", ALICE, as);
+    expect(await refusal(other)).toEqual([404, "unknown-job"]);
   });
 });

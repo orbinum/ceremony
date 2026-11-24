@@ -23,7 +23,7 @@ import { validateFinalizeRequest } from "../../../src/coordination/protocol";
 import { attestStep, initialQueue, recordsOfEffects, step } from "../../../src/coordination/queue";
 import { serializeJson, utf8 } from "../../../src/primitives/encoding";
 import { sha256Hex } from "../../../src/primitives/hashing";
-import { contributor, h, INIT, R1000, R1001 } from "../../support";
+import { contributor, h, INIT, R1000, R1001, CIRCUIT_NAMES } from "../../support";
 
 const ID = "finalize-1";
 const ROUND_AT = roundTime(1000) * 1000;
@@ -64,7 +64,11 @@ const SETUP = parseSetup(
   },
   ID,
 );
-const CLOSED = step(initialQueue({ openAt: OPEN, closeAt: CLOSE }), { type: "tick" }, CLOSE).state;
+const CLOSED = step(
+  initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES),
+  { type: "tick" },
+  CLOSE,
+).state;
 
 const contribution = (k: number) =>
   buildContributionRecord({
@@ -147,7 +151,11 @@ describe("checkFinalize", () => {
   });
 
   it("refuses unless the ceremony is CLOSED with no session, and once it is sealed", () => {
-    const open = step(initialQueue({ openAt: OPEN, closeAt: CLOSE }), { type: "tick" }, OPEN).state;
+    const open = step(
+      initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES),
+      { type: "tick" },
+      OPEN,
+    ).state;
     expect(checkFinalize(SETUP, open, RECORDS, request(), OPEN + 1)).toEqual({
       ok: false,
       refusal: "invalid-transition",

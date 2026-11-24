@@ -33,7 +33,7 @@ import { PUBLISH_FINAL_USAGE, type PublishFinalOptions, parsePublishFinalOptions
 /** The finalization request from the local transcript, refused unless it is final. */
 async function readFinalization(dir: string) {
   const { announcement, init } = await loadCeremony(dir);
-  const { transcript } = await openTranscript(dir, announcement, init.value);
+  const { transcript } = await openTranscript(dir, announcement);
   const { records, finals } = transcript;
   const beacon = records.at(-1);
   if (beacon?.type !== "beacon") {

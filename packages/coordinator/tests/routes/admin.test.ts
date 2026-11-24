@@ -5,12 +5,13 @@
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { CEREMONY_LAYOUT, sha256Hex } from "@orbinum-ceremony/core";
+import { CEREMONY_LAYOUT, serializeJson, sha256Hex } from "@orbinum-ceremony/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   call,
   clearBuckets,
   freshId,
+  INIT,
   json,
   publishedSetup,
   raw,
@@ -112,9 +113,25 @@ describe("setup files (cli publish-init)", () => {
   });
 
   it("serves every setup file with its type", async () => {
+    expect((await put(CEREMONY_LAYOUT.init, serializeJson(INIT))).status).toBe(201);
     expect((await put(CEREMONY_LAYOUT.r1cs("transfer"), "r1cs")).status).toBe(201);
     const r = await call("GET", `/artifacts/${CEREMONY_LAYOUT.r1cs("transfer")}`);
     expect(r.headers.get("content-type")).toBe("application/octet-stream");
+  });
+
+  it("takes a circuit's files only for a circuit of the published init.json", async () => {
+    expect(await refusal(await put(CEREMONY_LAYOUT.r1cs("transfer"), "r1cs"))).toEqual([
+      409,
+      "invalid-transition",
+    ]);
+    expect((await put(CEREMONY_LAYOUT.init, serializeJson(INIT))).status).toBe(201);
+    for (const key of [CEREMONY_LAYOUT.r1cs("private_sweep"), CEREMONY_LAYOUT.zkey("other", 0)]) {
+      // oxlint-disable-next-line no-await-in-loop -- one key at a time
+      expect(await refusal(await put(key, "x"))).toEqual([400, "malformed"]);
+      // oxlint-disable-next-line no-await-in-loop -- one key at a time
+      expect(await env.PUBLIC.head(key)).toBeNull();
+    }
+    expect((await put(CEREMONY_LAYOUT.zkey("shield", 0), "genesis")).status).toBe(201);
   });
 
   it("refuses other keys, a missing hash or length, and bytes that do not match", async () => {

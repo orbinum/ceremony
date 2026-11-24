@@ -1,5 +1,5 @@
 /** Read-only views derived from the records alone. */
-import { CIRCUIT_ORDER, type CircuitName } from "../../config";
+import type { CircuitName } from "../../config";
 import type { CurrentHead } from "../../verification";
 import type { AttestedContribution } from "../identity";
 import {
@@ -81,7 +81,7 @@ export function receiptOf(transcript: Transcript, seq: number): Receipt | null {
     : { ceremony_id: transcript.ceremony_id, anchor: transcript.anchor, seq, records };
 }
 
-/** The accepted contributions of session `seq` by `githubId`, in session order, by hashes only. */
+/** The accepted contributions of session `seq` by `githubId`, in transcript order, by hashes only. */
 export function attestedContributionsOf(
   records: readonly Chained[],
   seq: number,
@@ -92,7 +92,6 @@ export function attestedContributionsOf(
       (r): r is Chained<ContributionRecord> =>
         r.type === "contribution" && r.seq === seq && r.identity?.github_id === githubId,
     )
-    .toSorted((a, b) => CIRCUIT_ORDER.indexOf(a.circuit) - CIRCUIT_ORDER.indexOf(b.circuit))
     .map((r) => ({
       circuit: r.circuit,
       index: r.index,

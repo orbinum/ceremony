@@ -40,23 +40,30 @@ describe("validateInit", () => {
     [
       "a path-traversal name",
       withCircuits([{ ...circuit, name: "../../tmp/x" }]),
-      /\.name: expected one of/,
+      /\.name: does not match/,
     ],
     [
-      "an unknown circuit",
-      withCircuits([{ ...circuit, name: "disclosure" }]),
-      /\.name: expected one of/,
+      "two circuits with one on-chain id",
+      withCircuits([circuit, { ...circuit, name: "disclosure" }]),
+      /init\.circuits: duplicate circuit_id/,
     ],
     ["a duplicate circuit", withCircuits([circuit, circuit]), /init\.circuits: duplicate circuit/],
     [
-      "more circuits than exist",
-      withCircuits([circuit, circuit, circuit, circuit]),
-      /init\.circuits: more than 3 items/,
+      "more circuits than a ceremony may have",
+      withCircuits(
+        Array.from({ length: 17 }, (_, i) => ({ ...circuit, name: `c${i}`, circuit_id: i + 1 })),
+      ),
+      /init\.circuits: more than 16 items/,
     ],
     [
       "a circuit without its id",
       withCircuits([{ ...circuit, circuit_id: undefined }]),
       /circuit_id: expected an integer/,
+    ],
+    [
+      "an on-chain id outside 1..2^32-1",
+      withCircuits([{ ...circuit, circuit_id: 0 }]),
+      /circuit_id: expected an integer in \[1, 4294967295\]/,
     ],
     [
       "a revision instead of a commit",

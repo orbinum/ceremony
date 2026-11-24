@@ -1,8 +1,6 @@
 /** The pinned configuration is self-consistent. SPEC §1–2, §4.2, §5. */
 import { describe, expect, it } from "vitest";
 import {
-  CIRCUIT_ORDER,
-  CIRCUITS,
   DRAND,
   LOOPBACK_HOSTS,
   MIN_BEACON_DELAY_SECONDS,
@@ -16,21 +14,6 @@ import {
 describe("config", () => {
   it("pins the ptau as a 512-bit hex hash", () => {
     expect(PTAU.blake2b512).toMatch(/^[0-9a-f]{128}$/);
-  });
-
-  it("fits every circuit in the ptau", () => {
-    for (const c of Object.values(CIRCUITS))
-      expect(c.constraints).toBeLessThan(PTAU.maxConstraints);
-  });
-
-  it("orders every circuit exactly once, smallest first", () => {
-    expect(CIRCUIT_ORDER.toSorted()).toEqual(Object.keys(CIRCUITS).toSorted());
-    const sizes = CIRCUIT_ORDER.map((n) => CIRCUITS[n].constraints);
-    expect(sizes).toEqual(sizes.toSorted((a, b) => a - b));
-  });
-
-  it("issues ceremony keys as a new on-chain version", () => {
-    for (const c of Object.values(CIRCUITS)) expect(c.ceremonyVersion).toBe(c.devVersion + 1);
   });
 
   it("pins drand quicknet", () => {

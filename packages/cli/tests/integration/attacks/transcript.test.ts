@@ -69,7 +69,7 @@ describe.skipIf(!PTAU_PATH)("attacks on the transcript", { timeout: 180_000 }, (
       paths.finalVk("shield"),
       await exportVerificationKey(paths.finalZkey("shield")),
     );
-    const store = await openTranscript(forged.dir, ...(await opened(forged.dir)));
+    const store = await openTranscript(forged.dir, (await opened(forged.dir))[0]);
     const final: FinalRecord = {
       circuit: "shield",
       contributions: 0,

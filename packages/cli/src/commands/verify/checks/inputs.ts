@@ -4,7 +4,6 @@
 import { join } from "node:path";
 import {
   checkInitAgainstConfig,
-  checkInitCoverage,
   checkR1csShape,
   checkRelease,
   createSha256,
@@ -31,7 +30,7 @@ async function r1csMatches(ctx: VerifyContext, c: InitCircuit): Promise<string[]
   if ((await hashFile(path, createSha256())) !== c.r1cs_sha256) {
     return ["SHA-256 differs from init.json"];
   }
-  return checkR1csShape(c.name, readR1csHeader(await readBytes(path)));
+  return checkR1csShape(readR1csHeader(await readBytes(path)), c);
 }
 
 async function genesisMatches(ctx: VerifyContext, c: InitCircuit): Promise<string[]> {
@@ -112,10 +111,10 @@ export async function checkInputs(ctx: VerifyContext): Promise<void> {
   });
   if (!ptauOk) markFailed(ctx, "ptau", "ptau matches the pinned BLAKE2b-512");
 
-  report.expect("init.json covers exactly the pinned circuits and tooling", [
-    ...checkInitCoverage(init.value),
-    ...checkInitAgainstConfig(init.value),
-  ]);
+  report.expect(
+    "init.json pins the ptau and the tooling, and every circuit fits the ptau",
+    checkInitAgainstConfig(init.value),
+  );
 
   const rel = await resolveAnnouncedRelease(ctx);
   const source = rel ? await exportRelease(ctx, rel) : undefined;
@@ -123,10 +122,10 @@ export async function checkInputs(ctx: VerifyContext): Promise<void> {
   for (const c of init.value.circuits) {
     /* oxlint-disable no-await-in-loop -- per-circuit checks run in order; compiling and groth16
        setup are memory-heavy */
-    const r1csId = `${c.name}: r1cs matches init.json and the pinned shape`;
+    const r1csId = `${c.name}: r1cs matches init.json (hash and shape)`;
     if (!(await report.attempt(r1csId, () => r1csMatches(ctx, c)))) markFailed(ctx, c.name, r1csId);
 
-    const releaseId = `${c.name}: r1cs is the one the release published`;
+    const releaseId = `${c.name}: r1cs is the one the release published, at the next version`;
     if (rel) await report.attempt(releaseId, async () => checkRelease(rel.published(c.name), c));
     else report.skip(releaseId, "needs --circuits-repo", true);
 

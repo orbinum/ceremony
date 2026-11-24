@@ -27,7 +27,7 @@ export async function runFinalize(
   await assertPinnedSetup(options.dir, init.value, options.ptau);
 
   return withLock(paths.lock, async () => {
-    const store = await openTranscript(options.dir, announcement, init.value);
+    const store = await openTranscript(options.dir, announcement);
     const plans = await preflight(
       options.dir,
       init.value,

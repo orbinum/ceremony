@@ -1,8 +1,8 @@
 /**
- * A compiled circuit against its pinned shape: field, constraints, public signals, domain. SPEC
- * §2.1.
+ * A compiled circuit against its shape: BN254, a domain the ptau covers and, once `init.json`
+ * pins them, the same constraints and public signals. SPEC §2.1.
  */
-import { CIRCUITS, type CircuitName, PTAU } from "../../config";
+import { PTAU } from "../../config";
 import { BN254_FR } from "../bn254";
 import type { R1csHeader } from "./header";
 
@@ -13,17 +13,22 @@ export function domainPower(h: R1csHeader): number {
   return Math.ceil(Math.log2(h.constraints + h.publicOutputs + h.publicInputs + 1));
 }
 
-/** Every way the header differs from the pinned shape; empty means it matches. */
-export function checkR1csShape(name: CircuitName, h: R1csHeader): string[] {
-  const expected = CIRCUITS[name];
+/** Every way the header differs from the shape; empty means it matches. */
+export function checkR1csShape(
+  h: R1csHeader,
+  pinned?: { constraints: number; public_signals: number; domain_power: number },
+): string[] {
   const problems: string[] = [];
   if (h.prime !== BN254_FR) problems.push(`field ${h.prime} is not BN254 Fr`);
-  if (h.constraints !== expected.constraints) {
-    problems.push(`constraints ${h.constraints}, expected ${expected.constraints}`);
+  if (pinned && h.constraints !== pinned.constraints) {
+    problems.push(`constraints ${h.constraints}, expected ${pinned.constraints}`);
   }
   const pub = h.publicOutputs + h.publicInputs;
-  if (pub !== expected.publicInputs) {
-    problems.push(`public signals ${pub}, expected ${expected.publicInputs}`);
+  if (pinned && pub !== pinned.public_signals) {
+    problems.push(`public signals ${pub}, expected ${pinned.public_signals}`);
+  }
+  if (pinned && domainPower(h) !== pinned.domain_power) {
+    problems.push(`domain 2^${domainPower(h)}, expected 2^${pinned.domain_power}`);
   }
   if (domainPower(h) > PTAU.power) {
     problems.push(`needs a 2^${domainPower(h)} domain, ptau provides 2^${PTAU.power}`);

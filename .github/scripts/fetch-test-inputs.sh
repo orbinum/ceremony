@@ -4,19 +4,20 @@
 # Downloads the inputs the real-key tests need, each checked against its pin before it
 # is kept, and prints the environment that enables those tests:
 #   - the Hermez ptau (BLAKE2b-512, the pin of packages/core/src/config/ptau.ts);
-#   - the testnet-rehearsal-1 vectors (SHA-256): the finished rehearsal with its whole chain —
-#     genesis, contributions, finals and their vk.json, r1cs, ceremony.json, genesis/init.json
-#     and transcript.json — which the e2e, the cli and the attack suites of core and verifier use.
-# Both live in ceremony-verifier's `test-vectors-1` release: the ptau's original hosts answer
+#   - the testnet-rehearsal-2 vectors (SHA-256): the finished rehearsal of circuits v0.17.1 with
+#     its whole chain — genesis, contributions, finals and their vk.json, r1cs, ceremony.json,
+#     genesis/init.json and transcript.json — which the e2e, the cli and the attack suites of
+#     core and verifier use.
+# Both live in ceremony-verifier's `test-vectors-2` release: the ptau's original hosts answer
 # 403 since September 2026 (KL-25). A cached file with the right digest is kept.
 set -euo pipefail
 
 DIR=${1:-.test-inputs}
-BASE=${TEST_INPUTS_BASE:-https://github.com/orbinum/ceremony-verifier/releases/download/test-vectors-1}
+BASE=${TEST_INPUTS_BASE:-https://github.com/orbinum/ceremony-verifier/releases/download/test-vectors-2}
 PTAU=powersOfTau28_hez_final_16.ptau
 PTAU_BLAKE2B=6a6277a2f74e1073601b4f9fed6e1e55226917efb0f0db8a07d98ab01df1ccf43eb0e8c3159432acd4960e2f29fe84a4198501fa54c8dad9e43297453efec125
-VECTORS=testnet-rehearsal-1
-VECTORS_SHA256=1b09813386697048f77e160e35beda6ace578c305a8b2053e8d781bb980082c7
+VECTORS=testnet-rehearsal-2
+VECTORS_SHA256=713d53a730398d603adf6c81ef7bd79c3ad49d3a8fbe7fb5d4ddab198d92105c
 
 # python3's hashlib: the same on Linux and macOS (macOS has no b2sum).
 digest() {

@@ -3,7 +3,7 @@
  * validated value or throws `FormatError` naming the field path.
  */
 import { FormatError } from "../errors";
-import { CEREMONY_ID, COMMIT } from "./patterns";
+import { CEREMONY_ID, CIRCUIT_NAME, COMMIT, isCircuitName } from "./patterns";
 
 const fail = (path: string, message: string): never => {
   throw new FormatError(`${path}: ${message}`);
@@ -124,6 +124,13 @@ export const asSchema = <T extends string>(value: unknown, path: string, id: T):
 /** A ceremony id. */
 export const asCeremonyId = (value: unknown, path: string): string =>
   asString(value, path, 64, CEREMONY_ID);
+
+/** A circuit name (well formed; whether the ceremony has it is the caller's check). */
+export function asCircuitName(value: unknown, path: string): string {
+  const name = asString(value, path, 32, CIRCUIT_NAME);
+  if (!isCircuitName(name)) throw new FormatError(`${path}: ${name} is a reserved name`);
+  return name;
+}
 
 /** A full git commit id. */
 export const asCommit = (value: unknown, path: string): string => asString(value, path, 40, COMMIT);

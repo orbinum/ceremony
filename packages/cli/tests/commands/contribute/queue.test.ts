@@ -78,7 +78,7 @@ async function coordinator(script: Script = {}) {
   const file = (key: string) => readFile(join(ceremony.dir, key));
   const verdicts = [...(script.verdicts ?? [])];
   let state: QueueState = step(
-    initialQueue({ openAt: Date.now() - 1000, closeAt: Date.now() + 86_400_000 }),
+    initialQueue({ openAt: Date.now() - 1000, closeAt: Date.now() + 86_400_000 }, ["shield"]),
     { type: "tick" },
     Date.now(),
   ).state;

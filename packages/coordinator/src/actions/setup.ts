@@ -5,18 +5,21 @@
  */
 import {
   CEREMONY_LAYOUT,
-  CIRCUIT_ORDER,
   contentTypeOf,
+  finalCircuitOf,
   finalFiles,
+  type InitRecord,
   isFinalFileKey,
+  parseInit,
   parseSetup,
   type Setup,
   type SetupInput,
+  setupCircuitOf,
   sha256Hex,
   utf8,
 } from "@orbinum-ceremony/core";
 import { ceremony } from "../durable";
-import { BytesMismatch, headObject, holds, StorageError, streamExact } from "../storage";
+import { BytesMismatch, getObject, headObject, holds, StorageError, streamExact } from "../storage";
 import { fromOutcome, refuse, type Result, succeed } from "./result";
 
 /** A setup or final file as the route validated it. */
@@ -30,11 +33,25 @@ export interface PublicFileInput {
 const IMMUTABLE = (key: string) =>
   refuse("immutable", `${key} is already published with other content`);
 
-/** The circuit a final file belongs to. */
-const finalCircuitOf = (key: string) =>
-  CIRCUIT_ORDER.find(
-    (c) => key === CEREMONY_LAYOUT.finalZkey(c) || key === CEREMONY_LAYOUT.finalVk(c),
-  );
+/**
+ * A per-circuit setup file only for a circuit of the published `init.json`, which `publish-init`
+ * uploads first: no file of a circuit the ceremony does not have is ever made public.
+ */
+async function circuitFileRefusal(env: Env, key: string): Promise<Result<never> | null> {
+  const circuit = setupCircuitOf(key);
+  if (circuit === null) return null;
+  const object = await getObject(env.PUBLIC, CEREMONY_LAYOUT.init);
+  if (!object) return refuse("invalid-transition", `publish ${CEREMONY_LAYOUT.init} first`);
+  let init: InitRecord;
+  try {
+    init = parseInit(await object.text());
+  } catch {
+    return refuse("malformed", `the published ${CEREMONY_LAYOUT.init} is not valid`);
+  }
+  return init.circuits.some((c) => c.name === circuit)
+    ? null
+    : refuse("malformed", `${key}: not a circuit of ${CEREMONY_LAYOUT.init}`);
+}
 
 /**
  * Why a file may not be written now: a setup file once the setup is frozen, a final file before
@@ -52,7 +69,8 @@ async function writeRefusal(env: Env, key: string, sha256: string): Promise<Resu
   const setup = await stub.setup();
   // Setup files are published before the setup freezes (an unchanged one was answered already).
   if (!isFinalFileKey(key)) {
-    return setup ? refuse("invalid-transition", "setup files are frozen once configured") : null;
+    if (setup) return refuse("invalid-transition", "setup files are frozen once configured");
+    return circuitFileRefusal(env, key);
   }
   if (!setup || !state) return refuse("not-configured");
   if (state.phase !== "CLOSED" || state.slot !== null) {
@@ -130,13 +148,13 @@ async function publishedProblems(bucket: R2Bucket, input: SetupInput, setup: Set
     else if (!holds(object, sha256Hex(utf8(text)))) problems.push(`published ${key} differs`);
   }
   for (const c of setup.init.circuits) {
-    // oxlint-disable-next-line no-await-in-loop -- three heads
+    // oxlint-disable-next-line no-await-in-loop -- one head per file
     const object = await headObject(bucket, CEREMONY_LAYOUT.zkey(c.name, 0));
     if (!object) problems.push(`${c.name}: genesis not published`);
     else if (object.size !== setup.genesisSizes[c.name] || !holds(object, c.genesis_sha256)) {
       problems.push(`${c.name}: published genesis differs from the setup`);
     }
-    // oxlint-disable-next-line no-await-in-loop -- three heads
+    // oxlint-disable-next-line no-await-in-loop -- one head per file
     const r1cs = await headObject(bucket, CEREMONY_LAYOUT.r1cs(c.name));
     if (!r1cs) problems.push(`${c.name}: r1cs not published`);
     else if (!holds(r1cs, c.r1cs_sha256)) problems.push(`${c.name}: published r1cs differs`);

@@ -1,6 +1,6 @@
 /**
  * Hostile uploads through the whole SPEC §2.5 pipeline (pre-check + snarkjs zkvi in a bounded child)
- * on the testnet-rehearsal-1 keys; chosen-secret contributions carry valid proofs of knowledge.
+ * on the testnet-rehearsal-2 keys; chosen-secret contributions carry valid proofs of knowledge.
  * Never `valid` unless a genuine extension, never `infra` for a crafted file (infra pauses the ceremony).
  * `ORBINUM_EXHAUSTIVE=1` runs every baseline key, 40 seeded flips and a 400-entry chain (~2 min).
  */
@@ -26,7 +26,7 @@ import { PTAU_PATH } from "../support";
 /** The finished rehearsal with its whole chain (fetch-test-inputs.sh), or the local one. */
 const DIR =
   process.env.ORBINUM_REHEARSAL_DIR ??
-  join(import.meta.dirname, "..", "..", "..", "..", "artifacts", "testnet-rehearsal-1");
+  join(import.meta.dirname, "..", "..", "..", "..", "artifacts", "testnet-rehearsal-2");
 const R = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 const Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
 const EXHAUSTIVE = process.env.ORBINUM_EXHAUSTIVE === "1";

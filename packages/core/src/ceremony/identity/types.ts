@@ -68,7 +68,7 @@ export interface AttestationPayload {
   github_id: number;
   account: string;
   seq: number;
-  /** In session order (`CIRCUIT_ORDER`), each circuit at most once. */
+  /** In session order (the order `init.json` pins), each circuit at most once. */
   contributions: AttestedContribution[];
   client: ClientInfo;
 }

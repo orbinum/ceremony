@@ -1,9 +1,10 @@
 /** The whole `transcript.json`, as read from outside. SPEC §6.3–6.4. */
-import { CIRCUIT_ORDER, MAX_RECORDS } from "../../../config";
+import { MAX_CIRCUITS, MAX_RECORDS } from "../../../config";
 import { FormatError } from "../../../primitives/errors";
 import {
   asArray,
   asCeremonyId,
+  asCircuitName,
   asCount,
   asHex,
   asNullable,
@@ -39,7 +40,7 @@ export function validateFinalRecord(v: unknown, p = "final"): FinalRecord {
   ]);
   if (o.delta_neq_gamma !== true) throw new FormatError(`${p}.delta_neq_gamma: must be true`);
   return {
-    circuit: asOneOf(o.circuit, `${p}.circuit`, CIRCUIT_ORDER),
+    circuit: asCircuitName(o.circuit, `${p}.circuit`),
     contributions: asCount(o.contributions, `${p}.contributions`),
     final_zkey_sha256: asHex(o.final_zkey_sha256, `${p}.final_zkey_sha256`, 32),
     vk_json_sha256: asHex(o.vk_json_sha256, `${p}.vk_json_sha256`, 32),
@@ -65,7 +66,7 @@ export function validateTranscript(v: unknown): Transcript {
   if (foreign !== -1) {
     throw new FormatError(`transcript.records[${foreign}]: belongs to another ceremony`);
   }
-  const finals = asArray(o.finals, "transcript.finals", CIRCUIT_ORDER.length).map((f, i) =>
+  const finals = asArray(o.finals, "transcript.finals", MAX_CIRCUITS).map((f, i) =>
     validateFinalRecord(f, `transcript.finals[${i}]`),
   );
   if (new Set(finals.map((f) => f.circuit)).size !== finals.length) {
