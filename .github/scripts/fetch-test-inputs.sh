@@ -8,16 +8,20 @@
 #     its whole chain — genesis, contributions, finals and their vk.json, r1cs, ceremony.json,
 #     genesis/init.json and transcript.json — which the e2e, the cli and the attack suites of
 #     core and verifier use.
-# Both live in ceremony-verifier's `test-vectors-2` release: the ptau's original hosts answer
-# 403 since September 2026 (KL-25). A cached file with the right digest is kept.
+# Both live in ceremony-verifier's releases, each published once and never changed: the ptau in
+# `ptau-hez-final-16` (its original hosts answer 403 since September 2026), the vectors in
+# `vectors-<ceremony>` (rebuilt byte for byte by its scripts/pack-vectors.py). A cached file with
+# the right digest is kept.
 set -euo pipefail
 
 DIR=${1:-.test-inputs}
-BASE=${TEST_INPUTS_BASE:-https://github.com/orbinum/ceremony-verifier/releases/download/test-vectors-2}
+RELEASES=https://github.com/orbinum/ceremony-verifier/releases/download
 PTAU=powersOfTau28_hez_final_16.ptau
 PTAU_BLAKE2B=6a6277a2f74e1073601b4f9fed6e1e55226917efb0f0db8a07d98ab01df1ccf43eb0e8c3159432acd4960e2f29fe84a4198501fa54c8dad9e43297453efec125
+PTAU_URL=${TEST_PTAU_URL:-$RELEASES/ptau-hez-final-16/$PTAU}
 VECTORS=testnet-rehearsal-2
-VECTORS_SHA256=713d53a730398d603adf6c81ef7bd79c3ad49d3a8fbe7fb5d4ddab198d92105c
+VECTORS_SHA256=310f4bb449f3d5fa83cc4b8f887424d5b74101494ea13375d0e95e7b408d6d27
+VECTORS_URL=${TEST_VECTORS_URL:-$RELEASES/vectors-$VECTORS/$VECTORS.tar.gz}
 
 # python3's hashlib: the same on Linux and macOS (macOS has no b2sum).
 digest() {
@@ -50,8 +54,8 @@ fetch() {
 }
 
 mkdir -p "$DIR"
-fetch "$BASE/$PTAU" blake2b "$PTAU_BLAKE2B" "$DIR/$PTAU"
-fetch "$BASE/$VECTORS.tar.gz" sha256 "$VECTORS_SHA256" "$DIR/$VECTORS.tar.gz"
+fetch "$PTAU_URL" blake2b "$PTAU_BLAKE2B" "$DIR/$PTAU"
+fetch "$VECTORS_URL" sha256 "$VECTORS_SHA256" "$DIR/$VECTORS.tar.gz"
 tar -xzf "$DIR/$VECTORS.tar.gz" -C "$DIR"
 
 echo "ORBINUM_PTAU=$(cd "$DIR" && pwd)/$PTAU"

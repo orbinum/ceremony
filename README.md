@@ -40,7 +40,7 @@ ORBINUM_PTAU=... ORBINUM_REHEARSAL_DIR=artifacts/testnet-rehearsal-2 pnpm --filt
 
 The attack suites of `core` and `verifier` walk the same rehearsal's whole chain: every contribution, each final's `vk.json` and `transcript.json` (`artifacts/testnet-rehearsal-2` when `ORBINUM_REHEARSAL_DIR` is unset).
 
-Both inputs can be fetched, checked against their pins, from `ceremony-verifier`'s `test-vectors-1` release; the script prints the environment to use:
+Both inputs can be fetched, checked against their pins, from `ceremony-verifier`'s releases (`ptau-hez-final-16` and `vectors-testnet-rehearsal-2`, each published once and never changed); the script prints the environment to use:
 
 ```bash
 .github/scripts/fetch-test-inputs.sh > .test-inputs.env && set -a && . ./.test-inputs.env && set +a && pnpm test

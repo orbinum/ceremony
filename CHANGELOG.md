@@ -30,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CI clones circuits v0.17.1, the release of the test vectors (shield's r1cs is unchanged).
 - Session and verifier bounds stay sized for circuits v0.17.1 (KL-61).
 - The real-key test vectors are `testnet-rehearsal-2` (circuits v0.17.1), from ceremony-verifier's
-  `test-vectors-2` release.
+  `vectors-testnet-rehearsal-2` release (reproducible by its `pack-vectors.py`); the ptau comes from its
+  `ptau-hez-final-16` release.
 
 ### Security
 
@@ -95,7 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The wallet picker and the wallet step show the Solana (base58) form of an ed25519 account
   beside its SS58 form (KL-50 removed).
 - `init` downloads the ptau from Orbinum's copies first (the testnet coordinator's
-  `/artifacts/ptau/…`, ceremony-verifier's `test-vectors-2` release), then the original hosts
+  `/artifacts/ptau/…`, ceremony-verifier's `ptau-hez-final-16` release), then the original hosts
   (KL-25 removed).
 - snarkjs children load core through `@orbinum-ceremony/core/snarkjs-child`, without the wallet
   libraries: about 100 MB and 0.3 s less per child (KL-33 narrowed).
