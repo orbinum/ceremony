@@ -59,6 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gitleaks also catches a literal `VERIFIER_ACCESS_CLIENT_SECRET`.
 - A late attestation in CLOSED can make the operator re-run `finalize` (KL-62).
 
+### Fixed
+
+- The sign-in step shows a placeholder until the session and the ceremony's status are known,
+  instead of offering "Sign in with GitHub" and then switching to "not announced yet".
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

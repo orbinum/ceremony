@@ -27,7 +27,13 @@ export function Home() {
   const { data: me, error, reload } = usePoll(getMe, 60_000);
   const { data: config } = usePoll(getConfig, 3_600_000);
   const { data: status, error: statusError } = usePoll(getStatus, 15_000);
-  const announced = !(statusError instanceof ApiError && statusError.code === "not-configured");
+  // Undefined until the status answers: the page then knows whether there is a ceremony at all.
+  const announced =
+    status !== undefined
+      ? true
+      : statusError === undefined
+        ? undefined
+        : !(statusError instanceof ApiError && statusError.code === "not-configured");
 
   return (
     <>
@@ -62,7 +68,7 @@ export function Home() {
           </p>
         </section>
 
-        <CeremonyStatus status={status} announced={announced} />
+        <CeremonyStatus status={status} announced={announced !== false} />
 
         {/* Before the announcement, the sign-in step already says why. */}
         {outcome && announced && <Notice tone="error">{outcome}</Notice>}
@@ -73,7 +79,8 @@ export function Home() {
             <h2 className="mb-6 text-[10px] font-medium uppercase tracking-widest text-muted">
               How to contribute
             </h2>
-            {me !== undefined && (
+            {/* Loading (no answer yet) shows placeholders; a failed load shows only its notice. */}
+            {(me !== undefined || error === undefined) && (
               <Journey me={me} config={config} announced={announced} reloadMe={reload} />
             )}
           </section>
