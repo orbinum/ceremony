@@ -38,9 +38,8 @@ export function Home() {
   return (
     <>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 sm:h-16 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex shrink-0 items-center">
           <Logo />
-          <NetworkSelector network={config?.network} />
         </div>
         <div className="flex min-w-0 items-center gap-2 text-xs sm:gap-3">
           {me && (
@@ -51,6 +50,7 @@ export function Home() {
               </Button>
             </>
           )}
+          <NetworkSelector network={config?.network} />
           <ThemeToggle />
         </div>
       </header>
