@@ -22,7 +22,16 @@ import {
   utf8,
 } from "@orbinum-ceremony/core";
 import { ceremony } from "../durable";
-import { BytesMismatch, getObject, headObject, holds, StorageError, streamExact } from "../storage";
+import {
+  type Bucket,
+  BytesMismatch,
+  getObject,
+  headObject,
+  holds,
+  publicBucket,
+  StorageError,
+  streamExact,
+} from "../storage";
 import { fromOutcome, refuse, type Result, succeed } from "./result";
 
 /** A setup or final file as the route validated it. */
@@ -43,7 +52,7 @@ const IMMUTABLE = (key: string) =>
 async function circuitFileRefusal(env: Env, key: string): Promise<Result<never> | null> {
   const circuit = setupCircuitOf(key);
   if (circuit === null) return null;
-  const object = await getObject(env.PUBLIC, CEREMONY_LAYOUT.init);
+  const object = await getObject(publicBucket(env), CEREMONY_LAYOUT.init);
   if (!object) return refuse("invalid-transition", `publish ${CEREMONY_LAYOUT.init} first`);
   if (object.size > MAX_DOCUMENT_BYTES) {
     await object.body.cancel();
@@ -140,7 +149,7 @@ export async function publishFile(
   input: PublicFileInput,
 ): Promise<Result<{ key: string; unchanged?: true }>> {
   const { key, sha256, size } = input;
-  const existing = await headObject(env.PUBLIC, key);
+  const existing = await headObject(publicBucket(env), key);
   if (existing && holds(existing, sha256)) return succeed({ key, unchanged: true });
   const final = isFinalFileKey(key);
   const replace = existing !== null && final;
@@ -152,7 +161,7 @@ export async function publishFile(
     if (why) return why;
     const stream = await documentBody(input);
     if (!(stream instanceof ReadableStream)) return stream;
-    const r = await streamExact(env.PUBLIC, key, stream, {
+    const r = await streamExact(publicBucket(env), key, stream, {
       size,
       sha256,
       contentType: contentTypeOf(key),
@@ -182,7 +191,7 @@ export async function publishFile(
  * hash and, outside a local rehearsal, the ptau of its pinned size. Setup files freeze with the
  * setup, so a missing or wrong one could never be put right afterwards.
  */
-async function publishedProblems(bucket: R2Bucket, input: SetupInput, setup: Setup) {
+async function publishedProblems(bucket: Bucket, input: SetupInput, setup: Setup) {
   const problems: string[] = [];
   for (const [key, text] of [
     [CEREMONY_LAYOUT.announcement, input.announcement],
@@ -236,7 +245,7 @@ export async function configureCeremony(env: Env, input: SetupInput): Promise<Re
   if (env.ANNOUNCEMENT_SHA256 && setup.announcementSha256 !== env.ANNOUNCEMENT_SHA256) {
     return refuse("malformed-setup", "this deployment is pinned to another ceremony.json");
   }
-  const problems = await publishedProblems(env.PUBLIC, input, setup);
+  const problems = await publishedProblems(publicBucket(env), input, setup);
   if (problems.length > 0) return refuse("malformed-setup", problems.join("; "));
   return fromOutcome(await ceremony(env).configure(input));
 }

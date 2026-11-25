@@ -5,7 +5,7 @@
  * ceremony refuses every event after.
  */
 import { checkFinalize, type FinalizeRequest } from "@orbinum-ceremony/core";
-import { headObject, holds, StorageError } from "../../storage";
+import { headObject, holds, publicBucket, StorageError } from "../../storage";
 import * as db from "../db";
 import { commit, records, type Store } from "../store";
 import { queueNow } from "./clock";
@@ -23,7 +23,7 @@ async function unpublished(store: Store, files: { key: string; sha256: string }[
   const problems: string[] = [];
   for (const { key, sha256 } of files) {
     // oxlint-disable-next-line no-await-in-loop -- a few heads
-    const object = await headObject(store.env.PUBLIC, key);
+    const object = await headObject(publicBucket(store.env), key);
     if (!object) problems.push(`${key} is not published`);
     else if (!holds(object, sha256)) problems.push(`${key} differs from its final record`);
   }

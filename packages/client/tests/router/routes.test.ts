@@ -5,9 +5,12 @@ import { routes } from "../../src/router/routes";
 const leaf = (path: string) => matchRoutes(routes, path)?.at(-1)?.route.path;
 
 describe("routes", () => {
-  it("shows the ceremony at the root and not-found on any other path", () => {
+  it("shows the ceremony at the root, the archive at /archive and not-found elsewhere", () => {
     expect(leaf("/")).toBe("/");
-    for (const path of ["/nope", "/admin", "/a/b/c", "/%2e%2e/x"]) expect(leaf(path)).toBe("*");
+    expect(leaf("/archive")).toBe("/archive");
+    for (const path of ["/nope", "/admin", "/a/b/c", "/%2e%2e/x", "/archive/x"]) {
+      expect(leaf(path)).toBe("*");
+    }
   });
 
   it("has an error element above every page", () => {

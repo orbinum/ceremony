@@ -25,6 +25,8 @@ import {
   linkDirect,
   OPEN,
   pastSetup,
+  PRIVATE,
+  PUBLIC,
   publishedSetup,
   readTranscript,
   refusal,
@@ -80,7 +82,7 @@ async function verifying(id: string) {
   };
   const prepared = await stub.prepareUpload(upload);
   if (!prepared.ok) throw new Error(prepared.refusal);
-  await env.PRIVATE.put(prepared.key, bytes);
+  await PRIVATE.put(prepared.key, bytes);
   const r = await stub.uploaded(upload, prepared.key);
   if (!r.ok) throw new Error(r.refusal);
   return { stub, job: r.spec.job };
@@ -106,7 +108,7 @@ async function closedCeremony(contribute: boolean) {
     };
     const prepared = await stub.prepareUpload(upload);
     if (!prepared.ok) throw new Error(prepared.refusal);
-    await env.PRIVATE.put(prepared.key, bytes);
+    await PRIVATE.put(prepared.key, bytes);
     const up = await stub.uploaded(upload, prepared.key);
     if (!up.ok) throw new Error(up.refusal);
     await stub.report(validReport(up.spec.job));
@@ -144,7 +146,7 @@ describe("PUT /admin/artifacts/*", () => {
       const answer = await putRefusal(id, path, bytes);
       expect([path, ...answer]).toEqual([path, 400, "malformed"]);
     }
-    expect((await env.PUBLIC.list()).objects).toEqual([]);
+    expect((await PUBLIC.list()).objects).toEqual([]);
   });
 
   it("refuses a short, 0x-prefixed, empty or wrong X-Content-SHA256 and a wrong length, accepts uppercase", async () => {
@@ -168,7 +170,7 @@ describe("PUT /admin/artifacts/*", () => {
         }),
       ),
     ).toEqual([400, "malformed"]);
-    expect((await env.PUBLIC.list()).objects).toEqual([]);
+    expect((await PUBLIC.list()).objects).toEqual([]);
     const upper = await putFile(id, CEREMONY_LAYOUT.ptau, bytes, {
       "x-content-sha256": sha.toUpperCase(),
     });
@@ -195,7 +197,7 @@ describe("PUT /admin/artifacts/*", () => {
       new TextEncoder().encode("final on genesis"),
     );
     expect(early.status).toBe(409);
-    expect(await env.PUBLIC.head(CEREMONY_LAYOUT.finalZkey("shield"))).toBeNull();
+    expect(await PUBLIC.head(CEREMONY_LAYOUT.finalZkey("shield"))).toBeNull();
     // The in-flight verification then lands and moves the head.
     expect(await stub.report(validReport(job))).toEqual({ ok: true, status: "applied" });
     expect((await stub.head("shield"))?.index).toBe(1);
@@ -239,7 +241,7 @@ describe("configure and state", () => {
     const id = freshId("admin-attacks-r1cs");
     const setup = await publishedSetup(Date.now() - 1000, Date.now() + 86_400_000);
     const key = CEREMONY_LAYOUT.r1cs("shield");
-    await env.PUBLIC.put(key, new TextEncoder().encode("another circuit"));
+    await PUBLIC.put(key, new TextEncoder().encode("another circuit"));
     const configure = () =>
       call("POST", "/admin/configure", undefined, { ceremony: id, body: setup });
     const r = await configure();
@@ -247,7 +249,7 @@ describe("configure and state", () => {
       400,
       expect.stringContaining("shield: published r1cs differs"),
     ]);
-    await env.PUBLIC.delete(key);
+    await PUBLIC.delete(key);
     expect((await json(await configure())).error.message).toContain("shield: r1cs not published");
   });
 

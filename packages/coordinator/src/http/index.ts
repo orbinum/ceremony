@@ -5,6 +5,7 @@ export { edgeCache } from "./cache";
 export { answer, fail, onError, respond } from "./errors";
 export { artifactResponse, noStore, objectResponse } from "./headers";
 export {
+  archiveKey,
   artifactKey,
   attestationBody,
   circuitParam,

@@ -65,7 +65,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "localhost",
       cors: false,
-      proxy: { "/api": target, "/auth": target, "/artifacts": target },
+      proxy: { "/api": target, "/auth": target, "/artifacts": target, "^/archive/": target },
     },
     preview: { host: "localhost", cors: false },
   };

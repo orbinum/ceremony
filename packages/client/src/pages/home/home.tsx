@@ -5,10 +5,10 @@
 import { useState } from "react";
 import { ApiError, getConfig, getMe, getStatus, signInOutcomeOf, signOut } from "../../api";
 import { usePoll } from "../../hooks";
-import { Button, Logo, Notice, ThemeToggle } from "../../ui";
+import { Notice } from "../../ui";
+import { SiteHeader } from "../layout";
 import { About } from "./about";
 import { Journey } from "./journey";
-import { NetworkSelector } from "./network";
 import { CeremonyStatus } from "./status";
 import { errorText, signInText } from "./text";
 
@@ -37,23 +37,10 @@ export function Home() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 sm:h-16 sm:px-6">
-        <div className="flex shrink-0 items-center">
-          <Logo />
-        </div>
-        <div className="flex min-w-0 items-center gap-2 text-xs sm:gap-3">
-          {me && (
-            <>
-              <span className="hidden truncate text-muted sm:inline">@{me.login}</span>
-              <Button variant="secondary" onClick={() => void signOut().then(reload)}>
-                Sign out
-              </Button>
-            </>
-          )}
-          <NetworkSelector network={config?.network} />
-          <ThemeToggle />
-        </div>
-      </header>
+      <SiteHeader
+        network={config?.network}
+        account={me && { login: me.login, signOut: () => void signOut().then(reload) }}
+      />
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:py-12">
         <section className="max-w-3xl space-y-3">

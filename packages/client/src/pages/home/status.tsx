@@ -1,15 +1,7 @@
 /** The ceremony at a glance: its phase in words, how many have contributed, the line, its window. */
-import type { CeremonyState } from "@orbinum-ceremony/core";
 import { getSchedule, type Schedule, type Status } from "../../api";
 import { usePoll } from "../../hooks";
-
-const PHASE: Record<CeremonyState, { label: string; dot: string }> = {
-  SCHEDULED: { label: "Not open yet", dot: "bg-muted" },
-  OPEN: { label: "Open", dot: "bg-success" },
-  PAUSED: { label: "Paused", dot: "bg-warning" },
-  CLOSED: { label: "Closed", dot: "bg-muted" },
-  FINALIZED: { label: "Finalized", dot: "bg-accent" },
-};
+import { PHASE } from "../layout";
 
 const NOT_ANNOUNCED = { label: "Not announced yet", dot: "bg-muted" };
 

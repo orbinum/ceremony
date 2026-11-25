@@ -3,7 +3,6 @@
  * verifier results aimed at the wrong attempt.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { sha256Hex } from "@orbinum-ceremony/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -14,6 +13,7 @@ import {
   GENESIS_SHA256,
   json,
   linkDirect,
+  PRIVATE,
   readTranscript,
   routedTo,
   setupInput,
@@ -67,7 +67,7 @@ const status = async (r: Response) => [
   r.status,
   r.status >= 400 ? (await json(r)).error.code : "ok",
 ];
-const privateObjects = async () => (await env.PRIVATE.list({ prefix: "verify/" })).objects;
+const privateObjects = async () => (await PRIVATE.list({ prefix: "verify/" })).objects;
 
 describe("Content-Length", () => {
   it("refuses every non-canonical or out-of-range declared length before storing", async () => {

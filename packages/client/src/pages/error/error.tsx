@@ -3,8 +3,8 @@
  * happened in plain words and the way back. Never the error itself.
  */
 import { useEffect } from "react";
-import { isRouteErrorResponse, Link, useRouteError } from "react-router";
-import { Logo, ThemeToggle } from "../../ui";
+import { isRouteErrorResponse, useRouteError } from "react-router";
+import { SiteHeader } from "../layout";
 
 function ErrorPage(props: { code: string; title: string; text: string; reload?: boolean }) {
   useEffect(() => {
@@ -17,12 +17,7 @@ function ErrorPage(props: { code: string; title: string; text: string; reload?: 
 
   return (
     <>
-      <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 sm:h-16 sm:px-6">
-        <Link to="/" aria-label="Orbinum Trusted Setup Ceremony">
-          <Logo />
-        </Link>
-        <ThemeToggle />
-      </header>
+      <SiteHeader network={undefined} />
       <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-xl flex-col justify-center gap-4 px-4 py-12">
         <p className="text-[10px] font-medium uppercase tracking-widest text-muted">{props.code}</p>
         <h1 className="wordmark text-3xl leading-tight sm:text-5xl">{props.title}</h1>

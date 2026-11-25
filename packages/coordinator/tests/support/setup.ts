@@ -3,6 +3,7 @@
  * files; both texts in the canonical form core requires.
  */
 import { env } from "cloudflare:workers";
+import { PUBLIC } from "./buckets";
 import {
   type Admission,
   buildAnnouncement,
@@ -114,11 +115,11 @@ export async function publishedSetup(openAt: number, closeAt: number): Promise<S
   }
   for (const c of init.circuits) {
     // oxlint-disable-next-line no-await-in-loop -- six small writes
-    await env.PUBLIC.put(CEREMONY_LAYOUT.zkey(c.name, 0), genesisBytes(c.name), {
+    await PUBLIC.put(CEREMONY_LAYOUT.zkey(c.name, 0), genesisBytes(c.name), {
       sha256: c.genesis_sha256,
     });
     // oxlint-disable-next-line no-await-in-loop -- six small writes
-    await env.PUBLIC.put(CEREMONY_LAYOUT.r1cs(c.name), r1csBytes(c.name), {
+    await PUBLIC.put(CEREMONY_LAYOUT.r1cs(c.name), r1csBytes(c.name), {
       sha256: c.r1cs_sha256,
     });
   }
@@ -128,7 +129,7 @@ export async function publishedSetup(openAt: number, closeAt: number): Promise<S
     [CEREMONY_LAYOUT.init, input.init],
   ] as const) {
     // oxlint-disable-next-line no-await-in-loop -- two small writes
-    await env.PUBLIC.put(key, text, { sha256: sha256Hex(new TextEncoder().encode(text)) });
+    await PUBLIC.put(key, text, { sha256: sha256Hex(new TextEncoder().encode(text)) });
   }
   return {
     ...input,

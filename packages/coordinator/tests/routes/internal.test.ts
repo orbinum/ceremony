@@ -13,6 +13,7 @@ import {
   GENESIS_SHA256,
   json,
   linkDirect,
+  PRIVATE,
   raw,
   refusal,
   setupInput,
@@ -43,7 +44,7 @@ async function pending() {
   };
   const prepared = await stub.prepareUpload(upload);
   if (!prepared.ok) throw new Error(prepared.refusal);
-  await env.PRIVATE.put(prepared.key, BYTES);
+  await PRIVATE.put(prepared.key, BYTES);
   const r = await stub.uploaded(upload, prepared.key);
   if (!r.ok) throw new Error(r.refusal);
   const job = r.spec.job;
@@ -158,7 +159,7 @@ describe("the verifier's routes", () => {
       status: "applied",
     });
     await unwrapBuckets(stub);
-    expect((await env.PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toHaveLength(1);
+    expect((await PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toHaveLength(1);
     expect(await refusal(await signed("GET", OBJECT))).toEqual([404, "unknown-job"]);
   });
 });

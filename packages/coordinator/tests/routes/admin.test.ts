@@ -4,7 +4,6 @@
  * bodies.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { CEREMONY_LAYOUT, serializeJson, sha256Hex } from "@orbinum-ceremony/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -13,6 +12,7 @@ import {
   freshId,
   INIT,
   json,
+  PUBLIC,
   publishedSetup,
   raw,
   readTranscript,
@@ -124,7 +124,7 @@ describe("setup files (cli publish-init)", () => {
         expect(await refusal(await put(key, body))).toEqual([400, "malformed"]);
       }
       // oxlint-disable-next-line no-await-in-loop -- one key at a time
-      expect(await env.PUBLIC.head(key)).toBeNull();
+      expect(await PUBLIC.head(key)).toBeNull();
     }
   });
 
@@ -145,7 +145,7 @@ describe("setup files (cli publish-init)", () => {
       // oxlint-disable-next-line no-await-in-loop -- one key at a time
       expect(await refusal(await put(key, "x"))).toEqual([400, "malformed"]);
       // oxlint-disable-next-line no-await-in-loop -- one key at a time
-      expect(await env.PUBLIC.head(key)).toBeNull();
+      expect(await PUBLIC.head(key)).toBeNull();
     }
     expect((await put(CEREMONY_LAYOUT.zkey("shield", 0), "genesis")).status).toBe(201);
   });
@@ -173,8 +173,8 @@ describe("setup files (cli publish-init)", () => {
       }),
     });
     expect(await refusal(chunked)).toEqual([400, "malformed"]);
-    expect(await env.PUBLIC.head("genesis/init.json")).toBeNull();
-    expect(await env.PUBLIC.head("contributions/shield/1.zkey")).toBeNull();
+    expect(await PUBLIC.head("genesis/init.json")).toBeNull();
+    expect(await PUBLIC.head("contributions/shield/1.zkey")).toBeNull();
   });
 
   it("answers storage when the bucket fails, without writing", async () => {
@@ -184,6 +184,6 @@ describe("setup files (cli publish-init)", () => {
       body: {},
     });
     expect(await refusal(r)).toEqual([503, "storage"]);
-    expect(await env.PUBLIC.head("ceremony.json")).toBeNull();
+    expect(await PUBLIC.head("ceremony.json")).toBeNull();
   });
 });

@@ -6,7 +6,7 @@ import { env } from "cloudflare:workers";
 import { CEREMONY_LAYOUT, sha256Hex, utf8 } from "@orbinum-ceremony/core";
 import { describe, expect, it } from "vitest";
 import { configureCeremony } from "../../src/actions";
-import { freshId, publishedSetup, routedTo, stubOf } from "../support";
+import { freshId, PUBLIC, publishedSetup, routedTo, stubOf } from "../support";
 
 /** A fresh ceremony's bindings and object. */
 const fresh = () => {
@@ -15,7 +15,7 @@ const fresh = () => {
 };
 
 const put = (key: string, bytes: Uint8Array | string) =>
-  env.PUBLIC.put(key, bytes, {
+  PUBLIC.put(key, bytes, {
     sha256: sha256Hex(typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes),
   });
 
@@ -24,8 +24,8 @@ describe("configureCeremony", () => {
     const { e, stub } = fresh();
     const setup = await publishedSetup(Date.now() - 1000, Date.now() + 86_400_000);
     const key = CEREMONY_LAYOUT.zkey("shield", 0);
-    const original = new Uint8Array(await (await env.PUBLIC.get(key))!.arrayBuffer());
-    await env.PUBLIC.delete(key);
+    const original = new Uint8Array(await (await PUBLIC.get(key))!.arrayBuffer());
+    await PUBLIC.delete(key);
     expect(await configureCeremony(e, setup)).toEqual({
       ok: false,
       code: "malformed-setup",
@@ -76,7 +76,7 @@ describe("configureCeremony", () => {
         message: `published ${key} differs`,
       });
       // oxlint-disable-next-line no-await-in-loop -- one file at a time
-      await env.PUBLIC.delete(key);
+      await PUBLIC.delete(key);
       // oxlint-disable-next-line no-await-in-loop -- one file at a time
       expect(await configureCeremony(e, setup)).toMatchObject({
         message: `${key} not published`,

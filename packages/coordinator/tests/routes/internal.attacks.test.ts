@@ -24,6 +24,7 @@ import {
   INIT,
   json,
   linkDirect,
+  PRIVATE,
   raw,
   readTranscript,
   refusal,
@@ -75,7 +76,7 @@ async function pending(setup = setupInput(Date.now() - 1000, Date.now() + 86_400
   };
   const prepared = await stub.prepareUpload(upload);
   if (!prepared.ok) throw new Error(prepared.refusal);
-  await env.PRIVATE.put(prepared.key, BYTES);
+  await PRIVATE.put(prepared.key, BYTES);
   const r = await stub.uploaded(upload, prepared.key);
   if (!r.ok) throw new Error(r.refusal);
   /** Sends `path` with headers signed for `signedPath` (default: what is sent). */

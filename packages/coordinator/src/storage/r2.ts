@@ -4,6 +4,7 @@
  * write never lands over one it did not see. SPEC §2.5, §6.1.
  */
 import { toHex } from "@orbinum-ceremony/core";
+import type { Bucket } from "./buckets";
 
 /** The bucket failed (not the bytes): the caller answers `storage`, and may retry. */
 export class StorageError extends Error {
@@ -25,25 +26,25 @@ async function guarded<T>(what: string, call: () => Promise<T>): Promise<T> {
 }
 
 /** An object's metadata, or null. */
-export const headObject = (bucket: R2Bucket, key: string) =>
+export const headObject = (bucket: Bucket, key: string) =>
   guarded(`head ${key}`, () => bucket.head(key));
 
 /** An object with its body, or null. */
-export const getObject = (bucket: R2Bucket, key: string) =>
+export const getObject = (bucket: Bucket, key: string) =>
   guarded(`get ${key}`, () => bucket.get(key));
 
 /**
  * Reads an object unless `ifNoneMatch` (a request's `If-None-Match`) already names its ETag: then
  * its metadata only, no body. No other precondition is taken from the request.
  */
-export const getObjectIfChanged = (bucket: R2Bucket, key: string, ifNoneMatch?: string) =>
+export const getObjectIfChanged = (bucket: Bucket, key: string, ifNoneMatch?: string) =>
   guarded(`get ${key}`, () =>
     bucket.get(key, ifNoneMatch ? { onlyIf: new Headers({ "if-none-match": ifNoneMatch }) } : {}),
   );
 
 /** Writes an object; null when an `onlyIf` condition did not hold. */
 export const putObject = (
-  bucket: R2Bucket,
+  bucket: Bucket,
   key: string,
   value: ReadableStream | string,
   options: R2PutOptions,
@@ -54,7 +55,7 @@ export const holds = (object: R2Object | null, sha256: string): boolean =>
   !!object?.checksums.sha256 && toHex(object.checksums.sha256) === sha256;
 
 /** The key already exists: the same bytes are a no-op, any others a conflict. */
-async function existing(bucket: R2Bucket, key: string, sha256: string): Promise<WriteResult> {
+async function existing(bucket: Bucket, key: string, sha256: string): Promise<WriteResult> {
   return holds(await headObject(bucket, key), sha256) ? "exists" : "conflict";
 }
 
@@ -65,7 +66,7 @@ async function existing(bucket: R2Bucket, key: string, sha256: string): Promise<
  * meanwhile is never overwritten; that is a `StorageError`, and the caller retries.
  */
 export async function replaceObject(
-  bucket: R2Bucket,
+  bucket: Bucket,
   key: string,
   value: ReadableStream | string,
   sha256: string,
@@ -97,7 +98,7 @@ export class BytesMismatch extends Error {
  * written anyway is deleted, only while it is still the version this call wrote.
  */
 export async function streamExact(
-  bucket: R2Bucket,
+  bucket: Bucket,
   key: string,
   body: ReadableStream<Uint8Array>,
   expected: {
@@ -144,7 +145,7 @@ export async function streamExact(
 }
 
 /** Deletes `key` only if it is still the version `etag` names (R2 has no conditional delete). */
-async function deleteIfWritten(bucket: R2Bucket, key: string, etag: string): Promise<void> {
+async function deleteIfWritten(bucket: Bucket, key: string, etag: string): Promise<void> {
   try {
     if ((await bucket.head(key))?.etag === etag) await bucket.delete(key);
   } catch (error) {
@@ -156,7 +157,7 @@ async function deleteIfWritten(bucket: R2Bucket, key: string, etag: string): Pro
  * Deletes keys, best effort: a failure is logged (private uploads are also purged by the
  * lifecycle rule on `verify/`).
  */
-export async function deleteQuietly(bucket: R2Bucket, keys: string | string[]): Promise<void> {
+export async function deleteQuietly(bucket: Bucket, keys: string | string[]): Promise<void> {
   try {
     await bucket.delete(keys);
   } catch (error) {

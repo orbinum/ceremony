@@ -1,9 +1,11 @@
 /**
- * Public reads (SPEC §6.3): the live status, the transcript so far and a session's receipt. No
- * identity, rate-limited per client network, served from the edge cache (KL-36).
+ * Public reads (SPEC §6.1, §6.3): the live status, the transcript so far, a session's receipt and
+ * the ceremonies this network published. No identity, rate-limited per client network, served
+ * from the edge cache (KL-36).
  */
 import { publicStatusOf } from "@orbinum-ceremony/core";
 import { Hono } from "hono";
+import { publishedCeremonies } from "../../actions";
 import { ceremony } from "../../durable";
 import { type AppEnv, isLocal } from "../../env";
 import { edgeCache, fail, seqParam } from "../../http";
@@ -49,3 +51,14 @@ export const receipt = new Hono<AppEnv>().get(
     return r ? c.json(r) : fail(c, "not-found", "no such session");
   },
 );
+
+/**
+ * `GET /api/archive`: the ceremonies this network announced (`/archive/<id>/*` serves their files),
+ * and which one this deployment runs, only once it is announced: the next ceremony's name is not
+ * public before its announcement.
+ */
+export const archived = new Hono<AppEnv>().get("/", readLimit, edgeCache, async (c) => {
+  const ceremonies = await publishedCeremonies(c.env);
+  const current = ceremonies.includes(c.env.CEREMONY_ID) ? c.env.CEREMONY_ID : null;
+  return c.json({ current, ceremonies });
+});

@@ -5,7 +5,6 @@
  * and nothing is recorded outside the acceptance window.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { sha256Hex, toHex, type Setup } from "@orbinum-ceremony/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -17,6 +16,8 @@ import {
   GENESIS_SHA256,
   linkDirect,
   LOG,
+  PRIVATE,
+  PUBLIC,
   readTranscript,
   setQueue,
   setupInput,
@@ -51,7 +52,7 @@ async function uploadShield(stub: Stub, bytes: Uint8Array) {
   };
   const prepared = await stub.prepareUpload(upload);
   if (!prepared.ok) throw new Error(prepared.refusal);
-  await env.PRIVATE.put(prepared.key, bytes);
+  await PRIVATE.put(prepared.key, bytes);
   const r = await stub.uploaded(upload, prepared.key);
   if (!r.ok) throw new Error(r.refusal);
   return r.spec.job;
@@ -61,13 +62,13 @@ const sha = (s: string | Uint8Array) =>
   sha256Hex(typeof s === "string" ? new TextEncoder().encode(s) : s);
 /** The SHA-256 of what a public key holds, or null. */
 const holding = async (key: string) => {
-  const o = await env.PUBLIC.head(key);
+  const o = await PUBLIC.head(key);
   return o ? toHex(o.checksums.sha256 ?? new ArrayBuffer(0)) : null;
 };
 const publicKeys = async () =>
   [
-    ...(await env.PUBLIC.list({ prefix: "contributions/" })).objects,
-    ...(await env.PUBLIC.list({ prefix: "logs/" })).objects,
+    ...(await PUBLIC.list({ prefix: "contributions/" })).objects,
+    ...(await PUBLIC.list({ prefix: "logs/" })).objects,
   ].map((o) => o.key);
 const contributions = async (stub: Stub) =>
   (await readTranscript(stub)).records.filter((r) => r.type === "contribution");
@@ -94,8 +95,8 @@ describe("promotion of a valid upload", () => {
     const stub = await inSession();
     const bytes = new TextEncoder().encode("the contribution");
     const job = await uploadShield(stub, bytes);
-    await env.PUBLIC.put(ZKEY, "someone else's bytes");
-    await env.PUBLIC.put(LOG_KEY, "someone else's log");
+    await PUBLIC.put(ZKEY, "someone else's bytes");
+    await PUBLIC.put(LOG_KEY, "someone else's log");
     expect(await stub.report(validReport(job))).toEqual({ ok: true, status: "applied" });
     const [record] = await contributions(stub);
     expect(record).toMatchObject({ index: 1, output_sha256: sha(bytes) });
@@ -138,8 +139,8 @@ describe("promotion of a valid upload", () => {
   it("removes the public copies of a job that went stale", async () => {
     const stub = await inSession();
     const job = await uploadShield(stub, new TextEncoder().encode("stale"));
-    await env.PUBLIC.put(ZKEY, "a leftover");
-    await env.PUBLIC.put(LOG_KEY, "a leftover log");
+    await PUBLIC.put(ZKEY, "a leftover");
+    await PUBLIC.put(LOG_KEY, "a leftover log");
     await setQueue(stub, (s) => {
       if (s.slot) s.slot.verifyDeadline = Date.now() - 1;
     });

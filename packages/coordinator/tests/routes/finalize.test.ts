@@ -27,6 +27,8 @@ import {
   linkDirect,
   OPEN,
   pastSetup,
+  PRIVATE,
+  PUBLIC,
   readTranscript,
   refusal,
   ROUND_AT,
@@ -55,7 +57,7 @@ async function closedCeremony() {
   };
   const prepared = await stub.prepareUpload(upload);
   if (!prepared.ok) throw new Error(prepared.refusal);
-  await env.PRIVATE.put(prepared.key, bytes);
+  await PRIVATE.put(prepared.key, bytes);
   const uploaded = await stub.uploaded(upload, prepared.key);
   if (!uploaded.ok) throw new Error(uploaded.refusal);
   expect(await stub.report(validReport(uploaded.spec.job))).toEqual({
@@ -89,7 +91,7 @@ const putFinals = async (id: string) => {
 };
 const finalize = (id: string, body: unknown) =>
   call("POST", "/admin/finalize", undefined, { ceremony: id, body });
-const published = async (key: string) => (await env.PUBLIC.get(key))?.text();
+const published = async (key: string) => (await PUBLIC.get(key))?.text();
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -106,7 +108,7 @@ describe("final files (cli publish-final)", () => {
     expect((await stubOf(id).snapshot())?.phase).toBe("OPEN");
     const early = await putFile(id, CEREMONY_LAYOUT.finalZkey("shield"), finalBytes("shield").zkey);
     expect(await refusal(early)).toEqual([409, "invalid-transition"]);
-    expect(await env.PUBLIC.head(CEREMONY_LAYOUT.finalZkey("shield"))).toBeNull();
+    expect(await PUBLIC.head(CEREMONY_LAYOUT.finalZkey("shield"))).toBeNull();
 
     vi.useFakeTimers({ toFake: ["Date"] });
     const { id: closed } = await closedCeremony();
@@ -116,7 +118,7 @@ describe("final files (cli publish-final)", () => {
       finalBytes("shield").zkey,
     );
     expect(await refusal(other)).toEqual([400, "malformed"]);
-    expect(await env.PUBLIC.head(CEREMONY_LAYOUT.finalZkey("unshield"))).toBeNull();
+    expect(await PUBLIC.head(CEREMONY_LAYOUT.finalZkey("unshield"))).toBeNull();
   });
 
   it("are published once closed: the same bytes again are a no-op, other bytes replace them until FINALIZED", async () => {
@@ -158,7 +160,7 @@ describe("POST /admin/finalize", () => {
     expect((await finalize(id, request)).status).toBe(200);
     // A replacement that raced the handover left other bytes behind.
     const key = CEREMONY_LAYOUT.finalZkey("shield");
-    await env.PUBLIC.put(key, "a wrong final key");
+    await PUBLIC.put(key, "a wrong final key");
     const other = await putFile(id, key, new TextEncoder().encode("yet another key"));
     expect(await refusal(other)).toEqual([409, "finalized"]);
     expect((await putFile(id, key, finalBytes("shield").zkey)).status).toBe(201);

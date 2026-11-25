@@ -5,6 +5,7 @@ import type { AppEnv } from "../env";
 import { sameOrigin } from "../middleware";
 import { admin } from "./admin";
 import { api } from "./api";
+import { archive } from "./archive";
 import { artifacts } from "./artifacts";
 import { auth } from "./auth";
 import { internal } from "./internal";
@@ -16,4 +17,5 @@ export const routes = new Hono<AppEnv>()
   .route("/api", api)
   .route("/internal", internal)
   .route("/artifacts", artifacts)
+  .route("/archive", archive)
   .route("/admin", admin);

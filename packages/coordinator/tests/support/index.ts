@@ -1,5 +1,6 @@
 // coordinator/tests/support: the app, the object, setups, jobs, limiters and wallets as tests
 // use them.
+export { FOLDER, inFolder, PRIVATE, PUBLIC } from "./buckets";
 export {
   type Ceremony,
   clearBuckets,

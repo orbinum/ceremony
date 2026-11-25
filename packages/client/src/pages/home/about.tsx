@@ -1,5 +1,6 @@
 /** What the ceremony is and what a contribution does, in plain words, with the common questions. */
 import { CEREMONY_LAYOUT, GITHUB_THRESHOLDS, QUEUE_RULES } from "@orbinum-ceremony/core";
+import { DOCS } from "./text";
 
 const minutes = (ms: number) => Math.round(ms / 60_000);
 
@@ -74,6 +75,32 @@ export function About() {
             recorded, so anyone can check the final keys.
           </li>
         </ol>
+        {/* A new tab: leaving this page during a turn would end it. */}
+        <ul className="mt-4 space-y-2 border-t border-border pt-4 text-xs">
+          {DOCS.map((d) => (
+            <li key={d.href}>
+              <a
+                href={d.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-text underline underline-offset-4 hover:text-accent"
+              >
+                {d.label}
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3 w-3 text-muted"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M7 17 17 7M9 7h8v8" />
+                </svg>
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section>

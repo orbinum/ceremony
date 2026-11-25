@@ -1,4 +1,5 @@
 import type { RouteObject } from "react-router";
+import { Archive } from "../pages/archive";
 import { NotFound, RouteError } from "../pages/error";
 import { Home } from "../pages/home";
 
@@ -8,6 +9,7 @@ export const routes: RouteObject[] = [
     errorElement: <RouteError />,
     children: [
       { path: "/", element: <Home /> },
+      { path: "/archive", element: <Archive /> },
       { path: "*", element: <NotFound /> },
     ],
   },

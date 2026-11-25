@@ -6,7 +6,7 @@
 import type { CircuitName, ContributionClaim, JobId } from "@orbinum-ceremony/core";
 import { ceremony } from "../durable";
 import { dispatch } from "../services";
-import { BytesMismatch, deleteQuietly, StorageError, streamExact } from "../storage";
+import { BytesMismatch, deleteQuietly, privateBucket, StorageError, streamExact } from "../storage";
 import { refuse, type Result, succeed } from "./result";
 
 /** An upload as the route validated it, and what vouched for its identity. */
@@ -47,14 +47,14 @@ export async function receiveUpload(
   const prepared = await stub.prepareUpload(request);
   if (!prepared.ok) return refuse(prepared.refusal);
   try {
-    await streamExact(env.PRIVATE, prepared.key, body, {
+    await streamExact(privateBucket(env), prepared.key, body, {
       size: input.size,
       sha256: input.claim.outputSha256,
       contentType: "application/octet-stream",
       ifAbsent: true,
     });
   } catch (error) {
-    await deleteQuietly(env.PRIVATE, prepared.key);
+    await deleteQuietly(privateBucket(env), prepared.key);
     await stub.releaseUpload(prepared.key).catch(() => undefined);
     if (error instanceof BytesMismatch) {
       return refuse("malformed", "the body does not match its Content-Length or output hash");
@@ -67,7 +67,7 @@ export async function receiveUpload(
   }
   const uploaded = await stub.uploaded(request, prepared.key);
   if (!uploaded.ok) {
-    await deleteQuietly(env.PRIVATE, prepared.key);
+    await deleteQuietly(privateBucket(env), prepared.key);
     return refuse(uploaded.refusal);
   }
   waitUntil(dispatch(env, uploaded.spec));
