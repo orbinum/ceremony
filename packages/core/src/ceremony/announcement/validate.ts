@@ -2,7 +2,8 @@
  * `ceremony.json` read from outside: exact schema and canonical bytes, the pinned drand chain, a
  * beacon round that is exactly the first round at or after the announced beacon time, a schedule
  * in order with the network's beacon delay, the audited circuits repository outside local
- * ceremonies, and the minimum contributions for the network. SPEC §2.1, §5.2, §6.2.
+ * ceremonies, the minimum contributions for the network, and invitations a closed ceremony can
+ * complete with. SPEC §2.1, §3.2, §5.2, §6.2.
  */
 import {
   BEACON_ITERATIONS_EXP,
@@ -11,15 +12,18 @@ import {
   DRAND,
   MAINNET_MIN_CONTRIBUTIONS,
   MAX_CONTRIBUTIONS,
+  MAX_INVITED,
   MIN_BEACON_DELAY_SECONDS,
 } from "../../config";
 import { parseCanonicalJson } from "../../primitives/encoding";
 import { FormatError } from "../../primitives/errors";
 import {
+  asArray,
   asCeremonyId,
   asCommit,
   asHex,
   asIsoTime,
+  asObject,
   asOneOf,
   asPositiveInt,
   asRecord,
@@ -29,24 +33,45 @@ import {
   TOKEN,
 } from "../../primitives/schema";
 import { roundAt } from "../beacon";
-import { ANNOUNCEMENT_SCHEMA, type CeremonyAnnouncement, NETWORKS } from "./types";
+import {
+  ADMISSION_MODES,
+  type Admission,
+  ANNOUNCEMENT_SCHEMA,
+  type CeremonyAnnouncement,
+  NETWORKS,
+} from "./types";
 
 const fail = (message: string): never => {
   throw new FormatError(`announcement: ${message}`);
 };
 
+const KEYS = [
+  "schema",
+  "ceremony_id",
+  "network",
+  "init_sha256",
+  "circuits_source",
+  "min_contributions",
+  "schedule",
+  "beacon",
+] as const;
+
+/** Invitations: a known mode and at least one id, ascending without repeats (one canonical form). */
+function asAdmission(v: unknown): Admission {
+  const o = asRecord(v, "announcement.admission", ["mode", "invited"]);
+  const invited = asArray(o.invited, "announcement.admission.invited", MAX_INVITED, 1).map(
+    (id, i) => asPositiveInt(id, `announcement.admission.invited[${i}]`),
+  );
+  if (invited.some((id, i) => i > 0 && id <= (invited[i - 1] ?? 0))) {
+    fail("admission.invited must be strictly ascending");
+  }
+  return { mode: asOneOf(o.mode, "announcement.admission.mode", ADMISSION_MODES), invited };
+}
+
 /** Validates the document and its cross-field rules. */
 export function validateAnnouncement(v: unknown): CeremonyAnnouncement {
-  const o = asRecord(v, "announcement", [
-    "schema",
-    "ceremony_id",
-    "network",
-    "init_sha256",
-    "circuits_source",
-    "min_contributions",
-    "schedule",
-    "beacon",
-  ]);
+  const invites = Object.hasOwn(asObject(v, "announcement"), "admission");
+  const o = asRecord(v, "announcement", invites ? [...KEYS, "admission"] : KEYS);
   const src = asRecord(o.circuits_source, "announcement.circuits_source", [
     "repo",
     "tag",
@@ -76,6 +101,7 @@ export function validateAnnouncement(v: unknown): CeremonyAnnouncement {
       1,
       MAX_CONTRIBUTIONS,
     ),
+    ...(invites ? { admission: asAdmission(o.admission) } : {}),
     schedule: {
       open: asIsoTime(sched.open, "announcement.schedule.open"),
       close: asIsoTime(sched.close, "announcement.schedule.close"),
@@ -112,6 +138,13 @@ export function validateAnnouncement(v: unknown): CeremonyAnnouncement {
   }
   if (a.network === "mainnet" && a.min_contributions < MAINNET_MIN_CONTRIBUTIONS) {
     fail(`mainnet requires at least ${MAINNET_MIN_CONTRIBUTIONS} contributions`);
+  }
+  if (a.admission?.mode === "closed") {
+    if (a.network === "mainnet") fail("a mainnet ceremony cannot be closed");
+    // Each account contributes once per circuit: fewer invited could never reach the minimum.
+    if (a.admission.invited.length < a.min_contributions) {
+      fail(`a closed ceremony must invite at least min_contributions (${a.min_contributions})`);
+    }
   }
   return a;
 }

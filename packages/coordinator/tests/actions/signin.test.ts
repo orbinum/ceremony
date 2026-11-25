@@ -76,4 +76,39 @@ describe("completeSignIn", () => {
       outcome: { auth: "error", reason: "state" },
     });
   });
+
+  it("admits only invited accounts to a closed ceremony, and invited ones past the thresholds", async () => {
+    const name = freshId("signin");
+    const e = { ...env, ...routedTo(name) } as Env;
+    const admission = { mode: "closed", invited: [42] } as const;
+    await stubOf(name).configure(
+      setupInput(Date.now() - 1000, Date.now() + 86_400_000, { admission }),
+    );
+    let n = 0;
+    const attempt = () => {
+      n += 1;
+      const state = `${n}`.padStart(32, "s");
+      return [
+        { code: "c", state },
+        { ...expected, state },
+      ] as const;
+    };
+    github(() => Response.json(OCTOCAT));
+    expect(await completeSignIn(e, ORIGIN, ...attempt())).toEqual({
+      outcome: { auth: "ineligible", reasons: ["not-invited"] },
+    });
+    vi.restoreAllMocks();
+    github(() =>
+      Response.json({
+        ...OCTOCAT,
+        id: 42,
+        followers: 0,
+        created_at: new Date().toISOString().slice(0, 19) + "Z",
+      }),
+    );
+    expect(await completeSignIn(e, ORIGIN, ...attempt())).toMatchObject({
+      outcome: { auth: "ok" },
+      profile: { id: 42 },
+    });
+  });
 });

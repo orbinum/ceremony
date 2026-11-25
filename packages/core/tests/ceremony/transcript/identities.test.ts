@@ -16,6 +16,7 @@ import {
 import {
   buildAttestationRecord,
   checkIdentities,
+  checkInvited,
   checkTranscript,
   type ContributionRecord,
   transcriptOf,
@@ -199,5 +200,38 @@ describe("contributions without an identity", () => {
     expect(problemsOf([anonymous(1, false)], MAINNET)).toEqual([
       "shield #1: no identity outside a simulated contribution",
     ]);
+  });
+});
+
+const closedTo = (invited: number[]) => ({
+  ...ANNOUNCEMENT,
+  admission: { mode: "closed" as const, invited },
+});
+
+describe("checkInvited", () => {
+  const records = chain([contribution(1), contribution(2)]);
+
+  it("passes when every contributor of a closed ceremony was invited", () => {
+    expect(checkInvited(records, closedTo([101, 102]))).toEqual([]);
+  });
+
+  it("names each contributor a closed ceremony did not invite, once", () => {
+    const twice = chain([contribution(1), contribution(2), contribution(2)]);
+    expect(checkInvited(twice, closedTo([101]))).toEqual(["GitHub id 102 is not invited"]);
+  });
+
+  it("has nothing to check in an open ceremony, invitations or not", () => {
+    expect(checkInvited(records, ANNOUNCEMENT)).toEqual([]);
+    const open = { ...ANNOUNCEMENT, admission: { mode: "open" as const, invited: [101] } };
+    expect(checkInvited(records, open)).toEqual([]);
+  });
+
+  it("is part of verifying a closed ceremony", () => {
+    const t = transcriptOf(ID, ANNOUNCEMENT_SHA256, records);
+    const check = "closed ceremony: every contributor was invited";
+    const closed = checkTranscript(t, closedTo([101]), ANNOUNCEMENT_SHA256, INIT).checks;
+    const open = checkTranscript(t, ANNOUNCEMENT, ANNOUNCEMENT_SHA256, INIT).checks;
+    expect(closed.find((c) => c.id === check)?.problems).toEqual(["GitHub id 102 is not invited"]);
+    expect(open.map((c) => c.id)).not.toContain(check);
   });
 });

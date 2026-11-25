@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-25
+
+### Added
+
+- **Invited contributors and closed rehearsals.** `announce --invite <id,id,…>` pins numeric
+  GitHub ids in `ceremony.json` (`admission`): invited accounts skip the GitHub thresholds and are
+  queued ahead of everyone else. `--closed` admits only them (`not-invited` at sign-in and on
+  joining), for private rehearsals: core refuses a closed mainnet announcement and one inviting
+  fewer accounts than `min_contributions`, and `verify` fails a closed ceremony with any
+  contributor outside the list. The coordinator takes the invitation from the frozen announcement,
+  never from the request. An announcement without invitations keeps its bytes.
+
+### Changed
+
+- The CI fetches the ptau and the test vectors from their own immutable releases in
+  ceremony-verifier (`ptau-hez-final-16`, `vectors-testnet-rehearsal-2`), each checked against
+  its pin.
+
 ## [0.4.0] - 2026-11-24
 
 ### Changed

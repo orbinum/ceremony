@@ -52,6 +52,7 @@ async function announce(options: AnnounceOptions) {
     initSha256: init.sha256,
     circuitsSource: { repo: options.circuitsUrl, tag: release.tag, commit: release.commit },
     minContributions: options.minContributions,
+    ...(options.admission ? { admission: options.admission } : {}),
     open: options.open,
     close: options.close,
     beaconDelaySeconds: options.beaconDelaySeconds,
@@ -69,9 +70,17 @@ async function announce(options: AnnounceOptions) {
   console.log(
     `  contributions ${announcement.schedule.open} → ${announcement.schedule.close}, min ${announcement.min_contributions} per circuit`,
   );
+  console.log(`  admission: ${admissionLine(announcement)}`);
   console.log(`  beacon: drand ${DRAND.network} round ${announcement.beacon.round} (${beaconAt})`);
   console.log(`\nPublish this SHA-256 on the official channels before opening:\n  ${sha256}`);
   return { announcement, sha256 };
+}
+
+/** Who may join, as one line. */
+function admissionLine({ admission }: CeremonyAnnouncement): string {
+  if (!admission) return "open";
+  const invited = `${admission.invited.length} invited GitHub accounts`;
+  return admission.mode === "closed" ? `closed to ${invited}` : `open, ${invited} first`;
 }
 
 /** `announce` as the entry point runs it. */

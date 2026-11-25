@@ -38,6 +38,9 @@ export function CeremonyStatus({ status, announced }: { status?: Status; announc
           <>
             <span className={`h-2 w-2 shrink-0 rounded-full ${phase.dot}`} />
             {phase.label}
+            {schedule?.inviteOnly && (
+              <span className="text-xs font-normal text-muted">invite only</span>
+            )}
           </>
         ) : (
           "—"

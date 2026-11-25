@@ -16,6 +16,7 @@ export {
   checkContributable,
   checkFinalizable,
   checkIdentities,
+  checkInvited,
   checkKnownCircuits,
   checkKnownFinals,
   checkMinContributions,
