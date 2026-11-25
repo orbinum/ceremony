@@ -94,14 +94,14 @@ describe("announced invitations", () => {
     [
       "an id that is not a positive integer",
       tamper((a) => {
-        (a.admission as { invited: unknown[] }).invited = [0, 10, 20];
+        Object.assign(a.admission ?? {}, { invited: [0, 10, 20] });
       }),
       /invited\[0\]/,
     ],
     [
       "a login instead of an id",
       tamper((a) => {
-        (a.admission as { invited: unknown[] }).invited = ["octocat", 10, 20];
+        Object.assign(a.admission ?? {}, { invited: ["octocat", 10, 20] });
       }),
       /invited\[0\]/,
     ],

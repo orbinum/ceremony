@@ -27,7 +27,7 @@ export type AdmissionMode = (typeof ADMISSION_MODES)[number];
 export interface Admission {
   mode: AdmissionMode;
   /** Numeric GitHub ids, strictly ascending: stable across renames, unlike logins. */
-  invited: number[];
+  invited: readonly number[];
 }
 
 /** The announcement document. */
