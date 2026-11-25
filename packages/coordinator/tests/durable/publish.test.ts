@@ -7,7 +7,7 @@ import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { type Chained, verifyChain } from "@orbinum-ceremony/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deferred, linkDirect, setupInput, unwrapBuckets, wrapBucket } from "../support";
+import { deferred, linkDirect, PUBLIC, setupInput, unwrapBuckets, wrapBucket } from "../support";
 
 let n = 0;
 const fresh = () => env.CEREMONY.getByName(`publish-test-${++n}-${Date.now()}`);
@@ -22,7 +22,7 @@ async function opened(): Promise<Stub> {
   return stub;
 }
 const published = async () => {
-  const t = await env.PUBLIC.get("transcript.json");
+  const t = await PUBLIC.get("transcript.json");
   return t ? (JSON.parse(await t.text()) as { records: Chained[] }) : null;
 };
 const puts = (stub: Stub, keys: string[]) =>
@@ -85,7 +85,7 @@ describe("publishing transcript.json and status.json", () => {
     expect(errors.mock.calls.some((c) => String(c[0]).includes("transcript.json withheld"))).toBe(
       true,
     );
-    const status = JSON.parse(await (await env.PUBLIC.get("status.json"))!.text());
+    const status = JSON.parse(await (await PUBLIC.get("status.json"))!.text());
     expect(status.phase).toBe("PAUSED");
     const t = (await stub.transcript())!;
     expect(verifyChain(t.records, t.chainGenesis).ok).toBe(false);

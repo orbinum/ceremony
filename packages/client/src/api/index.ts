@@ -1,4 +1,5 @@
 // client/api: the coordinator, on this origin (COORDINATOR §3).
+export { type ArchivedCeremony, type ArchivedStatus, archivedFile, getArchive } from "./archive";
 export {
   download,
   getAnnouncementSha256,

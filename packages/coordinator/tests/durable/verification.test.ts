@@ -19,6 +19,8 @@ import {
   GENESIS_SIZES,
   linkDirect,
   LOG,
+  PRIVATE,
+  PUBLIC,
   readTranscript,
   setQueue,
   setupInput,
@@ -56,7 +58,7 @@ async function inSession(): Promise<Stub> {
 async function uploadShield(stub: Stub) {
   const prepared = await stub.prepareUpload(upload());
   if (!prepared.ok) throw new Error(prepared.refusal);
-  await env.PRIVATE.put(prepared.key, BYTES);
+  await PRIVATE.put(prepared.key, BYTES);
   const r = await stub.uploaded(upload(), prepared.key);
   if (!r.ok) throw new Error(r.refusal);
   return r.spec.job;
@@ -66,8 +68,8 @@ const contributions = async (stub: Stub) =>
   (await readTranscript(stub)).records.filter((r) => r.type === "contribution");
 const sha256Of = (o: R2Object) => toHex(o.checksums.sha256 ?? new ArrayBuffer(0));
 const published = async () => ({
-  zkey: await env.PUBLIC.head("contributions/shield/1.zkey"),
-  log: await env.PUBLIC.head("logs/shield/1.log"),
+  zkey: await PUBLIC.head("contributions/shield/1.zkey"),
+  log: await PUBLIC.head("logs/shield/1.log"),
 });
 const expireVerification = (stub: Stub) =>
   setQueue(stub, (s) => {
@@ -128,7 +130,7 @@ describe("CeremonyDO verification results", () => {
     ]);
     const stored = await stub.latestJob(1, "shield");
     expect(stored?.report).not.toHaveProperty("log");
-    expect((await env.PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toEqual([]);
+    expect((await PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toEqual([]);
     const t = await readTranscript(stub);
     expect(verifyChain(t.records, t.chainGenesis).ok).toBe(true);
   });
@@ -140,7 +142,7 @@ describe("CeremonyDO verification results", () => {
     expect(await stub.report(validReport(job))).toEqual({ ok: true, status: "stale" });
     expect(await contributions(stub)).toEqual([]);
     expect(await published()).toEqual({ zkey: null, log: null });
-    expect((await env.PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toEqual([]);
+    expect((await PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toEqual([]);
     // The silence was `infra`: the ceremony paused, the contributor was not penalized.
     const s = await stub.snapshot();
     expect(s).toMatchObject({ phase: "PAUSED", pausedBy: "verifier" });
@@ -217,7 +219,7 @@ describe("CeremonyDO verification results", () => {
     await runDurableObjectAlarm(stub);
     expect(await stub.snapshot()).toMatchObject({ phase: "PAUSED", pausedBy: "verifier" });
     expect(await stub.latestJob(1, "shield")).toMatchObject({ status: "stale" });
-    expect((await env.PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toEqual([]);
+    expect((await PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toEqual([]);
     expect(QUEUE_RULES.infraPerSession).toBe(2);
   });
 
@@ -232,7 +234,7 @@ describe("CeremonyDO verification results", () => {
       status: "done",
       outcome: "rejected",
     });
-    expect((await env.PRIVATE.list({ prefix: "verify/1/shield/1-" })).objects).toEqual([]);
+    expect((await PRIVATE.list({ prefix: "verify/1/shield/1-" })).objects).toEqual([]);
     const retry = await uploadShield(stub);
     expect(retry).toMatchObject({ attempt: 2, index: 1 });
     expect(

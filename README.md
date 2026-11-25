@@ -107,7 +107,7 @@ pnpm ceremony finalize --dir artifacts/rehearsal-1 --ptau $PTAU --vk-packer $PAC
 
 `ceremony.json` (written by `announce`) is the root of trust: it pins `init.json`, the circuits tag and commit, the minimum contributions, the invited contributors and the drand round. Its SHA-256 is published before contributions open.
 
-`announce --invite <id,id,…>` names invited GitHub accounts by numeric id (`gh api users/<login> --jq .id`): they skip the GitHub thresholds and are queued ahead of everyone else. Adding `--closed` admits only them, for private rehearsals; a mainnet ceremony is always open. `verify` fails a closed ceremony with any contributor outside the list.
+`announce --invite <id,id,…>` names invited GitHub accounts by numeric id (`gh api users/<login> --jq .id`): they skip the GitHub thresholds and are queued ahead of everyone else. Adding `--closed` admits only them, for private rehearsals; a mainnet ceremony is always open. `verify` fails a closed ceremony with any contributor outside the list. The list is public with the announcement (and stays in the archive), invitees who never contribute included: tell invitees before collecting their ids.
 
 ## Publishing a ceremony
 
@@ -121,7 +121,7 @@ pnpm ceremony publish-init --dir artifacts/rehearsal-1 --coordinator https://<co
 After the close, the operator downloads the published transcript, finalizes it (seals the announced drand round, builds and checks the final keys) and hands the result back; the coordinator checks it against its own transcript, publishes `final/*` and the final `transcript.json`, and becomes read-only:
 
 ```bash
-pnpm ceremony download --from https://<public bucket> --dir artifacts/rehearsal-1 --announcement-sha256 <hex>
+pnpm ceremony download --from https://<coordinator>/artifacts --dir artifacts/rehearsal-1 --announcement-sha256 <hex>
 pnpm ceremony finalize --dir artifacts/rehearsal-1 --vk-packer $PACKER
 CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... \
 pnpm ceremony publish-final --dir artifacts/rehearsal-1 --coordinator https://<coordinator>
@@ -132,8 +132,10 @@ pnpm ceremony publish-final --dir artifacts/rehearsal-1 --coordinator https://<c
 Mirror what was published, every file checked against the chain of pins rooted in the announced SHA-256, then verify the copy:
 
 ```bash
-pnpm ceremony download --from https://<public bucket> --dir published --announcement-sha256 <hex> [--transcript-sha256 <hex>]
+pnpm ceremony download --from https://<coordinator>/archive/<ceremony_id> --dir published --announcement-sha256 <hex> [--transcript-sha256 <hex>]
 ```
+
+Each network keeps one pair of buckets, and each ceremony its own folder in them (`<ceremony_id>/…`), so a deployment moves to its next ceremony by changing `CEREMONY_ID` and every earlier one stays published. `/artifacts/*` serves the current ceremony; `/archive/<ceremony_id>/*` serves any ceremony the network published, the current one included, and `GET /api/archive` lists them. The site's **Archive** page (`/archive`) shows each one, links its files and gives the `download` command to verify it.
 
 ```bash
 git clone https://github.com/orbinum/ceremony-verifier ../ceremony-verifier

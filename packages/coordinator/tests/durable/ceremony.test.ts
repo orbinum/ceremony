@@ -12,6 +12,8 @@ import {
   GENESIS_SHA256,
   INIT,
   linkDirect,
+  PRIVATE,
+  PUBLIC,
   readTranscript,
   rewind,
   setQueue,
@@ -228,7 +230,7 @@ describe("CeremonyDO", () => {
     };
     const prepared = await stub.prepareUpload(upload);
     if (!prepared.ok) throw new Error(prepared.refusal);
-    await env.PRIVATE.put(prepared.key, bytes);
+    await PRIVATE.put(prepared.key, bytes);
     const r = await stub.uploaded(upload, prepared.key);
     if (!r.ok) throw new Error(r.refusal);
     expect(await stub.apply({ type: "close" })).toMatchObject({ ok: true });
@@ -243,7 +245,7 @@ describe("CeremonyDO", () => {
       ok: false,
       refusal: "not-open",
     });
-    await env.PUBLIC.delete(["contributions/shield/1.zkey", "logs/shield/1.log"]);
+    await PUBLIC.delete(["contributions/shield/1.zkey", "logs/shield/1.log"]);
   });
 
   it("lets a queued identity leave", async () => {

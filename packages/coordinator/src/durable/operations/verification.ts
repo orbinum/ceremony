@@ -22,7 +22,14 @@ import {
   type VerificationResult,
   type VerifierReport,
 } from "@orbinum-ceremony/core";
-import { deleteQuietly, getObject, replaceObject, StorageError } from "../../storage";
+import {
+  deleteQuietly,
+  getObject,
+  privateBucket,
+  publicBucket,
+  replaceObject,
+  StorageError,
+} from "../../storage";
 import * as db from "../db";
 import { commit, indexOf, isRecorded, records, type Store, unpublishUnrecorded } from "../store";
 import { tick } from "./clock";
@@ -67,13 +74,19 @@ async function promote(store: Store, job: Job, valid: Valid): Promise<void> {
   if (isRecorded(store, job)) {
     throw new Error(`promote: ${job.circuit} #${job.index} is already recorded`);
   }
-  const { PUBLIC, PRIVATE } = store.env;
+  const published = publicBucket(store.env);
   const logKey = CEREMONY_LAYOUT.log(job.circuit, job.index);
-  await replaceObject(PUBLIC, logKey, valid.log, valid.logSha256, contentTypeOf(logKey));
-  const object = await getObject(PRIVATE, job.key);
+  await replaceObject(published, logKey, valid.log, valid.logSha256, contentTypeOf(logKey));
+  const object = await getObject(privateBucket(store.env), job.key);
   if (!object) throw new Error(`promote: ${job.key} is missing`);
   const zkeyKey = CEREMONY_LAYOUT.zkey(job.circuit, job.index);
-  await replaceObject(PUBLIC, zkeyKey, object.body, job.claim.outputSha256, contentTypeOf(zkeyKey));
+  await replaceObject(
+    published,
+    zkeyKey,
+    object.body,
+    job.claim.outputSha256,
+    contentTypeOf(zkeyKey),
+  );
 }
 
 /** Applies the verifier's outcome as of `at` (its receipt), and the record of an acceptance. */
@@ -96,7 +109,7 @@ async function settle(
   await commit(store, result.state, result.effects, contribution, () =>
     db.writeJob(store.sql, { ...job, status: "done", outcome, report: storedReport(incoming) }),
   );
-  await deleteQuietly(store.env.PRIVATE, job.key);
+  await deleteQuietly(privateBucket(store.env), job.key);
   return { ok: true, status: "applied" };
 }
 

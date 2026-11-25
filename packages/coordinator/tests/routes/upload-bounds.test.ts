@@ -4,7 +4,6 @@
  * nothing stored. Each test runs on a session of its own.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   appWith,
@@ -16,6 +15,7 @@ import {
   GENESIS_SIZES,
   json,
   linkDirect,
+  PRIVATE,
   refusal,
   routedTo,
   setupInput,
@@ -66,7 +66,7 @@ const streamOf = (bytes: Uint8Array) =>
     },
   });
 const claimHeader = (claim = claimOf(BYTES, GENESIS_SHA256.shield)) => JSON.stringify(claim);
-const privateObjects = async () => (await env.PRIVATE.list({ prefix: "verify/" })).objects;
+const privateObjects = async () => (await PRIVATE.list({ prefix: "verify/" })).objects;
 
 describe("upload bounds (SPEC §2.5)", () => {
   it("refuses a missing, malformed or oversized claim before any byte moves", async () => {

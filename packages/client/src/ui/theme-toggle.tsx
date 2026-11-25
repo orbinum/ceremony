@@ -1,4 +1,4 @@
-/** The dark/light switch of the header. */
+/** The dark/light switch of the header: a 40 px target on a phone, 32 px beside the others. */
 import { useState } from "react";
 import { pickTheme, showsLight } from "./theme";
 
@@ -14,11 +14,11 @@ export function ThemeToggle() {
       onClick={toggle}
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-      className="p-2 text-muted transition-colors hover:bg-overlay-hover hover:text-text"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center text-muted transition-colors hover:bg-overlay-hover hover:text-text sm:h-8 sm:w-8"
     >
       <svg
         viewBox="0 0 24 24"
-        className="h-5 w-5"
+        className="h-[18px] w-[18px]"
         fill="none"
         stroke="currentColor"
         strokeWidth="2"

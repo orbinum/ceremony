@@ -3,7 +3,6 @@
  * a promotion), a slow promotion copy, and a publication that throws. COORDINATOR §4, SPEC §4.2.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { nextDeadline, QUEUE_RULES, type QueueState } from "@orbinum-ceremony/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -12,6 +11,7 @@ import {
   freshId,
   GENESIS_SHA256,
   linkDirect,
+  PRIVATE,
   readTranscript,
   setQueue,
   setupInput,
@@ -43,7 +43,7 @@ async function uploadShield(stub: Stub, bytes: Uint8Array) {
   };
   const prepared = await stub.prepareUpload(upload);
   if (!prepared.ok) throw new Error(prepared.refusal);
-  await env.PRIVATE.put(prepared.key, bytes);
+  await PRIVATE.put(prepared.key, bytes);
   const r = await stub.uploaded(upload, prepared.key);
   if (!r.ok) throw new Error(r.refusal);
   return r.spec.job;

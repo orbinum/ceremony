@@ -15,5 +15,5 @@ export const artifacts = new Hono<AppEnv>()
   .get("/*", rateLimit("ARTIFACT_LIMIT", byNetwork), artifactKey, async (c) => {
     const key = c.req.valid("param").key;
     const object = await publicArtifact(c.env, key, c.req.header("if-none-match"));
-    return object ? artifactResponse(object) : fail(c, "not-found", "no such artifact");
+    return object ? artifactResponse(object, key) : fail(c, "not-found", "no such artifact");
   });

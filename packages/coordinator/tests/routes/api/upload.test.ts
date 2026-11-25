@@ -4,7 +4,6 @@
  * transcript and status, and recorded with the contributor's link payload.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import {
   type ContributionRecord,
   sha256Hex,
@@ -22,6 +21,7 @@ import {
   json,
   linkDirect,
   LOG,
+  PRIVATE,
   readTranscript,
   refusal,
   routedTo,
@@ -81,7 +81,7 @@ describe("upload and verification (SPEC §2.5)", () => {
     expect(await refusal(early)).toEqual([409, "out-of-order"]);
     const tampered = await upload(name, "shield", big, { ...claim, outputSha256: "00".repeat(32) });
     expect(await refusal(tampered)).toEqual([400, "malformed"]);
-    expect((await env.PRIVATE.list({ prefix: "verify/" })).objects).toEqual([]);
+    expect((await PRIVATE.list({ prefix: "verify/" })).objects).toEqual([]);
 
     const r = await upload(name, "shield", big, claim);
     expect(r.status).toBe(202);
@@ -105,7 +105,7 @@ describe("upload and verification (SPEC §2.5)", () => {
 
     const published = await call("GET", "/artifacts/contributions/shield/1.zkey");
     expect(sha256Hex(new Uint8Array(await published.arrayBuffer()))).toBe(claim.outputSha256);
-    expect((await env.PRIVATE.list({ prefix: "verify/" })).objects).toEqual([]);
+    expect((await PRIVATE.list({ prefix: "verify/" })).objects).toEqual([]);
     expect(await json(await call("GET", "/api/session/head/shield", ALICE, as))).toMatchObject({
       index: 1,
       output_sha256: claim.outputSha256,

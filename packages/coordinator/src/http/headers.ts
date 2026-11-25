@@ -19,12 +19,13 @@ export const noStore = createMiddleware(async (c, next) => {
 const IMMUTABLE = ["genesis/"];
 
 /**
- * A public file as inert bytes: never a page (`nosniff`, a sandboxing CSP), with its stored type
- * or octet-stream; cached for good when it never changes, revalidated on every use otherwise. An
- * object without a body is one whose ETag the reader already has: `304`.
+ * A public file (`key`, within its ceremony's folder) as inert bytes: never a page (`nosniff`, a
+ * sandboxing CSP), with its stored type or octet-stream; cached for good when it never changes,
+ * revalidated on every use otherwise. An object without a body is one whose ETag the reader
+ * already has: `304`.
  */
-export function artifactResponse(object: R2Object | R2ObjectBody): Response {
-  const immutable = IMMUTABLE.some((prefix) => object.key.startsWith(prefix));
+export function artifactResponse(object: R2Object | R2ObjectBody, key: string): Response {
+  const immutable = IMMUTABLE.some((prefix) => key.startsWith(prefix));
   const headers = new Headers({
     "content-length": String(object.size),
     etag: object.httpEtag,

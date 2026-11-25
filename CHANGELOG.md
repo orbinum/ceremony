@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-25
+
+### Added
+
+- **The archive: every ceremony a network published, served by its coordinator.**
+  `GET /archive/<ceremony_id>/*` serves any of their public files, the current one included,
+  read-only and inert like `/artifacts/*` (same cache rules, never the private bucket), and
+  `GET /api/archive` lists the announced ceremonies (`{current, ceremonies}`). A finished ceremony
+  stays downloadable and verifiable after the deployment moves on:
+  `download --from https://<coordinator>/archive/<ceremony_id>`.
+- **One responsive header on every page** (contribute, archive, errors), aligned with the page's
+  content: from `sm` up the pages as tabs, the account, the network and the theme, every control
+  32 px high; on a phone the brand, the theme and a menu (pages, network, account) with 40 px+
+  targets, closed by Escape (focus back on its button), a press outside or a page change.
+- **Archive page** (`/archive`) in the client, linked from that header: each
+  ceremony with its network, window, phase, contributors and contributions per circuit, an
+  invite-only badge, links to its files, and the `download` command to verify it against the
+  announcement hash Orbinum published.
+
+### Changed
+
+- **One folder per ceremony in each network's buckets.** The coordinator keeps every file under
+  `<CEREMONY_ID>/` in the public and private buckets, so a deployment moves to its next ceremony by
+  changing `CEREMONY_ID`, with no new or emptied buckets, and earlier ceremonies stay published.
+  Every bucket call goes through `storage/buckets.ts`, the only module that names the bindings
+  (checked by a test over the sources). `/artifacts/*` serves the current ceremony's folder; its
+  URLs are unchanged.
+- The testnet deployment runs `orbinum-testnet-private-1`, a closed rehearsal, so
+  `orbinum-testnet-rehearsal-1` stays for the public one.
+
 ## [0.5.0] - 2026-11-25
 
 ### Added

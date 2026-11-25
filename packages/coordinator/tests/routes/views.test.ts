@@ -4,13 +4,13 @@
  * or object answered without internals.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import {
   appWith,
   call,
   freshId,
   json,
+  PUBLIC,
   raw,
   refusal,
   routedTo,
@@ -100,7 +100,7 @@ describe("public reads", () => {
 
 describe("artifacts", () => {
   it("serves bytes as inert content, and refuses keys that are not keys", async () => {
-    await env.PUBLIC.put("status.json", "{}");
+    await PUBLIC.put("status.json", "{}");
     const r = await call("GET", "/artifacts/status.json");
     expect(r.headers.get("content-security-policy")).toBe("default-src 'none'; sandbox");
     expect(r.headers.get("content-type")).toBe("application/octet-stream");
@@ -125,7 +125,7 @@ describe("artifacts", () => {
     for (const key of [...immutable, ...revalidated]) {
       // A stored Cache-Control never overrides the rule.
       // oxlint-disable-next-line no-await-in-loop -- a few writes
-      await env.PUBLIC.put(key, "x", { httpMetadata: { cacheControl: "public, max-age=99" } });
+      await PUBLIC.put(key, "x", { httpMetadata: { cacheControl: "public, max-age=99" } });
     }
     for (const key of immutable) {
       // oxlint-disable-next-line no-await-in-loop -- one file at a time
@@ -140,7 +140,7 @@ describe("artifacts", () => {
   });
 
   it("answers 304 without the bytes when the reader's ETag is current, and the bytes otherwise", async () => {
-    await env.PUBLIC.put("contributions/shield/1.zkey", "bytes");
+    await PUBLIC.put("contributions/shield/1.zkey", "bytes");
     const first = await raw("/artifacts/contributions/shield/1.zkey");
     const etag = first.headers.get("etag") ?? "";
     expect([first.status, await first.text()]).toEqual([200, "bytes"]);
@@ -149,7 +149,7 @@ describe("artifacts", () => {
     });
     expect([again.status, await again.text(), again.headers.get("etag")]).toEqual([304, "", etag]);
     // Replaced (a failed promotion's leftover): the old ETag gets the new bytes.
-    await env.PUBLIC.put("contributions/shield/1.zkey", "other");
+    await PUBLIC.put("contributions/shield/1.zkey", "other");
     const replaced = await raw("/artifacts/contributions/shield/1.zkey", {
       headers: { "if-none-match": etag },
     });

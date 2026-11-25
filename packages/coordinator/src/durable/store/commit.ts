@@ -12,7 +12,7 @@ import {
   type QueueState,
   recordsOfEffects,
 } from "@orbinum-ceremony/core";
-import { deleteQuietly } from "../../storage";
+import { deleteQuietly, privateBucket } from "../../storage";
 import * as db from "../db";
 import { indexOf, unpublishUnrecorded } from "./copies";
 import { publish } from "./publish";
@@ -58,7 +58,7 @@ export async function commit(
   await store.storage.setAlarm(next ?? Date.now() + PUBLISH_RETRY_MS);
   if (stale.length > 0) {
     await deleteQuietly(
-      store.env.PRIVATE,
+      privateBucket(store.env),
       stale.map((job) => job.key),
     );
     // A result still promoting its copies cleans them up itself.

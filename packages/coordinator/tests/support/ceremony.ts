@@ -3,6 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import type { Chained, LinkPayload, QueueState } from "@orbinum-ceremony/core";
 import { type BaseWallet, Wallet } from "ethers";
+import { inFolder } from "./buckets";
 import { signLinkEvm } from "./wallets";
 
 /** The stub of a ceremony object. */
@@ -100,7 +101,7 @@ export const wrapBucket = (stub: Ceremony, name: Bucket, hook: BucketHook) =>
         const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
         if (typeof value !== "function") return value;
         return async (...args: unknown[]) => {
-          await hook(String(prop), args[0], state.storage.sql, instance as never);
+          await hook(String(prop), inFolder(args[0]), state.storage.sql, instance as never);
           return (value as (...a: unknown[]) => unknown).apply(target, args);
         };
       },

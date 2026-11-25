@@ -384,6 +384,20 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
         force: false,
       });
     await download(`${base}/artifacts`);
+    // The same ceremony from the archive (where it stays once the deployment moves on).
+    // `/archive` itself is the page that lists them; the files below it are the Worker's.
+    const page = await fetch(`${base}/archive`);
+    expect(page.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const listed = (await (await fetch(`${base}/api/archive`)).json()) as {
+      current: string;
+      ceremonies: string[];
+    };
+    expect(listed).toEqual({ current: stack.ceremonyId, ceremonies: [stack.ceremonyId] });
+    const archived = join(stack.work, "archived");
+    await download(`${base}/archive/${stack.ceremonyId}`, archived);
+    expect(await readFile(join(archived, "transcript.json"), "utf8")).toBe(
+      await readFile(join(mirror, "transcript.json"), "utf8"),
+    );
     await expect(runFinalize({ dir: mirror, ptau }, () => new Date())).rejects.toThrow(
       /contributions are open until/,
     );

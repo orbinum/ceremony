@@ -90,3 +90,12 @@ export function accountLine(scheme: string, account: string): string {
   const solana = solanaFormOf(scheme, account);
   return `${scheme} · ${shortAccount(account)}${solana ? ` · Solana ${shortAccount(solana)}` : ""}`;
 }
+
+/** The ceremony in Orbinum's documentation: the contributor's guide, then how it works inside. */
+export const DOCS = [
+  { href: "https://docs.orbinum.network/ceremony/contribute", label: "Contributor guide" },
+  {
+    href: "https://docs.orbinum.network/architecture/trusted-setup",
+    label: "How the ceremony works",
+  },
+] as const;

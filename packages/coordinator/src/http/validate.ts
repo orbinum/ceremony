@@ -4,6 +4,7 @@
  * COORDINATOR §3.
  */
 import {
+  asCeremonyId,
   asCircuitName,
   asDecimalId,
   asOneOf,
@@ -76,14 +77,35 @@ export const jobIdParam = validator(
   checked((p: Record<string, string>) => validateJobId(p)),
 );
 
-/** The public bucket key under `/artifacts/`; a path that is not one is not found. */
+/**
+ * A key of one ceremony's folder as R2 takes it: R2 keys are at most 1024 bytes, folder included
+ * (a ceremony id and a slash, at most 65), so a longer one is not found, not a storage error.
+ */
+const folderKey = (key: string): string | null =>
+  key.length > 0 && new TextEncoder().encode(key).length <= 1024 - 65 ? key : null;
+
+/** The key under `/artifacts/` (this ceremony's public folder); any other path is not found. */
 export const artifactKey = validator("param", (_, c) => {
   try {
-    const key = decodeURIComponent(new URL(c.req.url).pathname.replace(/^\/artifacts\//, ""));
-    // R2 keys are at most 1024 bytes: a longer one is not found, not a storage error.
-    if (key.length > 0 && new TextEncoder().encode(key).length <= 1024) return { key };
+    const path = new URL(c.req.url).pathname.replace(/^\/artifacts\//, "");
+    const key = folderKey(decodeURIComponent(path));
+    if (key) return { key };
   } catch {
     // A malformed escape is no key at all.
+  }
+  return fail(c, "not-found", "no such artifact");
+});
+
+/** `/archive/<ceremony_id>/<key>`: a ceremony and a key of its public folder; else not found. */
+export const archiveKey = validator("param", (_, c) => {
+  try {
+    const path = new URL(c.req.url).pathname.replace(/^\/archive\//, "");
+    const slash = path.indexOf("/");
+    const id = decodeURIComponent(path.slice(0, slash));
+    const key = folderKey(decodeURIComponent(path.slice(slash + 1)));
+    if (slash > 0 && key && asCeremonyId(id, "ceremony") === id) return { ceremonyId: id, key };
+  } catch {
+    // A malformed escape or ceremony id is no file at all.
   }
   return fail(c, "not-found", "no such artifact");
 });

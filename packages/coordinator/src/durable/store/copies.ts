@@ -4,7 +4,7 @@
  * SPEC §2.5, §6.1.
  */
 import { CEREMONY_LAYOUT, contributionsOf, type Job } from "@orbinum-ceremony/core";
-import { deleteQuietly } from "../../storage";
+import { deleteQuietly, publicBucket } from "../../storage";
 import { records, type Store } from "./store";
 
 /** The public index a job writes, as the key of its promotion lock. */
@@ -17,7 +17,7 @@ export const isRecorded = (store: Store, job: Job): boolean =>
 /** Removes the public copies at `job`'s index unless the transcript records them. */
 export async function unpublishUnrecorded(store: Store, job: Job): Promise<void> {
   if (isRecorded(store, job)) return;
-  await deleteQuietly(store.env.PUBLIC, [
+  await deleteQuietly(publicBucket(store.env), [
     CEREMONY_LAYOUT.zkey(job.circuit, job.index),
     CEREMONY_LAYOUT.log(job.circuit, job.index),
   ]);

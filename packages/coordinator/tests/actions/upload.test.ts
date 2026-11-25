@@ -11,6 +11,7 @@ import {
   freshId,
   GENESIS_SHA256,
   linkDirect,
+  PRIVATE,
   routedTo,
   setupInput,
   stubOf,
@@ -64,7 +65,7 @@ const upload = (bytes = BYTES) => ({
   body: stream(bytes),
 });
 const privateKeys = async () =>
-  (await env.PRIVATE.list({ prefix: "verify/" })).objects.map((o) => o.key);
+  (await PRIVATE.list({ prefix: "verify/" })).objects.map((o) => o.key);
 
 describe("receiveUpload", () => {
   it("answers storage when the bucket fails, and keeps nothing", async () => {

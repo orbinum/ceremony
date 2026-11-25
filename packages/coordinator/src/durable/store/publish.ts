@@ -1,6 +1,6 @@
 /** The public files after each commit: in order, only when changed. SPEC §6.1, KL-28, KL-31. */
 import { publicFilesOf } from "@orbinum-ceremony/core";
-import { putObject } from "../../storage";
+import { publicBucket, putObject } from "../../storage";
 import * as db from "../db";
 import { records, type Store } from "./store";
 
@@ -37,7 +37,7 @@ async function publishNow(store: Store): Promise<boolean> {
     }
     try {
       // oxlint-disable-next-line no-await-in-loop -- two small writes, in order
-      await putObject(store.env.PUBLIC, f.key, f.body.text, {
+      await putObject(publicBucket(store.env), f.key, f.body.text, {
         httpMetadata: { contentType: f.contentType, cacheControl: "no-cache" },
       });
       db.setPublishedVersion(store.sql, f.key, f.version);

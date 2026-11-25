@@ -3,7 +3,6 @@
  * receipt ids, and percent-encoded spellings against the edge cache key.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   appWith,
@@ -11,6 +10,8 @@ import {
   clearBuckets,
   freshId,
   json,
+  PRIVATE,
+  PUBLIC,
   raw,
   refusal,
   setupInput,
@@ -21,8 +22,8 @@ beforeEach(clearBuckets);
 
 describe("/artifacts/*", () => {
   it("serves only the public bucket, whatever the traversal or encoding", async () => {
-    await env.PRIVATE.put("verify/1/shield/1-secret.zkey", "private bytes");
-    await env.PUBLIC.put("ceremony.json", "{}", { httpMetadata: { contentType: "text/html" } });
+    await PRIVATE.put("verify/1/shield/1-secret.zkey", "private bytes");
+    await PUBLIC.put("ceremony.json", "{}", { httpMetadata: { contentType: "text/html" } });
     for (const path of [
       "/artifacts/verify/1/shield/1-secret.zkey",
       "/artifacts/..%2fverify/1/shield/1-secret.zkey",
@@ -46,7 +47,7 @@ describe("/artifacts/*", () => {
   });
 
   it("sends nosniff and the sandbox CSP on files and on errors", async () => {
-    await env.PUBLIC.put("ceremony.json", "<script>alert(1)</script>", {
+    await PUBLIC.put("ceremony.json", "<script>alert(1)</script>", {
       httpMetadata: { contentType: "text/html" },
     });
     const ok = await raw("/artifacts/ceremony.json");
@@ -70,7 +71,7 @@ describe("/artifacts/*", () => {
       });
       expect(r.status).toBe(404);
     }
-    expect(await env.PUBLIC.head("ceremony.json")).toBeNull();
+    expect(await PUBLIC.head("ceremony.json")).toBeNull();
   });
 });
 
