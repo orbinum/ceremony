@@ -6,6 +6,7 @@ import { readFile } from "node:fs/promises";
 import {
   CIRCUITS_REPO_URL,
   MAX_CONTRIBUTIONS,
+  MAX_INVITED,
   MIN_BEACON_DELAY_SECONDS,
 } from "@orbinum-ceremony/core";
 import { describe, expect, it } from "vitest";
@@ -78,6 +79,42 @@ describe("announce", () => {
     );
     expect(() => parseAnnounceOptions(withMinimum(MAX_CONTRIBUTIONS + 1))).toThrow(
       new UsageError(`--min-contributions must be an integer from 1 to ${MAX_CONTRIBUTIONS}`),
+    );
+  });
+
+  it("announces no invitations unless --invite lists them", () => {
+    expect(parseAnnounceOptions(argv("testnet")).admission).toBeUndefined();
+    expect(parseAnnounceOptions(argv("testnet", "--invite", "30, 10,30")).admission).toEqual({
+      mode: "open",
+      invited: [30, 10],
+    });
+  });
+
+  it("closes a rehearsal to the invited accounts, never mainnet", () => {
+    expect(parseAnnounceOptions(argv("testnet", "--invite", "1,2", "--closed")).admission).toEqual({
+      mode: "closed",
+      invited: [1, 2],
+    });
+    expect(() => parseAnnounceOptions(argv("testnet", "--closed"))).toThrow(
+      new UsageError("--closed needs --invite: the accounts that may join"),
+    );
+    expect(() => parseAnnounceOptions(argv("mainnet", "--invite", "1,2", "--closed"))).toThrow(
+      new UsageError("--closed is for rehearsals, never mainnet"),
+    );
+    expect(() => parseAnnounceOptions(argv("local", "--invite", "1,1", "--closed"))).toThrow(
+      new UsageError("--closed needs at least --min-contributions (2) invited accounts"),
+    );
+  });
+
+  it("takes only numeric GitHub ids, at most the announced bound", () => {
+    for (const bad of ["octocat", "1,,2", "0", "1.5", "0x10", "", "99999999999999999"]) {
+      expect(() => parseAnnounceOptions(argv("testnet", "--invite", bad))).toThrow(
+        new UsageError("--invite must list numeric GitHub ids, comma-separated"),
+      );
+    }
+    const many = Array.from({ length: MAX_INVITED + 1 }, (_, i) => i + 1).join(",");
+    expect(() => parseAnnounceOptions(argv("testnet", "--invite", many))).toThrow(
+      new UsageError(`--invite lists more than ${MAX_INVITED} accounts`),
     );
   });
 });

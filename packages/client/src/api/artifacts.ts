@@ -17,15 +17,23 @@ export async function getCsHashes(): Promise<Map<CircuitName, string>> {
 /** A file a head names (`Head.url`). */
 export const download = (url: string) => getBytes(url);
 
-/** When the ceremony opens and closes, from its published announcement (`ceremony.json`). */
+/**
+ * When the ceremony opens and closes, and whether only invited accounts may join, from its
+ * published announcement (`ceremony.json`).
+ */
 export interface Schedule {
   open: string;
   close: string;
+  inviteOnly: boolean;
 }
 
-export const getSchedule = async (): Promise<Schedule> =>
-  (await call<{ schedule: Schedule }>("GET", `/artifacts/${CEREMONY_LAYOUT.announcement}`))
-    .schedule;
+export async function getSchedule(): Promise<Schedule> {
+  const { schedule, admission } = await call<{
+    schedule: { open: string; close: string };
+    admission?: { mode: string };
+  }>("GET", `/artifacts/${CEREMONY_LAYOUT.announcement}`);
+  return { open: schedule.open, close: schedule.close, inviteOnly: admission?.mode === "closed" };
+}
 
 /** The SHA-256 of the announcement as served here (the CLI wants the one Orbinum published). */
 export const getAnnouncementSha256 = async () =>

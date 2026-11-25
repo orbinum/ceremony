@@ -1,10 +1,12 @@
 /** `announce` options. */
 import {
+  type Admission,
   asOneOf,
   CIRCUITS_REPO_URL,
   DEFAULT_BEACON_DELAY_SECONDS,
   MAX_BEACON_DELAY_SECONDS,
   MAX_CONTRIBUTIONS,
+  MAX_INVITED,
   MIN_BEACON_DELAY_SECONDS,
   type Network,
   NETWORKS,
@@ -22,6 +24,8 @@ export interface AnnounceOptions {
   open: Date;
   close: Date;
   beaconDelaySeconds: number;
+  /** Undefined: open, nobody invited. */
+  admission?: Admission;
   force: boolean;
 }
 
@@ -32,6 +36,9 @@ export const ANNOUNCE_USAGE = `orbinum-ceremony announce --dir <ceremony dir> --
     [--beacon-delay <seconds>]   default: ${DEFAULT_BEACON_DELAY_SECONDS} (the beacon round is the first one after close + delay);
                                  at least ${MIN_BEACON_DELAY_SECONDS.testnet} on testnet, ${MIN_BEACON_DELAY_SECONDS.mainnet} on mainnet
     [--circuits-url <url>]       default: ${CIRCUITS_REPO_URL} (the only one outside local)
+    [--invite <id,id,...>]       numeric GitHub ids (gh api users/<login> --jq .id) that join ahead
+                                 of everyone else; at most ${MAX_INVITED}
+    [--closed]                   only the --invite accounts may join (local and testnet rehearsals)
     [--force]                    overwrite an existing ceremony.json (only before it is published,
                                  never once a transcript exists)`;
 
@@ -40,6 +47,43 @@ const date = (value: string, flag: string): Date => {
   if (Number.isNaN(d.getTime())) throw new UsageError(`--${flag} is not a valid date`);
   return d;
 };
+
+const GITHUB_ID = /^[1-9][0-9]{0,15}$/;
+
+/** `--invite`: comma-separated numeric GitHub ids, repeats dropped. */
+function invitedOption(value: string): number[] {
+  const ids = value.split(",").map((id) => id.trim());
+  if (!ids.every((id) => GITHUB_ID.test(id) && Number.isSafeInteger(Number(id)))) {
+    throw new UsageError("--invite must list numeric GitHub ids, comma-separated");
+  }
+  const invited = [...new Set(ids.map(Number))];
+  if (invited.length > MAX_INVITED) {
+    throw new UsageError(`--invite lists more than ${MAX_INVITED} accounts`);
+  }
+  return invited;
+}
+
+/** `--invite` and `--closed` as the announcement's admission. */
+function admissionOption(
+  invite: string | undefined,
+  closed: boolean,
+  network: Network,
+  minContributions: number,
+): Admission | undefined {
+  if (invite === undefined) {
+    if (closed) throw new UsageError("--closed needs --invite: the accounts that may join");
+    return undefined;
+  }
+  const invited = invitedOption(invite);
+  if (!closed) return { mode: "open", invited };
+  if (network === "mainnet") throw new UsageError("--closed is for rehearsals, never mainnet");
+  if (invited.length < minContributions) {
+    throw new UsageError(
+      `--closed needs at least --min-contributions (${minContributions}) invited accounts`,
+    );
+  }
+  return { mode: "closed", invited };
+}
 
 /** Parses argv; a bad option is a `UsageError`. */
 export function parseAnnounceOptions(argv: string[]): AnnounceOptions {
@@ -53,6 +97,8 @@ export function parseAnnounceOptions(argv: string[]): AnnounceOptions {
     open: { type: "string" },
     close: { type: "string" },
     "beacon-delay": { type: "string", default: String(DEFAULT_BEACON_DELAY_SECONDS) },
+    invite: { type: "string" },
+    closed: { type: "boolean", default: false },
     force: { type: "boolean", default: false },
   });
   let network: Network;
@@ -67,18 +113,20 @@ export function parseAnnounceOptions(argv: string[]): AnnounceOptions {
   if (network !== "local" && circuitsUrl !== CIRCUITS_REPO_URL) {
     throw new UsageError(`--circuits-url must be ${CIRCUITS_REPO_URL} on ${network}`);
   }
+  const minContributions = intOption(
+    required(values["min-contributions"], "min-contributions"),
+    "min-contributions",
+    1,
+    MAX_CONTRIBUTIONS,
+  );
+  const admission = admissionOption(values.invite, values.closed, network, minContributions);
   return {
     dir: pathOption(required(values.dir, "dir")),
     network,
     circuitsRepo: pathOption(required(values["circuits-repo"], "circuits-repo")),
     circuitsTag: required(values["circuits-tag"], "circuits-tag"),
     circuitsUrl,
-    minContributions: intOption(
-      required(values["min-contributions"], "min-contributions"),
-      "min-contributions",
-      1,
-      MAX_CONTRIBUTIONS,
-    ),
+    minContributions,
     open: values.open ? date(values.open, "open") : new Date(),
     close: date(required(values.close, "close"), "close"),
     beaconDelaySeconds: intOption(
@@ -87,6 +135,7 @@ export function parseAnnounceOptions(argv: string[]): AnnounceOptions {
       MIN_BEACON_DELAY_SECONDS[network],
       MAX_BEACON_DELAY_SECONDS,
     ),
+    ...(admission ? { admission } : {}),
     force: values.force,
   };
 }

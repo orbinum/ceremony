@@ -4,6 +4,7 @@
  */
 import { env } from "cloudflare:workers";
 import {
+  type Admission,
   buildAnnouncement,
   CEREMONY_LAYOUT,
   type CircuitName,
@@ -65,9 +66,10 @@ export const INIT: InitRecord = validateInit({
   })),
 });
 
-/** Options of a setup: its init, the beacon delay and the minimum per circuit. */
+/** Options of a setup: its init, the beacon delay, the minimum per circuit and invitations. */
 interface SetupOptions {
   init?: InitRecord;
+  admission?: Admission;
   beaconDelaySeconds?: number;
   minContributions?: number;
 }
@@ -87,6 +89,7 @@ export function setupInput(openAt: number, closeAt: number, o: SetupOptions = {}
       commit: record.source.commit,
     },
     minContributions: o.minContributions ?? 1,
+    ...(o.admission ? { admission: o.admission } : {}),
     open: new Date(openAt),
     close: new Date(closeAt),
     beaconDelaySeconds: o.beaconDelaySeconds ?? 86_400,

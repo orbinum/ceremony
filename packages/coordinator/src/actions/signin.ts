@@ -1,12 +1,12 @@
 /**
  * Sign-in with GitHub (SPEC §3.2): OAuth with a state and a PKCE verifier bound to the browser,
- * each state spent once; the admission thresholds are checked once, here, and only an eligible
- * account is signed in.
+ * each state spent once; admission (the announced invitations, then the thresholds) is checked
+ * once, here, and only an admitted account is signed in.
  */
 import {
   admissionCutoff,
+  admissionRefusals,
   type GithubProfile,
-  githubIneligibility,
   type SignInOutcome,
   timingSafeEqual,
 } from "@orbinum-ceremony/core";
@@ -63,7 +63,7 @@ export async function completeSignIn(
     console.error(e);
     return ended({ auth: "error", reason: "github" });
   }
-  const reasons = githubIneligibility(profile, {
+  const reasons = admissionRefusals(setup.announcement, profile, {
     cutoff: admissionCutoff(setup.init),
     now: Date.now(),
   });

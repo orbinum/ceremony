@@ -4,7 +4,7 @@
  * the account predates the frozen inputs (`init.json` `created_at`).
  */
 import { GITHUB_THRESHOLDS } from "../../config";
-import type { InitRecord } from "../../ceremony";
+import { type CeremonyAnnouncement, type InitRecord, isClosed, isInvited } from "../../ceremony";
 import type { GithubProfile } from "./profile";
 
 /**
@@ -18,8 +18,12 @@ export const admissionCutoff = (init: Pick<InitRecord, "created_at">): number =>
 /** Admission thresholds. */
 type GithubThresholds = typeof GITHUB_THRESHOLDS;
 
-/** Why an account may not join. `unknown-age`: a date could not be read (fails closed). */
+/**
+ * Why an account may not join. `unknown-age`: a date could not be read (fails closed);
+ * `not-invited`: a closed ceremony does not name it.
+ */
 export type GithubIneligibility =
+  | "not-invited"
   | "unknown-age"
   | "created-after-cutoff"
   | "account-too-new"
@@ -42,4 +46,29 @@ export function githubIneligibility(
   if (p.followers < t.minFollowers) reasons.push("too-few-followers");
   if (p.following < t.minFollowing) reasons.push("follows-too-few");
   return reasons;
+}
+
+/**
+ * Every reason the account may not join this ceremony; empty means it may. An invited account
+ * skips the thresholds (the pinned announcement names it); a closed ceremony admits nobody else.
+ */
+export function admissionRefusals(
+  a: CeremonyAnnouncement,
+  p: GithubProfile,
+  at: { cutoff: number; now: number },
+): GithubIneligibility[] {
+  if (isInvited(a, p.id)) return [];
+  return isClosed(a) ? ["not-invited"] : githubIneligibility(p, at);
+}
+
+/**
+ * The join the queue applies for `githubId`: invited as the announcement says, never as a caller
+ * says; null when a closed ceremony does not invite the account.
+ */
+export function admittedJoin(
+  a: CeremonyAnnouncement,
+  githubId: number,
+): { type: "join"; githubId: number; invited: boolean } | null {
+  const invited = isInvited(a, githubId);
+  return !invited && isClosed(a) ? null : { type: "join", githubId, invited };
 }

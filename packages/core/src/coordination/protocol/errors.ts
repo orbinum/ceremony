@@ -11,6 +11,8 @@ export type CeremonyRefusal =
   | "already-configured"
   | "malformed-setup"
   | "not-linked"
+  /** A closed ceremony does not invite the account. */
+  | "not-invited"
   | "nonce-invalid"
   | "already-linked"
   | "wallet-taken"
@@ -49,6 +51,7 @@ const STATUS: Partial<Record<ApiErrorCode, 400 | 401 | 403 | 404 | 413 | 429 | 5
   banned: 403,
   held: 403,
   "not-linked": 403,
+  "not-invited": 403,
   "wrong-identity": 403,
   forbidden: 403,
   turnstile: 403,

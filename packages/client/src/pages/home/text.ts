@@ -10,6 +10,7 @@ import {
 import { ApiError } from "../../api";
 
 const INELIGIBLE: Record<GithubIneligibility, string> = {
+  "not-invited": "this ceremony is invite-only and does not invite it",
   "unknown-age": "GitHub did not report when the account was created",
   "created-after-cutoff": "the account was created after the ceremony was announced",
   "account-too-new": "the account is less than 30 days old",
@@ -50,6 +51,7 @@ const REFUSALS: Partial<Record<ApiErrorCode, string>> = {
   "already-queued": "You are already in line.",
   banned: `This account can no longer contribute: its uploads were rejected ${QUEUE_RULES.maxRejected} times.`,
   held: "This account is on hold. Contact the ceremony operators.",
+  "not-invited": "This ceremony is invite-only, and this GitHub account is not invited.",
   "nothing-left": "You have already contributed to every circuit.",
   turnstile: "The bot check failed. Solve the new check and join again.",
   "rate-limited": "Too many requests. Wait a minute and try again.",

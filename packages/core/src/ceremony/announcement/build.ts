@@ -5,7 +5,12 @@ import { BEACON_ITERATIONS_EXP, DRAND, MAX_BEACON_DELAY_SECONDS } from "../../co
 import { FormatError } from "../../primitives/errors";
 import { asSafeInt } from "../../primitives/schema";
 import { roundAt } from "../beacon";
-import { ANNOUNCEMENT_SCHEMA, type CeremonyAnnouncement, type Network } from "./types";
+import {
+  type Admission,
+  ANNOUNCEMENT_SCHEMA,
+  type CeremonyAnnouncement,
+  type Network,
+} from "./types";
 import { validateAnnouncement } from "./validate";
 
 /** What the operator decides; everything else is derived. */
@@ -15,6 +20,8 @@ export interface AnnouncementInput {
   initSha256: string;
   circuitsSource: { repo: string; tag: string; commit: string };
   minContributions: number;
+  /** Omitted: open, nobody invited. Ids may come in any order and repeat. */
+  admission?: Admission;
   open: Date;
   close: Date;
   /** Delay between close and the beacon round: at least the network's minimum (SPEC §5.2). */
@@ -42,6 +49,14 @@ export function buildAnnouncement(input: AnnouncementInput): CeremonyAnnouncemen
     init_sha256: input.initSha256,
     circuits_source: input.circuitsSource,
     min_contributions: input.minContributions,
+    ...(input.admission
+      ? {
+          admission: {
+            mode: input.admission.mode,
+            invited: [...new Set(input.admission.invited)].toSorted((x, y) => x - y),
+          },
+        }
+      : {}),
     schedule: {
       open: iso(input.open, "open"),
       close: iso(input.close, "close"),

@@ -45,6 +45,44 @@ describe("CeremonyDO", () => {
     });
   });
 
+  it("lets only invited accounts join a closed ceremony, whatever the caller sends", async () => {
+    const stub = fresh();
+    const admission = { mode: "closed", invited: [2] } as const;
+    await stub.configure(setupInput(Date.now() - 1000, Date.now() + DAY, { admission }));
+    await runDurableObjectAlarm(stub);
+    await Promise.all([1, 2].map((id) => linkDirect(stub, id)));
+    expect(await stub.apply({ type: "join", githubId: 1, invited: true })).toEqual({
+      ok: false,
+      refusal: "not-invited",
+    });
+    expect((await stub.apply({ type: "join", githubId: 2 })).ok).toBe(true);
+    expect((await stub.snapshot())?.slot?.githubId).toBe(2);
+  });
+
+  it("puts announced invitations ahead in an open ceremony, never a caller's claim", async () => {
+    const stub = fresh();
+    const admission = { mode: "open", invited: [3] } as const;
+    await stub.configure(setupInput(Date.now() - 1000, Date.now() + DAY, { admission }));
+    await runDurableObjectAlarm(stub);
+    await Promise.all([1, 2, 3, 4].map((id) => linkDirect(stub, id)));
+    for (const [githubId, invited] of [
+      [1, false],
+      [2, false],
+      [4, true],
+      [3, false],
+    ] as const) {
+      // oxlint-disable-next-line no-await-in-loop -- joins in order
+      expect((await stub.apply({ type: "join", githubId, invited })).ok).toBe(true);
+    }
+    const state = await stub.snapshot();
+    expect(state?.slot?.githubId).toBe(1);
+    expect(state?.queue.map((q) => [q.githubId, q.invited])).toEqual([
+      [3, true],
+      [2, false],
+      [4, false],
+    ]);
+  });
+
   it("refuses a setup whose init.json is not the one the announcement pins", async () => {
     const input = setupInput(Date.now(), Date.now() + DAY);
     expect(await fresh().configure({ ...input, init: `${input.init} ` })).toEqual({

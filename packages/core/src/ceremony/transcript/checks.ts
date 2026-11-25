@@ -5,7 +5,13 @@
  */
 import { type CircuitName, DRAND, SIMULATED_NETWORKS } from "../../config";
 import { canonicalJson } from "../../primitives/hashing";
-import { type CeremonyAnnouncement, acceptanceWindow, windowState } from "../announcement";
+import {
+  acceptanceWindow,
+  type CeremonyAnnouncement,
+  isClosed,
+  isInvited,
+  windowState,
+} from "../announcement";
 import { roundTime, verifyDrandRound } from "../beacon";
 import {
   accountKey,
@@ -231,6 +237,20 @@ export function checkContributable(
   ];
 }
 
+/** In a closed ceremony, every contributor is one of the announced invited accounts. SPEC §3.2. */
+export function checkInvited(
+  records: readonly Chained[],
+  announcement: CeremonyAnnouncement,
+): string[] {
+  if (!isClosed(announcement)) return [];
+  const outsiders = new Set<number>();
+  for (const r of records) {
+    const id = r.type === "contribution" ? r.identity?.github_id : undefined;
+    if (id !== undefined && !isInvited(announcement, id)) outsiders.add(id);
+  }
+  return [...outsiders].map((id) => `GitHub id ${id} is not invited`);
+}
+
 /** Each circuit reached the announced minimum. */
 export const checkMinContributions = (
   records: readonly Chained[],
@@ -355,6 +375,15 @@ export function checkTranscript(
         problems: identities.problems,
         detail: `${identities.attested} of ${identities.contributions} contributions attested`,
       },
+      ...(isClosed(announcement)
+        ? [
+            {
+              id: "closed ceremony: every contributor was invited",
+              problems: checkInvited(transcript.records, announcement),
+              detail: `${announcement.admission?.invited.length} invited`,
+            },
+          ]
+        : []),
       {
         id: `every circuit has at least ${announcement.min_contributions} contributions`,
         problems: checkMinContributions(transcript.records, init, announcement),

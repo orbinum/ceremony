@@ -9,6 +9,9 @@ export const MAX_FILE_BYTES = 128 * 1024 * 1024;
  */
 export const MAX_CONTRIBUTIONS = 9_999;
 
+/** GitHub accounts one announcement may invite: about 10 bytes each in `ceremony.json`. */
+export const MAX_INVITED = 1_000;
+
 /** Circuits in one ceremony. */
 export const MAX_CIRCUITS = 16;
 
