@@ -25,18 +25,27 @@ const cacheKey = (url: string) => {
   return new Request(`${origin}${path}`);
 };
 
-/** Serves a public read from the edge cache, or caches its successful answer. */
+/**
+ * Serves a public read from the edge cache, or caches its successful answer. Browsers never keep
+ * it (`max-age=0`), on a hit too: the zone's Browser Cache TTL rewrites a hit's `max-age` (to 4 h
+ * by default), which would freeze a polling page on a stale status.
+ */
 export const edgeCache = createMiddleware<AppEnv>(async (c, next) => {
   const seconds = Number(c.env.PUBLIC_CACHE_SECONDS);
   if (!(seconds > 0)) return next();
+  const cacheControl = `public, max-age=0, s-maxage=${seconds}`;
   const cache = caches.default;
   const key = cacheKey(c.req.url);
   const hit = await cache.match(key);
-  // A cached answer's headers are immutable: copy it, so later middleware can add its own.
-  if (hit) return new Response(hit.body, hit);
+  if (hit) {
+    // A cached answer's headers are immutable: copy it, so later middleware can add its own.
+    const copy = new Response(hit.body, hit);
+    copy.headers.set("cache-control", cacheControl);
+    return copy;
+  }
   await next();
   if (c.res.status === 200 || c.res.status === 404) {
-    c.res.headers.set("cache-control", `public, max-age=0, s-maxage=${seconds}`);
+    c.res.headers.set("cache-control", cacheControl);
     c.executionCtx.waitUntil(cache.put(key, c.res.clone()));
   }
 });

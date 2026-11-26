@@ -4,7 +4,7 @@
  * or object answered without internals.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   appWith,
   call,
@@ -79,6 +79,20 @@ describe("public reads", () => {
       // oxlint-disable-next-line no-await-in-loop -- one read at a time
       expect([r.status, await r.json()]).toEqual([200, body]);
       expect(r.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(r.headers.get("cache-control")).toBe("public, max-age=0, s-maxage=5");
+    }
+  });
+
+  it("never lets a browser keep a hit, whatever max-age the edge stored it with", async () => {
+    const name = freshId("views-browser-ttl");
+    await stubOf(name).configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
+    const read = cachedRead(name);
+    const stale = new Response("{}", { headers: { "cache-control": "public, max-age=14400" } });
+    const match = vi.spyOn(caches.default, "match").mockResolvedValueOnce(stale);
+    try {
+      expect((await read()).headers.get("cache-control")).toBe("public, max-age=0, s-maxage=5");
+    } finally {
+      match.mockRestore();
     }
   });
 

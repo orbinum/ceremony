@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Access redirects to its login page now reports whether no service token was sent
   (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` unset) or the one sent was not let in,
   instead of a bare `fetch failed`. Redirects are still never followed.
+- **A page no longer shows a status hours old.** On an edge-cache hit, Cloudflare's Browser Cache
+  TTL rewrote the public reads' `max-age=0` to its zone default (4 h), so a browser kept
+  `/api/status` (and the transcript, receipts and archive list) from its first load: the home
+  page showed 0 contributors after a contribution. A hit is now served with `max-age=0` again.
 
 ### Changed
 
