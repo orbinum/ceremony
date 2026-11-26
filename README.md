@@ -154,7 +154,7 @@ Verification is strict: a security check that cannot run (no `--circuits-repo`, 
 
 ## Versions and releases
 
-One version for the whole repository, the same in every `package.json` (the CLI reports `packages/cli`'s to the coordinator). Releases follow [Semantic Versioning](https://semver.org); changes go under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
+One version for the whole repository, in the root `package.json` only (the packages stay at `0.0.0`); the client, the CLI and the verifier all report it. Releases follow [Semantic Versioning](https://semver.org); changes go under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
 
 Each network's ceremony is its own deployment of the coordinator (which serves the client): `env.testnet` and `env.mainnet` in `packages/coordinator/wrangler.jsonc`, each with its own Worker, Durable Object, buckets, secrets and domain. One tag ships one version to them, testnet first (`.github/workflows/release.yml`):
 
@@ -163,10 +163,10 @@ Each network's ceremony is its own deployment of the coordinator (which serves t
 | Push a signed tag `vX.Y.Z`                     | **Testnet**: client built, `wrangler deploy --env testnet` (`ceremony.testnet.orbinum.network`), GitHub release |
 | `gh workflow run release.yml -f version=X.Y.Z` | **Mainnet**: the same tag, `wrangler deploy --env mainnet`; only a version testnet already shipped              |
 
-1. Bump `version` in every `package.json` and rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`; merge into `main` and wait for CI to pass there.
+1. Bump `version` in the root `package.json` and rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`; merge into `main` and wait for CI to pass there.
 2. Tag that commit of `main` with the release key and push it: `git tag -s vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`.
 3. Check testnet, then ship to mainnet with the command above.
 
-A run fails before deploying when the tag is not signed by the release key, not on `main`, not the version of every `package.json`, has no CHANGELOG section, its commit's CI did not pass on `main`, or (mainnet) testnet never shipped it. A failed run is retried with "Re-run failed jobs".
+A run fails before deploying when the tag is not signed by the release key, not on `main`, not the version of the root `package.json`, has no CHANGELOG section, its commit's CI did not pass on `main`, or (mainnet) testnet never shipped it. A failed run is retried with "Re-run failed jobs".
 
 Secrets: `RELEASE_GPG_PUBLIC_KEY` (the release key's public part); `CLOUDFLARE_API_TOKEN` (Workers Scripts edit and Containers edit, on this account) and `CLOUDFLARE_ACCOUNT_ID` in the GitHub environments `testnet` and `mainnet` (required reviewers on `mainnet`); `CIRCUITS_READ_TOKEN` for CI (a fine-grained token limited to `orbinum/circuits`, Contents read-only; the organisation disables deploy keys; only the CI job that clones circuits sees it). The Worker's own secrets (`SESSION_KEY`, `VERIFIER_HMAC_KEY`, `GITHUB_CLIENT_SECRET`, `TURNSTILE_SECRET`, optional `VERIFIER_ACCESS_CLIENT_ID`/`_SECRET`) are set once per network with `wrangler secret put <NAME> --env <network>`; a deploy is refused while one is missing. Mainnet is not live yet: `env.mainnet` in `wrangler.jsonc` needs its empty values filled (OAuth app, Access, verifier, Turnstile site key, and `ANNOUNCEMENT_SHA256`, the published `ceremony.json`'s SHA-256, before `/admin/configure`: the deployment then freezes no other ceremony), its first deploy by hand (`wrangler deploy --env mainnet --secrets-file …`, a new Worker cannot inherit secrets) and "Soon" removed from the client's network selector.

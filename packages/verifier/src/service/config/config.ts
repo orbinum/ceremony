@@ -29,10 +29,10 @@ export interface ServiceConfig {
   initSha256?: string;
 }
 
-/** The package manifest, the single source of the service's version. */
-const MANIFEST = new URL("../../../package.json", import.meta.url);
+/** The repository's manifest, the single source of the release version (packages stay 0.0.0). */
+const MANIFEST = new URL("../../../../../package.json", import.meta.url);
 
-/** The version in this package's manifest; throws unless it is a valid version string. */
+/** The release version in the root manifest; throws unless it is a valid version string. */
 function packageVersion(): string {
   const { version } = JSON.parse(readFileSync(MANIFEST, "utf8")) as { version?: unknown };
   if (typeof version !== "string" || !VERSION.test(version)) {

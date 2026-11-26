@@ -38,9 +38,9 @@ export interface SessionSummary {
 /** Progress lines (all from validated values: nothing the coordinator wrote reaches a terminal). */
 type Log = (line: string) => void;
 
-/** The client the records name: this checkout's package version and commit. */
+/** The client the records name: this checkout's release version (the root manifest) and commit. */
 async function thisClient(): Promise<ClientInfo> {
-  const root = join(import.meta.dirname, "..", "..", "..");
+  const root = join(import.meta.dirname, "..", "..", "..", "..", "..");
   const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as {
     version: string;
   };

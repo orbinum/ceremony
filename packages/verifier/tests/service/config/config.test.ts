@@ -14,7 +14,7 @@ const ENV = {
 };
 const load = (over: Record<string, string | undefined>) => () => loadConfig({ ...ENV, ...over });
 
-const PACKAGE_JSON = join(import.meta.dirname, "..", "..", "..", "package.json");
+const PACKAGE_JSON = join(import.meta.dirname, "..", "..", "..", "..", "..", "package.json");
 
 describe("service config", () => {
   it("reads a valid environment with its defaults", async () => {

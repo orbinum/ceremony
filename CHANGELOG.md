@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-26
+
+### Fixed
+
+- **`publish-init` and `publish-final` say why Cloudflare Access turned them away.** A call that
+  Access redirects to its login page now reports whether no service token was sent
+  (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` unset) or the one sent was not let in,
+  instead of a bare `fetch failed`. Redirects are still never followed.
+
+### Changed
+
+- **One version, in the root `package.json` only.** The packages stay at `0.0.0`; the client,
+  the CLI (`contribute`'s client record) and the verifier read the release version from the
+  root manifest, and a release checks only that one.
+
 ## [0.6.0] - 2026-11-25
 
 ### Added

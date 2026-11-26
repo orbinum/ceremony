@@ -1,6 +1,6 @@
 {
   "name": "@orbinum-ceremony/coordinator",
-  "version": "0.6.0",
+  "version": "0.0.0",
   "private": true,
   "description": "Ceremony coordinator: Cloudflare Worker + Durable Object (queue, uploads, transcript)",
   "author": "Orbinum Technologies <contact@orbinum.net>",
