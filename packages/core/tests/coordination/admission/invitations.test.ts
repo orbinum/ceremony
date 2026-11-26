@@ -14,14 +14,13 @@ import { ANNOUNCEMENT } from "../../support";
 
 const NOW = Date.parse("2026-11-20T00:00:00.000Z");
 const at = { cutoff: NOW - 86_400_000, now: NOW };
-const profile = (id: number, followers: number) =>
+const profile = (id: number, following: number) =>
   validateGithubProfile({
     id,
     login: `user-${id}`,
     created_at: "2011-01-25T18:44:36Z",
     public_repos: 8,
-    followers,
-    following: 9,
+    following,
   });
 
 const inputOf = (mode: "open" | "closed") =>
@@ -41,8 +40,8 @@ const CLOSED = inputOf("closed");
 
 describe("admissionRefusals", () => {
   it("applies the thresholds when nobody is invited", () => {
-    expect(admissionRefusals(ANNOUNCEMENT, profile(7, 3), at)).toEqual([]);
-    expect(admissionRefusals(ANNOUNCEMENT, profile(7, 0), at)).toEqual(["too-few-followers"]);
+    expect(admissionRefusals(ANNOUNCEMENT, profile(7, 9), at)).toEqual([]);
+    expect(admissionRefusals(ANNOUNCEMENT, profile(7, 0), at)).toEqual(["follows-too-few"]);
   });
 
   it("lets an invited account past the thresholds, open or closed", () => {
@@ -51,9 +50,9 @@ describe("admissionRefusals", () => {
   });
 
   it("admits other eligible accounts to an open ceremony, none to a closed one", () => {
-    expect(admissionRefusals(OPEN, profile(9, 3), at)).toEqual([]);
-    expect(admissionRefusals(OPEN, profile(9, 0), at)).toEqual(["too-few-followers"]);
-    expect(admissionRefusals(CLOSED, profile(9, 3), at)).toEqual(["not-invited"]);
+    expect(admissionRefusals(OPEN, profile(9, 9), at)).toEqual([]);
+    expect(admissionRefusals(OPEN, profile(9, 0), at)).toEqual(["follows-too-few"]);
+    expect(admissionRefusals(CLOSED, profile(9, 9), at)).toEqual(["not-invited"]);
   });
 });
 

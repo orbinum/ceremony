@@ -9,7 +9,6 @@ export interface GithubProfile {
   login: string;
   created_at: string;
   public_repos: number;
-  followers: number;
   following: number;
 }
 
@@ -42,7 +41,6 @@ export function validateGithubProfile(v: unknown): GithubProfile {
     login: asGithubLogin(o.login, "github.login"),
     created_at: asIsoTime(created.toISOString(), "github.created_at"),
     public_repos: count(o.public_repos, "github.public_repos"),
-    followers: count(o.followers, "github.followers"),
     following: count(o.following, "github.following"),
   };
 }

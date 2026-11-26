@@ -37,8 +37,8 @@ function SignIn({ announced }: { announced: boolean | undefined }) {
   return (
     <>
       <p>
-        The account must be at least 30 days old, with a public repository, a follower, and five
-        accounts it follows. No permission is requested.
+        The account must be at least 30 days old, with a public repository and five accounts it
+        follows. No permission is requested.
       </p>
       {/* A full navigation: the coordinator redirects to GitHub and back. */}
       <a

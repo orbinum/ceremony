@@ -189,7 +189,7 @@ describe("GitHub answers of the wrong shape never sign anyone in", () => {
     ["id above 2^53", { ...OCTOCAT, id: 2 ** 53 }],
     ["missing created_at", { ...OCTOCAT, created_at: undefined }],
     ["created_at with offset", { ...OCTOCAT, created_at: "2011-01-25T18:44:36+00:00" }],
-    ["counts as strings", { ...OCTOCAT, followers: "100" }],
+    ["counts as strings", { ...OCTOCAT, following: "100" }],
     ["counts huge", { ...OCTOCAT, following: 1e21 }],
     ["counts negative", { ...OCTOCAT, public_repos: -5 }],
     ["missing counts", { id: 1, login: "a", created_at: OCTOCAT.created_at }],

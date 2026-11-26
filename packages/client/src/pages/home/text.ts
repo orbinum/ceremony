@@ -15,7 +15,6 @@ const INELIGIBLE: Record<GithubIneligibility, string> = {
   "created-after-cutoff": "the account was created after the ceremony was announced",
   "account-too-new": "the account is less than 30 days old",
   "no-public-repos": "the account has no public repositories",
-  "too-few-followers": "the account has no followers",
   "follows-too-few": "the account follows fewer than 5 accounts",
 };
 

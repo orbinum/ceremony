@@ -166,13 +166,13 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
   it("gives no session to an account below the thresholds, and says why", async () => {
     // Created yesterday: after the cutoff and under 30 days old, whenever the test runs.
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
-    mockGithub({ ...OCTOCAT, created_at: yesterday, followers: 0 });
+    mockGithub({ ...OCTOCAT, created_at: yesterday, following: 0 });
     const { cookie, state } = await start();
     const r = await call("GET", `/auth/github/callback?code=c&state=${state}`, undefined, {
       cookie,
     });
     expect(r.headers.get("location")).toBe(
-      "/?auth=ineligible&reasons=created-after-cutoff,account-too-new,too-few-followers",
+      "/?auth=ineligible&reasons=created-after-cutoff,account-too-new,follows-too-few",
     );
     expect(cookieOf(r, "__Host-ceremony-session")).toBeUndefined();
   });

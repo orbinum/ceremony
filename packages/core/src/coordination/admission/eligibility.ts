@@ -28,7 +28,6 @@ export type GithubIneligibility =
   | "created-after-cutoff"
   | "account-too-new"
   | "no-public-repos"
-  | "too-few-followers"
   | "follows-too-few";
 
 /** Every reason the account may not join (`at.cutoff`: `admissionCutoff`); empty means it may. */
@@ -43,7 +42,6 @@ export function githubIneligibility(
   if (created >= at.cutoff) reasons.push("created-after-cutoff");
   if (created > at.now - t.minAgeDays * 24 * 60 * 60_000) reasons.push("account-too-new");
   if (p.public_repos < t.minPublicRepos) reasons.push("no-public-repos");
-  if (p.followers < t.minFollowers) reasons.push("too-few-followers");
   if (p.following < t.minFollowing) reasons.push("follows-too-few");
   return reasons;
 }

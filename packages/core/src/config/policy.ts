@@ -77,7 +77,6 @@ export const MIN_RELAYS = 2;
 export const GITHUB_THRESHOLDS = {
   minAgeDays: 30,
   minPublicRepos: 1,
-  minFollowers: 1,
   minFollowing: 5,
 } as const;
 

@@ -56,7 +56,6 @@ describe("GitHub admission (SPEC §3.2)", () => {
   it("names every missing threshold", () => {
     expect(check({ public_repos: 0, followers: 0, following: 4 })).toEqual([
       "no-public-repos",
-      "too-few-followers",
       "follows-too-few",
     ]);
   });
@@ -66,7 +65,7 @@ describe("GitHub admission (SPEC §3.2)", () => {
       { id: "583231" },
       { login: "-bad-" },
       { created_at: "yesterday" },
-      { followers: -1 },
+      { following: -1 },
     ]) {
       expect(() => validateGithubProfile(user(patch))).toThrow(FormatError);
     }
@@ -89,7 +88,7 @@ describe("GitHub admission fails closed", () => {
     expect(check({ created_at: new Date(NOW - 30 * DAY).toISOString() })).toEqual([]);
     expect(check({ following: 4 })).toEqual(["follows-too-few"]);
     expect(check({ following: 5 })).toEqual([]);
-    expect(() => validateGithubProfile(user({ followers: 2_000_000_000 }))).toThrow(
+    expect(() => validateGithubProfile(user({ following: 2_000_000_000 }))).toThrow(
       /implausibly large/,
     );
   });

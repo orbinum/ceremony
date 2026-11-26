@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-26
+
+### Changed
+
+- **Followers are no longer an admission threshold.** A GitHub account needs its age (created
+  before the inputs were frozen, at least 30 days old), a public repository and five accounts it
+  follows; how many follow it no longer counts, and its follower count is no longer read.
+
 ## [0.6.1] - 2026-11-26
 
 ### Fixed

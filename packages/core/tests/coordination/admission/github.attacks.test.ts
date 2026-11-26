@@ -14,7 +14,6 @@ const user = (patch: Record<string, unknown> = {}) => ({
   login: "octocat",
   created_at: "2011-01-25T18:44:36Z",
   public_repos: 1,
-  followers: 1,
   following: 5,
   ...patch,
 });
@@ -26,7 +25,8 @@ describe("admission thresholds at their exact boundaries", () => {
   it("admits the exact minimums and refuses one below each", () => {
     expect(check()).toEqual([]);
     expect(check({ public_repos: 0 })).toEqual(["no-public-repos"]);
-    expect(check({ followers: 0 })).toEqual(["too-few-followers"]);
+    // Followers are not a threshold: an account nobody follows is admitted.
+    expect(check({ followers: 0 })).toEqual([]);
     expect(check({ following: 4 })).toEqual(["follows-too-few"]);
   });
 
@@ -71,7 +71,7 @@ describe("a profile of the wrong shape is refused, never coerced", () => {
   });
 
   it("refuses counts of the wrong type, negative, fractional or implausibly large", () => {
-    for (const field of ["public_repos", "followers", "following"]) {
+    for (const field of ["public_repos", "following"]) {
       for (const v of [
         "8",
         -1,
@@ -88,7 +88,7 @@ describe("a profile of the wrong shape is refused, never coerced", () => {
           new RegExp(`github\\.${field}: (expected an integer|implausibly large)`),
         );
       }
-      expect(validateGithubProfile(user({ [field]: 1_000_000_000 }))[field as "followers"]).toBe(
+      expect(validateGithubProfile(user({ [field]: 1_000_000_000 }))[field as "following"]).toBe(
         1_000_000_000,
       );
     }
@@ -141,7 +141,6 @@ describe("a profile of the wrong shape is refused, never coerced", () => {
     );
     expect(Object.keys(parsed).toSorted()).toEqual([
       "created_at",
-      "followers",
       "following",
       "id",
       "login",

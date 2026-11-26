@@ -60,9 +60,9 @@ describe("completeSignIn", () => {
       outcome: { auth: "error", reason: "github" },
     });
     vi.restoreAllMocks();
-    github(() => Response.json({ ...OCTOCAT, followers: 0 }));
+    github(() => Response.json({ ...OCTOCAT, following: 0 }));
     expect(await completeSignIn(e, ORIGIN, ...attempt())).toEqual({
-      outcome: { auth: "ineligible", reasons: ["too-few-followers"] },
+      outcome: { auth: "ineligible", reasons: ["follows-too-few"] },
     });
     vi.restoreAllMocks();
     github(() => Response.json(OCTOCAT));
@@ -102,7 +102,7 @@ describe("completeSignIn", () => {
       Response.json({
         ...OCTOCAT,
         id: 42,
-        followers: 0,
+        following: 0,
         created_at: new Date().toISOString().slice(0, 19) + "Z",
       }),
     );

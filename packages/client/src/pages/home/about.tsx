@@ -27,8 +27,8 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     a: (
       <>
         GitHub keeps the line fair (an account at least {GITHUB_THRESHOLDS.minAgeDays} days old,
-        with a public repository and a few followers). The wallet signs your contribution so the
-        public record attributes it to you. Signing costs nothing and sends no transaction.
+        with a public repository, following a few accounts). The wallet signs your contribution so
+        the public record attributes it to you. Signing costs nothing and sends no transaction.
       </>
     ),
   },
