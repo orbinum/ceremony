@@ -83,13 +83,19 @@ describe("the coordinator's admin API", () => {
     process.env.CF_ACCESS_CLIENT_SECRET = "secret";
     try {
       await expect(adminCall(server.url, "PUT", "/redirect", {}, "x")).rejects.toThrow(
-        /fetch failed/,
+        /redirected/,
       );
       expect(elsewhere.requests).toEqual([]);
     } finally {
       delete process.env.CF_ACCESS_CLIENT_ID;
       delete process.env.CF_ACCESS_CLIENT_SECRET;
     }
+  });
+
+  it("says whether a redirect (Access refusing) came with a service token or without one", async () => {
+    await expect(adminCall(server.url, "PUT", "/redirect", {}, "x")).rejects.toThrow(
+      /no service token was sent/,
+    );
   });
 
   it("does not take a 200 that is not the coordinator's ok answer as success", async () => {
@@ -141,7 +147,7 @@ describe("retries", () => {
     expect(callsTo("/refused") - refused).toBe(1);
     const redirected = callsTo("/redirect");
     await expect(adminCall(server.url, "PUT", "/redirect", {}, "x", FAST)).rejects.toThrow(
-      /fetch failed/,
+      /redirected/,
     );
     expect(callsTo("/redirect") - redirected).toBe(1);
   });

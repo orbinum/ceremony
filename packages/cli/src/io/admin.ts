@@ -80,13 +80,31 @@ async function adminCallOnce(
   body: Uint8Array | string,
 ): Promise<Record<string, unknown>> {
   const what = `${method} ${path}`;
-  const res = await fetch(`${origin}${path}`, {
-    method,
-    headers: { ...accessHeaders(origin, process.env), [OPERATOR_HEADER]: "1", ...headers },
-    body,
-    redirect: "error",
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
+  const access = accessHeaders(origin, process.env);
+  let res: Response;
+  try {
+    res = await fetch(`${origin}${path}`, {
+      method,
+      headers: { ...access, [OPERATOR_HEADER]: "1", ...headers },
+      body,
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (error) {
+    // Behind Access, a redirect is its login page: the token was missing or not let in.
+    const cause = (error as Error).cause;
+    if (cause instanceof Error && cause.message === "unexpected redirect") {
+      throw new Error(
+        `${what}: redirected, as Cloudflare Access does when it refuses a call; ${
+          Object.keys(access).length === 0
+            ? "no service token was sent (set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET)"
+            : "the service token in CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET was not let in"
+        }`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
   const answer = await answerOf(res, what, "not a JSON answer (a login page?)");
   if (answer.ok !== true) throw new Error(`${what}: the coordinator did not answer ok`);
   return answer;
