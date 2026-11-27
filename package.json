@@ -1,6 +1,6 @@
 {
   "name": "orbinum-ceremony",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": true,
   "description": "Orbinum Groth16 Phase-2 trusted setup ceremony",
   "author": "Orbinum Technologies <contact@orbinum.net>",

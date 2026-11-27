@@ -13,8 +13,13 @@ import {
 } from "@orbinum-ceremony/core";
 import { call, getBytes } from "./http";
 
-/** What `status.json` says: phase, sessions and each circuit's head. */
-export type ArchivedStatus = ReturnType<typeof statusOf>;
+/**
+ * What `status.json` says: phase, counts and each circuit's head. `contributors` is missing from
+ * one published before v0.6.3 (until its next head).
+ */
+export type ArchivedStatus = Omit<ReturnType<typeof statusOf>, "contributors"> & {
+  contributors?: number;
+};
 
 /** One published ceremony as the archive page shows it. */
 export interface ArchivedCeremony {

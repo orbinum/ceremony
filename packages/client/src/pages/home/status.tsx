@@ -38,7 +38,7 @@ export function CeremonyStatus({ status, announced }: { status?: Status; announc
           "—"
         )}
       </Stat>
-      <Stat label="Contributors">{status ? status.sessions : "—"}</Stat>
+      <Stat label="Contributors">{status ? status.contributors : "—"}</Stat>
       <Stat label="In line">
         {status ? status.queued + (status.active ? 1 : 0) : "—"}
         {status?.active && <span className="text-xs font-normal text-muted">1 contributing</span>}

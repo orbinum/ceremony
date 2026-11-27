@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-27
+
+### Fixed
+
+- **"Contributors" counts contributors.** The home page and the archive showed `sessions`, the
+  turns given, which also counts a turn that ended with nothing accepted (a no-show, a rejection):
+  11 for 10 contributors. `/api/status` and `status.json` now also carry `contributors`, the
+  accounts with at least one accepted contribution, and both pages show it.
+
 ## [0.6.2] - 2026-11-26
 
 ### Changed

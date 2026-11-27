@@ -113,7 +113,30 @@ describe("who may send which event", () => {
 describe("views", () => {
   it("shows the public status without identities, and the head a contributor downloads", () => {
     const s = holding(5);
-    expect(publicStatusOf(s)).toEqual({ phase: "OPEN", queued: 0, active: true, sessions: 1 });
+    expect(publicStatusOf(s)).toEqual({
+      phase: "OPEN",
+      queued: 0,
+      active: true,
+      sessions: 1,
+      contributors: 0,
+    });
+    // A contributor is an account with an accepted circuit, not a turn given.
+    const standing = {
+      noShows: 0,
+      cooldownUntil: 0,
+      rejected: 0,
+      banned: false,
+      infraResults: 0,
+      held: false,
+    };
+    const counted = {
+      ...s,
+      identities: {
+        "5": { ...standing, accepted: ["shield" as const] },
+        "6": { ...standing, accepted: [] },
+      },
+    };
+    expect(publicStatusOf(counted)).toMatchObject({ sessions: 1, contributors: 1 });
     expect(headView({ index: 2, outputSha256: "ab" }, "shield")).toEqual({
       index: 2,
       output_sha256: "ab",

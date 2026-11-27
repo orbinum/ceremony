@@ -96,7 +96,7 @@ export function CeremonyCard({ c, origin }: { c: ArchivedCeremony; origin: strin
           <Fact label="Window">
             {day(a.schedule.open)} – {day(a.schedule.close)}
           </Fact>
-          <Fact label="Contributors">{c.status ? c.status.sessions : "—"}</Fact>
+          <Fact label="Contributors">{c.status?.contributors ?? "—"}</Fact>
           <Fact label="Minimum per circuit">{a.min_contributions}</Fact>
         </dl>
       ) : (

@@ -54,7 +54,9 @@ describe("API (local development identity)", () => {
       phase: "OPEN",
       queued: 0,
       active: true,
+      // Alice's turn ended with nothing accepted: a session, not a contributor.
       sessions: 2,
+      contributors: 0,
     });
   });
 
