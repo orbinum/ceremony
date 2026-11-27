@@ -183,7 +183,7 @@ describe("CeremonyDO verification results", () => {
     const stub = await inSession();
     let job = await uploadShield(stub);
     await stub.report({ job, result: "infra", detail: "x" });
-    await stub.apply({ type: "resume" });
+    await stub.applyOperator({ type: "resume" });
     job = await uploadShield(stub);
     expect(job.attempt).toBe(2);
     await stub.report({ job, result: "infra", detail: "x" });

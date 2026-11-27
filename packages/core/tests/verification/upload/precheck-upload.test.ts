@@ -1,9 +1,11 @@
 /**
  * The pre-checks on an upload's bytes, before any pairing: contribution 2 on the head after
  * contribution 1 passes, and each malformed claim, tampered, stale, padded, re-laid-out, skipping,
- * lying or beacon upload is refused with its reason.
+ * lying or beacon upload is refused with its reason, as is any upload on a head already holding
+ * `MAX_CONTRIBUTIONS` contributions.
  */
 import { describe, expect, it } from "vitest";
+import { MAX_CONTRIBUTIONS } from "../../../src/config";
 import { sha256Hex } from "../../../src/primitives/hashing";
 import { readMpcParams } from "../../../src/formats/mpc";
 import {
@@ -25,6 +27,10 @@ const recorded = (n: number) =>
   entries.slice(0, n).map((e) => ({ hash: e.hash, name: e.name ?? "", deltaAfter: e.deltaAfter }));
 
 const head: CurrentHead = { outputSha256: sha256Hex(one), csHash, previous: recorded(1) };
+const filled = (n: number): CurrentHead => ({
+  ...head,
+  previous: Array.from({ length: n }, () => recorded(1)[0] as CurrentHead["previous"][0]),
+});
 const claim: UploadClaim = {
   inputSha256: sha256Hex(one),
   outputSha256: sha256Hex(two),
@@ -70,6 +76,18 @@ describe("precheckUpload", () => {
   it("rejects an upload built on a stale head", () => {
     const stale = { ...claim, inputSha256: sha256Hex(genesis) };
     expect(precheckUpload(two, stale, head, LAYOUT)).toMatchObject({ reason: "stale-head" });
+  });
+
+  it("rejects any upload on a head already holding MAX_CONTRIBUTIONS contributions", () => {
+    expect(precheckUpload(two, claim, filled(MAX_CONTRIBUTIONS), LAYOUT)).toEqual({
+      ok: false,
+      result: "rejected",
+      reason: "malformed",
+      detail: `the circuit already holds ${MAX_CONTRIBUTIONS} contributions`,
+    });
+    expect(precheckUpload(two, claim, filled(MAX_CONTRIBUTIONS - 1), LAYOUT)).not.toMatchObject({
+      detail: expect.stringMatching(/already holds/),
+    });
   });
 
   it("rejects bytes that are not a zkey", () => {

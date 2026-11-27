@@ -89,6 +89,10 @@ describe("redirect hops", () => {
       "[fc00::1]",
       "[fd12:3456::1]",
       "[fe80::1]",
+      "[fec0::1]",
+      "[ff02::1]",
+      "198.18.0.1",
+      "224.0.0.1",
       "[::ffff:127.0.0.1]",
       "[::ffff:10.0.0.1]",
       "localhost",
@@ -101,7 +105,7 @@ describe("redirect hops", () => {
       ]);
     }
     expect(hop("https://mirror.example/a", "https://172.32.0.1/a")).toBeNull();
-    expect(hop("https://mirror.example/a", "https://[fec0::1]/a")).toBeNull();
+    expect(hop("https://mirror.example/a", "https://[fe00::1]/a")).toBeNull();
   });
 
   it("lets a loopback http mirror go to https or stay on loopback, nowhere else", () => {
@@ -156,6 +160,27 @@ describe("connections of an https hop", () => {
       expect([a, isInternalAddress(a)]).toEqual([a, true]);
     }
     for (const a of ["1.1.1.1", "100.128.0.1", "2606:4700:4700::1111"]) {
+      expect([a, isInternalAddress(a)]).toEqual([a, false]);
+    }
+  });
+
+  it("count benchmarking, IETF protocol, multicast, reserved and site-local addresses as internal", () => {
+    for (const a of [
+      "198.18.0.1",
+      "198.19.255.254",
+      "192.0.0.8",
+      "224.0.0.1",
+      "239.255.255.250",
+      "240.0.0.1",
+      "255.255.255.255",
+      "ff02::1",
+      "ff0e::1",
+      "fec0::1",
+      "::ffff:224.0.0.1",
+    ]) {
+      expect([a, isInternalAddress(a)]).toEqual([a, true]);
+    }
+    for (const a of ["198.17.255.255", "198.20.0.1", "192.0.1.1", "223.255.255.255", "fe00::1"]) {
       expect([a, isInternalAddress(a)]).toEqual([a, false]);
     }
   });

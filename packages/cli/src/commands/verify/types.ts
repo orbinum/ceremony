@@ -1,7 +1,8 @@
 /**
  * What `verify` works with. Its options: the published directory, the SHA-256 of ceremony.json from
  * an official channel (the root of trust), the network the verifier expects (an announcement for
- * another one fails), and the external inputs of a full verification, among them the independent
+ * another one fails), optionally the SHA-256 of transcript.json from that channel (a transcript
+ * hashing otherwise fails), and the external inputs of a full verification, among them the independent
  * Rust verifier; `local` lets a local ceremony skip security checks that need external inputs, and
  * `snarkjsLimits` lowers each snarkjs call's bounds (programmatic only: tests). The staged private
  * copies of every per-circuit input (a missing entry failed to stage). And the context every check
@@ -25,6 +26,7 @@ export interface VerifyOptions {
   dir: string;
   announcementSha256: string;
   network: Network;
+  transcriptSha256?: string;
   ptau: string;
   circuitsRepo?: string;
   rebuildGenesis: boolean;

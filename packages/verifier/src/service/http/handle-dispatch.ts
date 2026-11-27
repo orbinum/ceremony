@@ -1,7 +1,9 @@
 /**
  * `POST /verify`: the MAC first, which covers the body's digest, so an unauthenticated request is
- * refused before a byte of body is read; then a replay inside the freshness window is refused, then
- * the size, then the body against its digest and the job spec. A repeated header counts as absent.
+ * refused before a byte of body is read; then the size, then the body against its digest, and only
+ * then is the MAC spent, so a replay inside the freshness window is refused while a copy with the
+ * right headers and another body cannot burn the genuine dispatch's MAC; then the job spec. A
+ * repeated header counts as absent.
  * The answer never quotes the body: why a spec was refused stays in this host's log. A repeated
  * dispatch of the same attempt is acknowledged, not run twice.
  */
@@ -41,9 +43,6 @@ export function handleDispatch(
   if (!verifyRequestHeaders(hmacKey, ceremonyId, "POST", VERIFIER_PATHS.verify, headers, now)) {
     return replyJson(res, 401, { error: "bad signature" });
   }
-  if (!spend(headers.signature as string, Number(headers.timestamp), now)) {
-    return replyJson(res, 401, { error: "replayed request" });
-  }
   const length = req.headers["content-length"];
   if (length !== undefined && !(Number(length) <= MAX_JOB_SPEC_BYTES)) {
     return replyJson(res, 413, { error: "body too large" });
@@ -51,6 +50,9 @@ export function handleDispatch(
   readBody(req)
     .then((bytes) => {
       if (!bodyMatches(bytes, headers)) return replyJson(res, 401, { error: "bad signature" });
+      if (!spend(headers.signature as string, Number(headers.timestamp), now)) {
+        return replyJson(res, 401, { error: "replayed request" });
+      }
       const body = fromUtf8(bytes);
       let spec: JobSpec;
       try {

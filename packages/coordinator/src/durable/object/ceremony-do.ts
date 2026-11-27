@@ -3,7 +3,8 @@
  * the transcript, and its RPC surface. The rules are core's; each method only delegates to
  * `durable/operations`, which commit through `durable/store` (state and transcript in SQLite, the
  * one alarm at the next deadline or a publication to retry, publication) over `durable/db`. Link
- * and attestation signatures are verified by the Worker before they reach it.
+ * and attestation signatures are verified by the Worker before they reach it. Operator events come
+ * only through `applyOperator`, which only the admin routes call.
  */
 import { DurableObject } from "cloudflare:workers";
 import type {
@@ -12,6 +13,7 @@ import type {
   FinalizeRequest,
   JobId,
   LinkedIdentity,
+  OperatorEvent,
   QueueEvent,
   SetupInput,
   UploadRequest,
@@ -33,7 +35,11 @@ export class CeremonyDO extends DurableObject<Env> {
   }
 
   async apply(event: QueueEvent) {
-    return op.apply(this.store, event);
+    return op.apply(this.store, event, "contributor");
+  }
+
+  async applyOperator(event: OperatorEvent) {
+    return op.apply(this.store, event, "operator");
   }
 
   async finalize(request: FinalizeRequest) {

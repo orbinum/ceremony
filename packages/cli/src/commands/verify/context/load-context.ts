@@ -1,7 +1,9 @@
 /**
  * Loads what `verify` builds on, from private copies: ceremony.json must hash to the pin, announce
- * the expected network and match the verification mode, init.json must be the one it announces;
- * then the inputs are staged, and every circuit (or the ptau) that failed to stage is marked as a
+ * the expected network and match the verification mode, init.json must be the one it announces,
+ * and transcript.json must hash to `--transcript-sha256` when one is given. The summary names the
+ * transcript's SHA-256 and each circuit's vk_hash, to compare with the official channel. Then the
+ * inputs are staged, and every circuit (or the ptau) that failed to stage is marked as a
  * failed prerequisite. Returns undefined (with the failure reported) when nothing further can be
  * trusted.
  */
@@ -72,12 +74,27 @@ export async function loadContext(
   );
 
   let transcript: Transcript;
+  let transcriptSha256: string;
   try {
-    transcript = (
-      await loadTranscript(options.dir, await stage.copy(paths.transcript, "transcript.json"))
-    ).value;
+    const loaded = await loadTranscript(
+      options.dir,
+      await stage.copy(paths.transcript, "transcript.json"),
+    );
+    transcript = loaded.value;
+    transcriptSha256 = loaded.sha256;
   } catch (error) {
     return fatal("transcript.json is valid", error);
+  }
+  report.describe(`transcript.json SHA-256 ${transcriptSha256}`);
+  for (const c of init.value.circuits) {
+    const vkHash = transcript.finals.find((f) => f.circuit === c.name)?.vk_hash;
+    report.describe(`${c.name} vk_hash ${vkHash ?? "none"}`);
+  }
+  if (options.transcriptSha256 !== undefined) {
+    report.expect(
+      "transcript.json matches the pinned SHA-256",
+      transcriptSha256 === options.transcriptSha256 ? [] : [`found ${transcriptSha256}`],
+    );
   }
 
   const failed: Failed = new Map();

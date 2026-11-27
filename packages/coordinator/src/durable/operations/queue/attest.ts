@@ -1,7 +1,8 @@
 /**
  * Records the signed end of a session, whose signature the Worker verified against the linked
  * wallet: core ends the session if it is still open (and refuses a sealed ceremony), and checks the
- * payload covers exactly the session's accepted records, once.
+ * payload covers exactly the session's accepted records, once. The beacon-time cut-off is judged
+ * at the real time, never at a clock held for a promotion.
  */
 import {
   type AttestationPayload,
@@ -27,7 +28,7 @@ export async function attest(
   const setup = db.readSetup(store.sql);
   if (!state || !setup) return refuse("not-configured");
   const closesAt = Date.parse(setup.announcement.schedule.beacon);
-  const result = attestStep(state, githubId, payload.seq, queueNow(store), closesAt);
+  const result = attestStep(state, githubId, payload.seq, queueNow(store), closesAt, Date.now());
   if (!result.ok) return refuse(result.refusal);
   const why = checkAttestation(
     payload,

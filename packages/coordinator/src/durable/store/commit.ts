@@ -8,7 +8,8 @@
  * its copies cleans them up itself), and the public files are published. The alarm is armed before
  * publishing even with no deadline left, so an object reset in between still retries the
  * publication; a lagging publication is retried every 30 s until it lands, and the retry alarm is
- * dropped only by the last publication chained.
+ * dropped only by the last publication chained. An object configured for another ceremony than
+ * the deployment's commits nothing.
  */
 import {
   type BeaconRecord,
@@ -23,6 +24,7 @@ import { deleteQuietly, privateBucket } from "../../storage";
 import * as db from "../db";
 import { append } from "./append";
 import { indexOf } from "./index-of";
+import { isBound } from "./is-bound";
 import { publish } from "./publish";
 import type { Store } from "./types";
 import { unpublishUnrecorded } from "./unpublish-unrecorded";
@@ -36,6 +38,7 @@ export async function commit(
   record?: ContributionRecord | BeaconRecord,
   before?: () => void,
 ): Promise<void> {
+  if (!isBound(store)) throw new Error(`commit refused: not ceremony ${store.env.CEREMONY_ID}`);
   const at = new Date().toISOString();
   try {
     store.storage.transactionSync(() => {

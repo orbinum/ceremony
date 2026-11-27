@@ -13,7 +13,7 @@ import { asCommit } from "@orbinum-ceremony/core";
 import { ensureDir } from "../../io";
 import { run, runBytes } from "../process";
 
-const HFS_IGNORED = /[‌-‏‪-‮⁪-⁯﻿]/g;
+const HFS_IGNORED = /[\u200C-\u200F\u202A-\u202E\u206A-\u206F\uFEFF]/g;
 
 const isGitDir = (part: string) => {
   const name = part

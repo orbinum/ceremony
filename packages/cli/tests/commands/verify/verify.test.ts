@@ -1,12 +1,13 @@
 /**
- * `verify` on synthetic ceremonies: the pin, the expected network and mode, the summary, the exit
- * code, transcript tampering, and the circuits clone (origin, pinned circom flags).
+ * `verify` on synthetic ceremonies: the pin, the expected network and mode, the optional transcript
+ * pin, the summary (with the transcript SHA-256 and each vk_hash to compare), the exit code,
+ * transcript tampering, and the circuits clone (origin, pinned circom flags).
  */
 import { execFileSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sha256Utf8, TOOLING } from "@orbinum-ceremony/core";
+import { sha256Hex, sha256Utf8, TOOLING } from "@orbinum-ceremony/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runVerify, verifyCommand, type VerifyOptions } from "../../../src/commands/verify";
 import {
@@ -77,12 +78,28 @@ describe("verify, rooted in the pin and the expected network", () => {
     ]);
   });
 
-  it("names the ceremony, its network and its circuits source in the summary", async () => {
+  it("names the ceremony, its circuits source, the transcript SHA-256 and each vk_hash in the summary", async () => {
     const lines = (await runVerify(options(c))).render().split("\n");
     const { tag, commit } = c.announcement.circuits_source;
-    expect(lines.at(-2)).toBe(
+    const transcript = sha256Hex(await readFile(join(c.dir, "transcript.json")));
+    expect(lines.slice(-4, -1)).toEqual([
       `ceremony synthetic-local on local; circuits https://github.com/orbinum/circuits ${tag} @ ${commit}`,
-    );
+      `transcript.json SHA-256 ${transcript}`,
+      `shield vk_hash ${c.transcript.finals[0]?.vk_hash ?? "none"}`,
+    ]);
+  });
+
+  it("requires transcript.json to hash to --transcript-sha256 when given", async () => {
+    const transcript = sha256Hex(await readFile(join(c.dir, "transcript.json")));
+    const id = "transcript.json matches the pinned SHA-256";
+    expect(await failures(options(c, { transcriptSha256: "00".repeat(32) }))).toContainEqual({
+      id,
+      status: "fail",
+      detail: `found ${transcript}`,
+    });
+    const pinned = await runVerify(options(c, { transcriptSha256: transcript }));
+    expect(pinned.checks).toContainEqual({ id, status: "pass" });
+    expect((await runVerify(options(c))).checks.map((x) => x.id)).not.toContain(id);
   });
 
   it("does not run snarkjs at all when the ptau cannot be staged", async () => {

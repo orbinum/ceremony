@@ -91,9 +91,27 @@ describe("CeremonyDO", () => {
     });
   });
 
+  it("takes operator events only from the operator's path, and nothing else from it", async () => {
+    const stub = await opened();
+    for (const event of [
+      { type: "pause" },
+      { type: "resume" },
+      { type: "close" },
+      { type: "unhold", githubId: 1 },
+    ] as const) {
+      expect(await stub.apply(event)).toEqual({ ok: false, refusal: "invalid-transition" });
+    }
+    expect((await stub.snapshot())?.phase).toBe("OPEN");
+    expect(
+      await stub.applyOperator({ type: "join", githubId: 1 } as unknown as { type: "pause" }),
+    ).toEqual({ ok: false, refusal: "invalid-transition" });
+    expect(await stub.applyOperator({ type: "pause" })).toMatchObject({ ok: true });
+    expect((await stub.snapshot())?.phase).toBe("PAUSED");
+  });
+
   it("refuses finalizing through the queue: it has its own checked path", async () => {
     const stub = await opened();
-    await stub.apply({ type: "close" });
+    await stub.applyOperator({ type: "close" });
     expect(await stub.apply({ type: "finalize" })).toEqual({
       ok: false,
       refusal: "invalid-transition",
@@ -231,7 +249,7 @@ describe("CeremonyDO", () => {
     await PRIVATE.put(prepared.key, bytes);
     const r = await stub.uploaded(upload, prepared.key);
     if (!r.ok) throw new Error(r.refusal);
-    expect(await stub.apply({ type: "close" })).toMatchObject({ ok: true });
+    expect(await stub.applyOperator({ type: "close" })).toMatchObject({ ok: true });
     expect((await stub.snapshot())?.slot).not.toBeNull();
     expect(await stub.report(validReport(r.spec.job))).toEqual({ ok: true, status: "applied" });
     expect(await stub.snapshot()).toMatchObject({ phase: "CLOSED", slot: null });

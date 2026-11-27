@@ -2,7 +2,8 @@
  * Promoting a valid upload: the record is the authority over its public path, so a leftover at an
  * unrecorded index is replaced and never wedges the circuit, a copy the transcript does not record
  * never stays public, a result received in time is judged at receipt (the queue's clock holds while
- * the first copy runs), and nothing is recorded outside the acceptance window.
+ * the first copy runs), no other report on an index settles it while its copy is in flight, and
+ * nothing is recorded outside the acceptance window.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { sha256Hex, toHex, type Setup } from "@orbinum-ceremony/core";
@@ -118,7 +119,7 @@ describe("promotion of a valid upload", () => {
     await runDurableObjectAlarm(stub);
     await unwrapBuckets(stub);
     expect(await stub.latestJob(1, "shield")).toMatchObject({ status: "stale" });
-    expect(await stub.apply({ type: "resume" })).toMatchObject({ ok: true });
+    expect(await stub.applyOperator({ type: "resume" })).toMatchObject({ ok: true });
 
     const bytes = new TextEncoder().encode("second");
     const second = await uploadShield(stub, bytes);
@@ -202,6 +203,27 @@ describe("promotion of a valid upload", () => {
     expect(await first).toEqual({ ok: true, status: "applied" });
     await unwrapBuckets(stub);
     expect(await contributions(stub)).toHaveLength(1);
+  });
+
+  it("tells a non-valid report to come back while a valid copy of its index is in flight", async () => {
+    const stub = await inSession();
+    const job = await uploadShield(stub, new TextEncoder().encode("slow"));
+    const held = deferred();
+    await wrapBucket(stub, "PUBLIC", async (method, key) => {
+      if (method === "put" && key === ZKEY) await held.promise;
+    });
+    const first = stub.report(validReport(job));
+    await vi.waitFor(async () => expect(await holding(LOG_KEY)).not.toBeNull());
+    expect(await stub.report({ job, result: "rejected", reason: "client-hash-mismatch" })).toEqual({
+      ok: false,
+      refusal: "storage",
+    });
+    expect(await stub.latestJob(1, "shield")).toMatchObject({ status: "pending" });
+    held.release();
+    expect(await first).toEqual({ ok: true, status: "applied" });
+    await unwrapBuckets(stub);
+    expect(await contributions(stub)).toHaveLength(1);
+    expect(await holding(ZKEY)).toBe(sha("slow"));
   });
 
   it("never records a contribution outside the acceptance window: infra instead", async () => {

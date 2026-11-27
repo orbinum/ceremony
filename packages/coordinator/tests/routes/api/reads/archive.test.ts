@@ -1,7 +1,8 @@
 /**
  * `/api/archive` and `/archive/<id>/*`: every ceremony this network published (announced once
  * `ceremony.json` is written), listed, and its files read-only and inert like `/artifacts`, so a
- * finished ceremony stays verifiable after the deployment moves on.
+ * finished ceremony stays verifiable after the deployment moves on. A folder never announced is
+ * not served, except the current ceremony's.
  */
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -33,6 +34,7 @@ describe("/archive", () => {
   });
 
   it("serves an earlier ceremony's files, which /artifacts never does", async () => {
+    await env.PUBLIC.put(`${EARLIER}/ceremony.json`, "{}");
     await env.PUBLIC.put(`${EARLIER}/transcript.json`, "earlier transcript", {
       httpMetadata: { contentType: "application/json" },
     });
@@ -44,7 +46,7 @@ describe("/archive", () => {
     expect(await refusal(await raw("/artifacts/transcript.json"))).toEqual([404, "not-found"]);
   });
 
-  it("serves the current ceremony too, the same bytes as /artifacts", async () => {
+  it("serves the current ceremony too, announced or not, the same bytes as /artifacts", async () => {
     await PUBLIC.put("status.json", '{"phase":"OPEN"}');
     const archived = await raw(`/archive/${env.CEREMONY_ID}/status.json`);
     const current = await raw("/artifacts/status.json");
@@ -52,6 +54,7 @@ describe("/archive", () => {
   });
 
   it("caches genesis keys for good and revalidates everything else, by the key in the folder", async () => {
+    await env.PUBLIC.put(`${EARLIER}/ceremony.json`, "{}");
     await env.PUBLIC.put(`${EARLIER}/genesis/shield.genesis.zkey`, "g");
     await env.PUBLIC.put(`${EARLIER}/final/shield.final.zkey`, "f");
     const genesis = await raw(`/archive/${EARLIER}/genesis/shield.genesis.zkey`);
@@ -74,6 +77,19 @@ describe("/archive attacks", () => {
       const r = await raw(`/archive/${id}/verify/1/shield/1-secret.zkey`);
       expect([id, r.status]).toEqual([id, 404]);
     }
+  });
+
+  it("serves nothing of a folder never announced, answering as a missing file", async () => {
+    const NEXT = "orbinum-testnet-next-1";
+    await env.PUBLIC.put(`${NEXT}/genesis/init.json`, '{"ceremony_id":"next"}');
+    await env.PUBLIC.put(`${NEXT}/genesis/shield.genesis.zkey`, "g");
+    for (const key of ["genesis/init.json", "genesis/shield.genesis.zkey", "missing.json"]) {
+      const r = await raw(`/archive/${NEXT}/${key}`);
+      expect([key, ...(await refusal(r))]).toEqual([key, 404, "not-found"]);
+    }
+    await env.PUBLIC.put(`${NEXT}/ceremony.json`, "{}");
+    const announced = await raw(`/archive/${NEXT}/genesis/init.json`);
+    expect([announced.status, await announced.text()]).toEqual([200, '{"ceremony_id":"next"}']);
   });
 
   it("answers anything that is not a ceremony id and a key as not found", async () => {

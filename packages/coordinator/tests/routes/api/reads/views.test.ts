@@ -65,7 +65,7 @@ describe("public reads", () => {
     expect(first.headers.get("cache-control")).toBe("public, max-age=0, s-maxage=5");
     const body = await first.json();
     expect(body).toMatchObject({ phase: "OPEN" });
-    await stubOf(name).apply({ type: "pause" });
+    await stubOf(name).applyOperator({ type: "pause" });
     for (const query of ["", "?b=1", "?phase=x&b=2"]) {
       const r = await read(query);
       expect([r.status, await r.json()]).toEqual([200, body]);

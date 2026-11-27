@@ -3,8 +3,9 @@
  * the private bucket only if it is exactly the declared bytes hashing to the claimed output, the
  * object checks it again, and the job goes to the verifier (kept alive past the answer by
  * `waitUntil`). The claimed method must be the credential's: a CLI token uploads as `cli`, the
- * browser as `browser` (a local run's development header may claim either). The private object
- * never survives a refusal.
+ * browser as `browser` (a local run's development header may claim either). Only a fresh write
+ * counts as stored: a key that was already there is refused. The private object never survives a
+ * refusal, nor a Durable Object call that throws.
  */
 import type { CircuitName, ContributionClaim, JobId } from "@orbinum-ceremony/core";
 import { ceremony } from "../../durable";
@@ -49,16 +50,20 @@ export async function receiveUpload(
   const stub = ceremony(env);
   const prepared = await stub.prepareUpload(request);
   if (!prepared.ok) return refuse(prepared.refusal);
+  const abandon = async () => {
+    await deleteQuietly(privateBucket(env), prepared.key);
+    await stub.releaseUpload(prepared.key).catch(() => undefined);
+  };
+  let written;
   try {
-    await streamExact(privateBucket(env), prepared.key, body, {
+    written = await streamExact(privateBucket(env), prepared.key, body, {
       size: input.size,
       sha256: input.claim.outputSha256,
       contentType: "application/octet-stream",
       ifAbsent: true,
     });
   } catch (error) {
-    await deleteQuietly(privateBucket(env), prepared.key);
-    await stub.releaseUpload(prepared.key).catch(() => undefined);
+    await abandon();
     if (error instanceof BytesMismatch) {
       return refuse("malformed", "the body does not match its Content-Length or output hash");
     }
@@ -68,11 +73,18 @@ export async function receiveUpload(
     }
     throw error;
   }
-  const uploaded = await stub.uploaded(request, prepared.key);
-  if (!uploaded.ok) {
-    await deleteQuietly(privateBucket(env), prepared.key);
-    return refuse(uploaded.refusal);
+  if (written !== "stored") {
+    await abandon();
+    console.error(`upload ${prepared.key}: ${written}, not stored`);
+    return refuse("storage", "the upload could not be stored; try again");
   }
+  let uploaded;
+  try {
+    uploaded = await stub.uploaded(request, prepared.key);
+  } finally {
+    if (!uploaded?.ok) await deleteQuietly(privateBucket(env), prepared.key);
+  }
+  if (!uploaded.ok) return refuse(uploaded.refusal);
   waitUntil(dispatch(env, uploaded.spec));
   return succeed({ job: uploaded.spec.job }, 202);
 }

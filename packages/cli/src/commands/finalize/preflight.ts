@@ -1,13 +1,16 @@
 /**
  * Every precondition of sealing the beacon, checked before it is sealed because sealing is
  * irreversible: core's `checkTranscriptIntegrity` (anchor, chain, per-circuit links, window,
- * simulated contributions) and `checkFinalizable` (closed, minimum), the vk packer when one is
- * needed, then the pinned r1cs and head files on disk. Returns each circuit's plan.
+ * simulated contributions), the finished-transcript checks publishing the final requires
+ * (`checkIdentities`, `checkInvited`) and `checkFinalizable` (closed, minimum), the vk packer when
+ * one is needed, then the pinned r1cs and head files on disk. Returns each circuit's plan.
  */
 import {
   type CeremonyAnnouncement,
   type Chained,
   checkFinalizable,
+  checkIdentities,
+  checkInvited,
   checkTranscriptIntegrity,
   circuitsOf,
   type ContributionRecord,
@@ -36,6 +39,8 @@ export async function preflight(
     ...checkTranscriptIntegrity(store.transcript, announcement, announcementSha256, init).flatMap(
       (c) => c.problems.map((p) => `${c.id}: ${p}`),
     ),
+    ...checkIdentities(store.transcript.records, announcement).problems,
+    ...checkInvited(store.transcript.records, announcement),
     ...checkFinalizable(store.transcript.records, init, announcement, now.getTime()),
   ];
   if (problems.length > 0) throw new Error(`not finalizable: ${problems.join("; ")}`);

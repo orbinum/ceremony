@@ -24,6 +24,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ceremony/header-only-comments` (`scripts/oxlint-ceremony-plugin.mjs`).
 - The CLI help no longer cites internal spec sections.
 
+### Security
+
+These changes harden the ceremony after a full source audit.
+
+- **One ceremony per object.** A ceremony's Durable Object acts only while the deployment's
+  `CEREMONY_ID` is the one it was configured for. Once a deployment moves to its next ceremony, an
+  earlier object's alarm no longer publishes, chains a record or deletes anything in the new
+  ceremony's folder; it drops its alarm instead. The verifier container likewise stores the
+  ceremony with each queued job and drops jobs of another ceremony.
+- **Operator events only from `/admin`.** Pause, resume, close and unhold go through their own
+  call. The contributor path refuses them.
+- **A fair claim window.** A turn granted when a verification result is applied starts its 30 s
+  claim window when it is granted, no longer at the result's receipt time. Attestations stop
+  exactly at the announced beacon time.
+- **Per-circuit cap.** An upload beyond 9,999 contributions on a circuit is refused
+  (`circuit-full`), at upload and by the verifier, so every circuit stays finalizable.
+- **Uploads clean up after themselves.** An upload whose write was not stored, or whose
+  hand-over failed, leaves no private object behind. A report for a contribution still being
+  promoted is answered `storage` and retried. The verifier spends a request's MAC only once its
+  body matches the signature.
+- **`/archive/<id>/*`** serves only ceremonies that were announced, plus the current one.
+- **CLI and site:**
+  - **Token handling.** The site's CLI command reads the token at a silent prompt, so it never
+    lands in shell history.
+  - **Pins and checks.**
+    - `verify --transcript-sha256` pins the transcript, and the summary prints the transcript
+      SHA-256 and every `vk_hash`, to compare with the official channel.
+    - `verify` and `init` require the circuits clone at the release commit.
+    - `finalize` checks identities and invitations before sealing the beacon.
+    - `announce` validates the tag and the clone's origin.
+  - **Downloads.** Downloads refuse more internal address ranges.
+  - **Attestation.** The site refuses to sign a receipt that does not match the session exactly.
+- **Release.** The deploy job no longer restores the pnpm store cache that CI runs write.
+
 ## [0.6.3] - 2026-11-27
 
 ### Fixed

@@ -1,4 +1,7 @@
-/** A dispatched job as the verifier receives it; its index must follow the head it extends. */
+/**
+ * A dispatched job as the verifier receives it; its index must follow the head it extends and stay
+ * within `MAX_CONTRIBUTIONS`.
+ */
 import { MAX_CONTRIBUTIONS, MAX_FILE_BYTES } from "../../../config";
 import { FormatError } from "../../../primitives/errors";
 import {
@@ -23,7 +26,7 @@ export function validateJobSpec(v: unknown): JobSpec {
     head: {
       outputSha256: asHex(head.outputSha256, "spec.head.outputSha256", 32),
       csHash: asHex(head.csHash, "spec.head.csHash", 64),
-      previous: asArray(head.previous, "spec.head.previous", MAX_CONTRIBUTIONS).map((e, i) => {
+      previous: asArray(head.previous, "spec.head.previous", MAX_CONTRIBUTIONS - 1).map((e, i) => {
         const q = `spec.head.previous[${i}]`;
         const r = asRecord(e, q, ["hash", "name", "deltaAfter"]);
         return {

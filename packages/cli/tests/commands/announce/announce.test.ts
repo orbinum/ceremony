@@ -1,8 +1,11 @@
 /**
- * `announce`: the root of trust is never rewritten under a chain, and its options follow core's
- * rules.
+ * `announce`: the root of trust is never rewritten under a chain, its options follow core's rules,
+ * and outside local ceremonies the circuits clone is one of the announced repository.
  */
-import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   CIRCUITS_REPO_URL,
   MAX_CONTRIBUTIONS,
@@ -30,6 +33,8 @@ const argv = (network: string, ...extra: string[]) => [
   "2030-01-01T00:00:00Z",
   ...extra,
 ];
+
+const tagged = (tag: string) => [...argv("local").slice(0, 7), tag, ...argv("local").slice(8)];
 
 const withMinimum = (n: number) => [
   ...argv("local").slice(0, 9),
@@ -70,6 +75,35 @@ describe("announce", () => {
     );
     expect(parseAnnounceOptions(argv("local", ...lookalike)).circuitsUrl).toBe(lookalike[1]);
     expect(parseAnnounceOptions(argv("mainnet")).circuitsUrl).toBe(CIRCUITS_REPO_URL);
+  });
+
+  it("takes only a release tag name for --circuits-tag, before git sees it", () => {
+    for (const bad of ["HEAD", "refs/tags/v1", "v1 x", "v1@{0}", "v1..v2", "abcdef0", ".v1"]) {
+      expect(() => parseAnnounceOptions(tagged(bad))).toThrow(
+        new UsageError("--circuits-tag must be a release tag name"),
+      );
+    }
+    expect(parseAnnounceOptions(tagged("v1.2.3")).circuitsTag).toBe("v1.2.3");
+  });
+
+  it("refuses a circuits clone whose origin is not --circuits-url outside local", async () => {
+    const c = await syntheticCeremony({ network: "testnet", finalized: false });
+    await rm(layout(c.dir).announcement);
+    await rm(layout(c.dir).transcript);
+    const repo = await mkdtemp(join(tmpdir(), "orbinum-announce-"));
+    const git = (...args: string[]) => execFileSync("git", ["-C", repo, ...args]);
+    try {
+      git("init", "-q");
+      git("remote", "add", "origin", "https://github.com/orbinum-labs/circuits.git");
+      const options = { ...parseAnnounceOptions(argv("testnet")), dir: c.dir, circuitsRepo: repo };
+      expect((await rejection(runAnnounce(options))).message).toBe(
+        "circuits clone's origin is github.com/orbinum-labs/circuits, not github.com/orbinum/circuits",
+      );
+      git("remote", "set-url", "origin", "git@github.com:orbinum/circuits.git");
+      expect((await rejection(runAnnounce(options))).message).not.toMatch(/origin/);
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
   });
 
   it("bounds the minimum by what a zkey can hold", () => {

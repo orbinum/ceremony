@@ -1,6 +1,8 @@
 /**
  * Applies the verifier's outcome for a job as of `at` (its receipt), with the record of an
- * acceptance, in one commit with the job's final status; then drops the private upload.
+ * acceptance, in one commit with the job's final status; then drops the private upload. The receipt
+ * time protects the result's owner only: a slot it frees and grants to the next contributor starts
+ * that one's claim window at the commit, not at the earlier receipt.
  */
 import {
   type ContributionRecord,
@@ -32,7 +34,14 @@ export async function settle(
     at,
   );
   if (!result.ok) return refuse(result.refusal);
-  await commit(store, result.state, result.effects, contribution, () =>
+  const grant = result.effects.find((e) => e.type === "grant");
+  const slot = result.state.slot;
+  const now = Date.now();
+  const settled =
+    grant && slot?.seq === grant.seq && slot.claimedAt === null
+      ? { ...result.state, slot: { ...slot, grantedAt: now, lastHeartbeat: now } }
+      : result.state;
+  await commit(store, settled, result.effects, contribution, () =>
     db.writeJob(store.sql, { ...job, status: "done", outcome, report: storedReport(incoming) }),
   );
   await deleteQuietly(privateBucket(store.env), job.key);

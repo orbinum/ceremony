@@ -5,7 +5,8 @@
  * received in time is not lost to the time its copy takes. A valid result the transcript cannot
  * hold is the verifier's fault, not the contributor's: `infra`. A valid upload is copied to its
  * public path before its record is appended, by one writer per public index (a retry while a copy
- * is in flight gets `storage` and comes back), and the job is read again after the copy since a
+ * is in flight gets `storage` and comes back, as does any other report on that index, so none can
+ * settle the job under the copy and unpublish it), and the job is read again after the copy since a
  * deadline may have run past the clock's hold. A storage failure leaves the job pending for the
  * verifier to retry. A copy the transcript ends up not recording is removed, checked against the
  * records, so a commit that failed after writing them keeps its copies.
@@ -45,12 +46,12 @@ export async function report(store: Store, incoming: VerifierReport): Promise<Ap
       outcome = "infra";
     }
   }
+  const index = indexOf(job);
+  if (store.promoting.has(index)) return refuse("storage");
   if (!contribution || incoming.result !== "valid") {
     return settle(store, job, incoming, outcome, at);
   }
 
-  const index = indexOf(job);
-  if (store.promoting.has(index)) return refuse("storage");
   store.promoting.add(index);
   store.receivedAt.set(index, at);
   let committed = false;

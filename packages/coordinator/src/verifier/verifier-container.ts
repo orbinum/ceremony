@@ -8,7 +8,8 @@
  * crash, a deploy) is posted again to the new one, which runs it from the start, and the
  * coordinator takes a second report as a duplicate. Each start is numbered, since a new process has
  * an empty job queue. A container on an older image is replaced, so the coordinator and the
- * verifier run the same version. A job past its deadline is dropped without a start; a refusal from
+ * verifier run the same version. A job past its deadline, or queued for another ceremony than the
+ * deployment's (one queued before it moved on), is dropped without a start; a refusal from
  * the verifier is its answer, not a fault to retry. The container reports to the coordinator's
  * public `/internal` routes. A failed alarm is retried by the platform, and a container that never
  * becomes healthy (pins failed, or wedged) is destroyed so that retry starts afresh.
@@ -18,34 +19,37 @@ import { type JobSpec, jobKey } from "@orbinum-ceremony/core";
 import { ceremony } from "../durable";
 import { postJob } from "../services";
 import { BOOT_MS, IDLE_MS, INSTANCE, PORT, STALE_MS, WATCH_MS } from "./constants";
-import type { Queued } from "./types";
+import type { Queued, Warm } from "./types";
 
 export class VerifierContainer extends DurableObject<Env> {
   async enqueue(spec: JobSpec): Promise<void> {
-    const queued: Queued = { spec, at: Date.now() };
+    const queued: Queued = { spec, ceremony: this.env.CEREMONY_ID, at: Date.now() };
     await this.ctx.storage.put(`job:${jobKey(spec.job)}`, queued);
     await this.ctx.storage.setAlarm(Date.now());
   }
 
   async warm(): Promise<void> {
-    await this.ctx.storage.put("warm", Date.now());
+    const warm: Warm = { ceremony: this.env.CEREMONY_ID, at: Date.now() };
+    await this.ctx.storage.put("warm", warm);
     await this.ctx.storage.setAlarm(Date.now());
   }
 
   override async alarm(): Promise<void> {
-    const warm = await this.ctx.storage.get<number>("warm");
+    const warm = await this.ctx.storage.get<Warm>("warm");
     if (warm !== undefined) await this.ctx.storage.delete("warm");
+    const live = (q: { ceremony?: string; at: number }) =>
+      q.ceremony === this.env.CEREMONY_ID && Date.now() - q.at < STALE_MS;
     const jobs = await this.ctx.storage.list<Queued>({ prefix: "job:" });
-    const stale = [...jobs].filter(([, { at }]) => Date.now() - at >= STALE_MS).map(([k]) => k);
+    const stale = [...jobs].filter(([, queued]) => !live(queued)).map(([k]) => k);
     if (stale.length > 0) await this.ctx.storage.delete(stale);
     const fresh = [...jobs].filter(([key]) => !stale.includes(key));
     if (fresh.length === 0) {
-      if (warm !== undefined && Date.now() - warm < STALE_MS) await this.ready();
+      if (warm !== undefined && live(warm)) await this.ready();
       return;
     }
     const { port, start } = await this.ready();
     for (const [key, queued] of fresh) {
-      if (queued.postedTo === start || Date.now() - queued.at >= STALE_MS) continue;
+      if (queued.postedTo === start || !live(queued)) continue;
       // oxlint-disable-next-line no-await-in-loop
       const status = await postJob(
         this.env,

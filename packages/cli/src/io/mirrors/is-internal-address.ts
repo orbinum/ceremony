@@ -1,6 +1,7 @@
 /**
- * Whether an IP is internal (private, loopback, link-local, carrier-grade NAT, unspecified or
- * NAT64): none of them is a public mirror. Anything that is not an IP counts as internal.
+ * Whether an IP is internal (private, loopback, link-local, carrier-grade NAT, unspecified, NAT64,
+ * benchmarking, IETF protocol assignments, multicast, reserved or site-local): none of them is a
+ * public mirror. Anything that is not an IP counts as internal.
  */
 import { BlockList, isIP } from "node:net";
 
@@ -13,11 +14,17 @@ for (const [net, prefix] of [
   ["169.254.0.0", 16],
   ["100.64.0.0", 10],
   ["0.0.0.0", 8],
+  ["198.18.0.0", 15],
+  ["192.0.0.0", 24],
+  ["224.0.0.0", 4],
+  ["240.0.0.0", 4],
 ] as const) {
   INTERNAL.addSubnet(net, prefix, "ipv4");
 }
 INTERNAL.addSubnet("fc00::", 7, "ipv6");
 INTERNAL.addSubnet("fe80::", 10, "ipv6");
+INTERNAL.addSubnet("fec0::", 10, "ipv6");
+INTERNAL.addSubnet("ff00::", 8, "ipv6");
 INTERNAL.addSubnet("64:ff9b::", 96, "ipv6");
 INTERNAL.addSubnet("64:ff9b:1::", 48, "ipv6");
 INTERNAL.addAddress("::1", "ipv6");

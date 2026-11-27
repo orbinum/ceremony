@@ -40,7 +40,7 @@ describe("publishing transcript.json and status.json", () => {
       if (method === "put" && key === "transcript.json") throw new Error("R2 down");
     });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    await stub.apply({ type: "pause" });
+    await stub.applyOperator({ type: "pause" });
     await unwrapBuckets(stub);
     expect(await alarmOf(stub)).toBeLessThanOrEqual(Date.now() + 30_000);
     expect((await published())?.records.map((r) => (r as { to?: string }).to)).toEqual(["OPEN"]);
@@ -57,10 +57,10 @@ describe("publishing transcript.json and status.json", () => {
     await wrapBucket(stub, "PUBLIC", (method, key) => {
       if (method === "put" && key === "transcript.json") throw new Error("R2 down");
     });
-    await stub.apply({ type: "pause" });
+    await stub.applyOperator({ type: "pause" });
     await unwrapBuckets(stub);
     expect((await published())?.records.map((r) => (r as { to?: string }).to)).toEqual(["OPEN"]);
-    await stub.apply({ type: "resume" });
+    await stub.applyOperator({ type: "resume" });
     expect((await published())?.records.map((r) => (r as { to?: string }).to)).toEqual([
       "OPEN",
       "PAUSED",
@@ -78,7 +78,7 @@ describe("publishing transcript.json and status.json", () => {
       );
       (instance as unknown as { store: { cache: null } }).store.cache = null;
     });
-    expect(await stub.apply({ type: "pause" })).toMatchObject({ ok: true });
+    expect(await stub.applyOperator({ type: "pause" })).toMatchObject({ ok: true });
     expect(await published()).toEqual(before);
     expect(errors.mock.calls.some((c) => String(c[0]).includes("transcript.json withheld"))).toBe(
       true,
@@ -116,9 +116,9 @@ describe("publishing transcript.json and status.json", () => {
       writes.push(writes.length === 0 ? "first" : "second");
       if (writes.length === 1) await held.promise;
     });
-    const first = stub.apply({ type: "pause" });
+    const first = stub.applyOperator({ type: "pause" });
     await vi.waitFor(() => expect(writes).toEqual(["first"]));
-    const second = stub.apply({ type: "resume" });
+    const second = stub.applyOperator({ type: "resume" });
     await new Promise((r) => setTimeout(r, 20));
     expect(writes).toEqual(["first"]);
     held.release();

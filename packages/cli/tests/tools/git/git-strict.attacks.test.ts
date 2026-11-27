@@ -124,7 +124,19 @@ describe("the announced release in the verifier's clone", () => {
       input: "[core]\n",
       encoding: "utf8",
     }).trim();
-    for (const name of [".GIT", ".g\u200Cit", "\uFEFF.git", ".git.", ".git ", "GIT~1"]) {
+    for (const name of [
+      ".GIT",
+      ".g\u200Cit",
+      ".gi\u200Ft",
+      "\u202A.git",
+      ".git\u202E",
+      ".\u206Agit",
+      ".g\u206Fit",
+      "\uFEFF.git",
+      ".git.",
+      ".git ",
+      "GIT~1",
+    ]) {
       const tree = execFileSync("git", ["-C", repo, "mktree"], {
         input: `100644 blob ${blob}\t${name}\n`,
         encoding: "utf8",

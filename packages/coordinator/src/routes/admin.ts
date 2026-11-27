@@ -36,10 +36,10 @@ export const admin = new Hono<AppEnv>()
     answer(c, await configureCeremony(c.env, c.req.valid("json"))),
   )
   .post("/state", limitBody(MAX_ACTION_BYTES), operatorAction, async (c) =>
-    respond(c, await ceremony(c.env).apply({ type: c.req.valid("json").action })),
+    respond(c, await ceremony(c.env).applyOperator({ type: c.req.valid("json").action })),
   )
   .post("/unhold", limitBody(MAX_ACTION_BYTES), unholdBody, async (c) =>
-    respond(c, await ceremony(c.env).apply({ type: "unhold", ...c.req.valid("json") })),
+    respond(c, await ceremony(c.env).applyOperator({ ...c.req.valid("json"), type: "unhold" })),
   )
   .post("/finalize", limitBody(MAX_FINALIZE_BYTES), finalizeBody, async (c) =>
     respond(c, await ceremony(c.env).finalize(c.req.valid("json"))),

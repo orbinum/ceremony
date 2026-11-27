@@ -1,4 +1,5 @@
 /** client/pages/home/steps: what each step of the journey shows and asks, once signed in. */
+export { cliCommand } from "./cli-command";
 export { CliOption } from "./cli-option";
 export { ContributeStep } from "./contribute-step";
 export { QueueStep } from "./queue-step";

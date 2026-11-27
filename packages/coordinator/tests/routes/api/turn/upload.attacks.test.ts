@@ -209,7 +209,7 @@ describe("the turn", () => {
     expect(
       await status(await put(BYTES, { "x-ceremony-claim": claimHeader() }, { githubId: BOB })),
     ).toEqual([409, "not-your-slot"]);
-    await stub.apply({ type: "pause" });
+    await stub.applyOperator({ type: "pause" });
     expect(await status(await put(BYTES, { "x-ceremony-claim": claimHeader() }))).toEqual([
       409,
       "not-open",

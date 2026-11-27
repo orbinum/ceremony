@@ -3,7 +3,8 @@
  * exact `init.json`, the audited circuits tag and commit, the minimum contributions and the drand
  * round, so none of them can be chosen after contributions open; its SHA-256 is what gets
  * published. An announcement is never rewritten once a transcript is anchored in it, since that
- * would orphan the chain.
+ * would orphan the chain. Outside local ceremonies the circuits clone must be a clone of
+ * `--circuits-url` (its origin), as `verify` later requires.
  */
 import { existsSync } from "node:fs";
 import {
@@ -17,8 +18,9 @@ import {
 } from "@orbinum-ceremony/core";
 import { layout, loadInit } from "../../artifacts";
 import { writeAtomic } from "../../io";
-import { resolveRelease } from "../../source";
+import { repoId, resolveRelease } from "../../source";
 import { withLock } from "../../store";
+import { originUrl } from "../../tools";
 import type { AnnounceOptions } from "./types";
 
 export async function runAnnounce(
@@ -39,6 +41,12 @@ async function announce(options: AnnounceOptions) {
   }
 
   const init = await loadInit(options.dir);
+  if (options.network !== "local") {
+    const origin = repoId(await originUrl(options.circuitsRepo));
+    if (origin !== repoId(options.circuitsUrl)) {
+      throw new Error(`circuits clone's origin is ${origin}, not ${repoId(options.circuitsUrl)}`);
+    }
+  }
   const release = await resolveRelease(
     options.circuitsRepo,
     options.circuitsTag,

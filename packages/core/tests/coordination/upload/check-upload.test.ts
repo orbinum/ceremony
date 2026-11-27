@@ -1,9 +1,10 @@
-/** Whether an upload may be stored and verified now. */
+/** Whether an upload may be stored and verified now, up to `MAX_CONTRIBUTIONS` per circuit. */
 import { describe, expect, it } from "vitest";
+import type { Chained, ContributionRecord } from "../../../src/ceremony";
 import { scheduleOf, parseSetup } from "../../../src/ceremony/setup";
 import { initialQueue, type QueueState, step } from "../../../src/coordination/queue";
 import { checkUpload } from "../../../src/coordination/upload";
-import { BYTES_PER_CONTRIBUTION } from "../../../src/config";
+import { BYTES_PER_CONTRIBUTION, MAX_CONTRIBUTIONS } from "../../../src/config";
 import {
   chain as chainFrom,
   contribution,
@@ -78,6 +79,28 @@ describe("checkUpload", () => {
     expect(up({ size: 1000 + BYTES_PER_CONTRIBUTION })).toMatchObject({ ok: true });
     expect(up({ githubId: 999 })).toEqual({ ok: false, refusal: "not-your-slot" });
     expect(up({ circuit: "transfer" })).toEqual({ ok: false, refusal: "out-of-order" });
+  });
+
+  it("takes contribution MAX_CONTRIBUTIONS, then refuses the circuit as full", () => {
+    const s = claimed();
+    const [first] = chain([contribution(1)]);
+    const records = Array.from({ length: MAX_CONTRIBUTIONS }, (_, i) => ({
+      ...(first as Chained<ContributionRecord>),
+      output_sha256: h(101 + i),
+    }));
+    const up = (n: number) =>
+      checkUpload(
+        SETUP,
+        s,
+        records.slice(0, n),
+        { githubId: ALICE, circuit: "shield", claim: claim(h(100 + n)), size: 1000 },
+        OPEN,
+      );
+    expect(up(MAX_CONTRIBUTIONS - 1)).toMatchObject({
+      ok: true,
+      job: { index: MAX_CONTRIBUTIONS },
+    });
+    expect(up(MAX_CONTRIBUTIONS)).toEqual({ ok: false, refusal: "circuit-full" });
   });
 
   it("refuses an upload after the close though the alarm has not closed the queue yet", () => {

@@ -125,6 +125,21 @@ describe("every command's options", async () => {
     expect(
       cli.parseVerifyOptions(["--dir", "d", "--announcement-sha256", sha, "--network", "testnet"]),
     ).toMatchObject({ network: "testnet", local: false, rebuildGenesis: false });
+    expect(
+      cli.parseVerifyOptions(["--dir", "d", "--announcement-sha256", sha, "--network", "testnet"]),
+    ).not.toHaveProperty("transcriptSha256");
+    expect(
+      cli.parseVerifyOptions([
+        "--dir",
+        "d",
+        "--announcement-sha256",
+        sha,
+        "--network",
+        "testnet",
+        "--transcript-sha256",
+        "CD".repeat(32),
+      ]).transcriptSha256,
+    ).toBe("cd".repeat(32));
   });
 
   const sha256 = "ab".repeat(32);
@@ -151,6 +166,20 @@ describe("every command's options", async () => {
       () =>
         cli.parseVerifyOptions(["--dir", "d", "--announcement-sha256", "12", "--network", "local"]),
       /^--announcement-sha256 must be a SHA-256/,
+    ],
+    [
+      "a bad transcript pin",
+      () =>
+        cli.parseVerifyOptions([
+          "--dir",
+          "d",
+          ...pin,
+          "--network",
+          "local",
+          "--transcript-sha256",
+          "12",
+        ]),
+      /^--transcript-sha256 must be a SHA-256/,
     ],
     [
       "no pin",

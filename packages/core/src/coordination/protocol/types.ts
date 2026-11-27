@@ -79,6 +79,7 @@ export type CeremonyRefusal =
   | "wallet-taken"
   | "stale-head"
   | "too-large"
+  | "circuit-full"
   | "unknown-job"
   | "attestation-mismatch"
   | "already-attested"

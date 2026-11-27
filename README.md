@@ -151,10 +151,16 @@ Each network keeps one pair of buckets, and each ceremony its own folder in them
 git clone https://github.com/orbinum/ceremony-verifier ../ceremony-verifier
 make -C ../ceremony-verifier release   # independent verifier (Rust, no snarkjs code)
 git clone https://github.com/orbinum/circuits ../circuits   # the circuits repo; verify checks the clone's origin
+git -C ../circuits checkout <announced circuits tag>          # verify refuses a clone whose HEAD is not the tag
+pnpm --dir ../circuits install --frozen-lockfile --ignore-scripts   # the tag's own lockfile, integrity-checked
 pnpm ceremony verify --dir <published ceremony> --announcement-sha256 <SHA-256 from an official channel> \
   --network mainnet --ptau $PTAU --circuits-repo ../circuits --vk-packer $PACKER \
-  --rust-verifier ../ceremony-verifier/target/release/ceremony-verifier [--rebuild-genesis]
+  --rust-verifier ../ceremony-verifier/target/release/ceremony-verifier [--transcript-sha256 <hex>] [--rebuild-genesis]
 ```
+
+The circuits clone must be checked out at the announced tag and installed from that tag's lockfile with `--frozen-lockfile --ignore-scripts` before `verify`: the r1cs rebuild compiles the tag's sources against that `node_modules`, and only the tag's lockfile pins every dependency (circomlib included) by integrity. An install from another branch's lockfile is not what the audit reviewed.
+
+The report's summary names the transcript's SHA-256 and each circuit's `vk_hash`: compare them with the values Orbinum publishes on its official channels, or pass `--transcript-sha256` to have `verify` require that transcript.
 
 `--ptau` must be exactly `powersOfTau28_hez_final_16.ptau` (the CLI rejects any other file): a larger Hermez file of the same Phase 1 gives transfer another csHash.
 

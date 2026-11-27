@@ -4,7 +4,7 @@
  * external) fails a full verification (core `skippedCheckStatus`), so a third party never reads
  * "all passed" when the bindings that matter were not checked. Details are redacted (`redactions`
  * adds paths such as the ceremony directory) and folded onto one line, so a detail cannot forge the
- * lines after it; `describe` names what was verified for the summary.
+ * lines after it; `describe` adds a summary line naming what was verified.
  */
 import { skippedCheckStatus } from "@orbinum-ceremony/core";
 import { errorMessage, redact } from "../io";
@@ -12,7 +12,7 @@ import type { Check, CheckStatus } from "./types";
 
 export class Report {
   readonly checks: Check[] = [];
-  private subject?: string;
+  private readonly subject: string[] = [];
 
   constructor(
     readonly local: boolean,
@@ -28,7 +28,7 @@ export class Report {
   }
 
   describe(subject: string): void {
-    this.subject = redact(subject, this.redactions);
+    this.subject.push(redact(subject, this.redactions));
   }
 
   pass(id: string, detail?: string) {
@@ -73,7 +73,7 @@ export class Report {
       ...(this.local ? ["LOCAL MODE: checks that need external inputs may be skipped.", ""] : []),
       ...this.checks.map((c) => `${mark[c.status]} ${c.id}${c.detail ? `  ${c.detail}` : ""}`),
       "",
-      ...(this.subject ? [this.subject] : []),
+      ...this.subject,
       `${count("pass")} passed, ${count("fail")} failed, ${count("skip")} skipped`,
     ].join("\n");
   }

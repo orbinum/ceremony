@@ -1,9 +1,11 @@
 /**
- * The pre-checks on an upload's bytes, cheapest first and without pairings: claim format, file
- * hash, stale head, canonical layout and the genesis' header, continuity, the header δ equal to the
+ * The pre-checks on an upload's bytes, cheapest first and without pairings: a head with room for
+ * one more contribution (a final adds the beacon, within the entry cap), claim format, file hash,
+ * stale head, canonical layout and the genesis' header, continuity, the header δ equal to the
  * new entry's, then h_k recomputed from the bytes. Only a passing upload goes on to `zkvi`. Parsing
  * is bounded by the head, and every field snarkjs sizes allocations from must be the genesis'.
  */
+import { MAX_CONTRIBUTIONS } from "../../config";
 import { checkZkeyStructure, readMpcParams } from "../../formats/mpc";
 import { FormatError } from "../../primitives/errors";
 import { sha256Hex } from "../../primitives/hashing";
@@ -44,6 +46,9 @@ export function precheckUpload(
   head: CurrentHead,
   genesis: GenesisLayout,
 ): PrecheckResult {
+  if (head.previous.length >= MAX_CONTRIBUTIONS) {
+    return reject("malformed", `the circuit already holds ${MAX_CONTRIBUTIONS} contributions`);
+  }
   const claim = normalizeClaim(rawClaim);
   if (typeof claim === "string") return reject("malformed-claim", claim);
   if (sha256Hex(zkey) !== claim.outputSha256) return reject("output-hash-mismatch");

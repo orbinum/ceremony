@@ -2,7 +2,9 @@
  * The attestation: the linked wallet signs session `seq`'s accepted contributions, by hashes only,
  * as the transcript recorded them, and the coordinator records it and ends the session. Without it
  * the contributions still count, as unattested. The payload is built from the receipt, so it is
- * signed only if it is exactly what the page showed: nothing missing, nothing extra.
+ * signed only if it is exactly what the page showed: nothing missing, nothing extra, and one
+ * record per circuit, since a session contributes once to each; a circuit shown only by name
+ * (accepted before a reload) must have exactly one record at a valid chain index.
  */
 import {
   type AttestationPayload,
@@ -44,7 +46,11 @@ export async function attestSession(
   const extra = signed.some(
     (c) => !shown.earlier.includes(c.circuit) && !shown.accepted.some((a) => same(a, c)),
   );
-  if (missing || extra) throw new StaleReceipt();
+  const onePerCircuit =
+    new Set(signed.map((c) => c.circuit)).size === signed.length &&
+    shown.earlier.every((name) => signed.some((c) => c.circuit === name)) &&
+    signed.every((c) => Number.isSafeInteger(c.index) && c.index >= 1);
+  if (missing || extra || !onePerCircuit) throw new StaleReceipt();
   if (signed.length === 0) throw new Error("this session has nothing to attest");
   await api.attest(payload, await wallet.signAttestation(payload));
   return payload;

@@ -1,6 +1,7 @@
 /**
  * The verifier's HTTP face under raw, malformed and hostile requests: exact-path routing,
- * Content-Length anomalies, smuggling shapes, slow sockets, the connection cap, a throwing sink.
+ * Content-Length anomalies, smuggling shapes, a captured MAC replayed over another body, slow
+ * sockets, the connection cap, a throwing sink.
  * Idle sockets can hold the 32 slots only until the header bound (5 s, checked each second) drops
  * them.
  */
@@ -93,6 +94,19 @@ describe("verifier http under hostile requests", () => {
     }
     expect(submitted).toEqual([]);
     expect(statusOf(await exchange(signedRaw("/verify")))).toBe(202);
+    expect(submitted).toHaveLength(1);
+  });
+
+  it("never lets a captured MAC over another body burn the genuine dispatch", async () => {
+    const headers = signedDispatch(body);
+    const post = (text: string) => fetch(`${url}/verify`, { method: "POST", headers, body: text });
+    const forged = await post(body.replace(/}$/, " }"));
+    expect([forged.status, await forged.json()]).toEqual([401, { error: "bad signature" }]);
+    expect(submitted).toEqual([]);
+    expect((await post(body)).status).toBe(202);
+    expect(submitted).toHaveLength(1);
+    const replay = await post(body);
+    expect([replay.status, await replay.json()]).toEqual([401, { error: "replayed request" }]);
     expect(submitted).toHaveLength(1);
   });
 

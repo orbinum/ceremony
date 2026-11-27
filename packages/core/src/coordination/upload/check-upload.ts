@@ -1,11 +1,12 @@
 /**
  * Whether an upload may be stored and verified now: the caller's claimed, idle slot, the next
- * circuit in order, a claim that extends the current head, and a size within the bound. The same
- * checks run before the bytes move and again once they are stored; the step applies every
- * deadline that passed first, so nothing is accepted after the close. An accepted check carries
- * the step to commit, the job it creates and what its verifier needs.
+ * circuit in order, a circuit with room for one more contribution (its final key adds the beacon
+ * to them, within the entry cap), a claim that extends the current head, and a size within the
+ * bound. The same checks run before the bytes move and again once they are stored; the step
+ * applies every deadline that passed first, so nothing is accepted after the close. An accepted
+ * check carries the step to commit, the job it creates and what its verifier needs.
  */
-import type { CircuitName } from "../../config";
+import { type CircuitName, MAX_CONTRIBUTIONS } from "../../config";
 import { type Chained, genesisOf, type Setup } from "../../ceremony";
 import { isStaleHead, maxUploadSize } from "../../verification";
 import type { CeremonyRefusal, ContributionClaim, JobId } from "../protocol";
@@ -44,6 +45,7 @@ export function checkUpload(
   if (!head || !genesis || genesisSize === undefined || !slot || !entry) {
     return { ok: false, refusal: "out-of-order" };
   }
+  if (head.index >= MAX_CONTRIBUTIONS) return { ok: false, refusal: "circuit-full" };
   if (isStaleHead(claim, head)) return { ok: false, refusal: "stale-head" };
   if (size > maxUploadSize(genesisSize, head.index + 1)) return { ok: false, refusal: "too-large" };
   return {

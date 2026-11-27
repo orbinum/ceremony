@@ -1,7 +1,8 @@
 /**
  * The verifier container's Durable Object against a fake container: a claimed turn warms it, a
  * job is posted once per container start and kept until its deadline, so a container lost
- * mid-job (a crash, a deploy) gets it again, and a stale job never starts one.
+ * mid-job (a crash, a deploy) gets it again, and a stale job, or a job or warm-up queued for the
+ * ceremony a deployment has since moved on from, never starts one.
  */
 import { env } from "cloudflare:workers";
 import { type JobSpec, sha256Utf8 } from "@orbinum-ceremony/core";
@@ -59,16 +60,25 @@ const spec = (seq: number) =>
     claim: { inputSha256: sha256Utf8("in"), outputSha256: sha256Utf8("out") },
   }) as unknown as JobSpec;
 
+function objectOn(ctx: DurableObjectState, ceremony: string): VerifierContainer {
+  const routed = { ...env, CEREMONY_ID: ceremony, VERIFIER_URL: "" } as Env;
+  const o = Object.create(VerifierContainer.prototype) as VerifierContainer;
+  Object.defineProperties(o, { ctx: { value: ctx }, env: { value: routed } });
+  return o;
+}
+
 async function object() {
   const ceremony = freshId("container");
   await stubOf(ceremony).configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
   const storage = fakeStorage();
   const container = fakeContainer();
   const ctx = { storage, container } as unknown as DurableObjectState;
-  const routed = { ...env, CEREMONY_ID: ceremony, VERIFIER_URL: "" } as Env;
-  const o = Object.create(VerifierContainer.prototype) as VerifierContainer;
-  Object.defineProperties(o, { ctx: { value: ctx }, env: { value: routed } });
-  return { o, storage, container };
+  const moved = async () => {
+    const next = freshId("container-next");
+    await stubOf(next).configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
+    return objectOn(ctx, next);
+  };
+  return { o: objectOn(ctx, ceremony), ceremony, storage, container, moved };
 }
 
 describe("VerifierContainer", () => {
@@ -102,9 +112,23 @@ describe("VerifierContainer", () => {
   });
 
   it("drops a job past its deadline without starting anything", async () => {
-    const { o, storage, container } = await object();
-    await storage.put("job:3/shield/1", { spec: spec(3), at: Date.now() - 7 * 60_000 });
+    const { o, ceremony, storage, container } = await object();
+    await storage.put("job:3/shield/1", { spec: spec(3), ceremony, at: Date.now() - 7 * 60_000 });
     await o.alarm();
+    expect([container.starts, storage.data.size]).toEqual([0, 0]);
+  });
+
+  it("drops a job queued for the ceremony the deployment moved on from, without starting anything", async () => {
+    const { o, storage, container, moved } = await object();
+    await o.enqueue(spec(4));
+    await (await moved()).alarm();
+    expect([container.starts, container.posted, storage.data.size]).toEqual([0, [], 0]);
+  });
+
+  it("drops a warm-up for the ceremony the deployment moved on from, without starting anything", async () => {
+    const { o, storage, container, moved } = await object();
+    await o.warm();
+    await (await moved()).alarm();
     expect([container.starts, storage.data.size]).toEqual([0, 0]);
   });
 });

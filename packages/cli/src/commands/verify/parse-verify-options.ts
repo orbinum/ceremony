@@ -16,6 +16,7 @@ export function parseVerifyOptions(argv: string[]): VerifyOptions {
     dir: { type: "string" },
     "announcement-sha256": { type: "string" },
     network: { type: "string" },
+    "transcript-sha256": { type: "string" },
     ptau: { type: "string" },
     "circuits-repo": { type: "string" },
     "rebuild-genesis": { type: "boolean", default: false },
@@ -29,6 +30,10 @@ export function parseVerifyOptions(argv: string[]): VerifyOptions {
   const vkPacker = optionalPath(values["vk-packer"]);
   const rustVerifier = optionalPath(values["rust-verifier"]);
   const report = optionalPath(values.report);
+  const transcriptSha256 =
+    values["transcript-sha256"] === undefined
+      ? undefined
+      : sha256Option(values["transcript-sha256"], "transcript-sha256");
   let network: Network;
   try {
     network = asOneOf(required(values.network, "network"), "--network", NETWORKS);
@@ -46,6 +51,7 @@ export function parseVerifyOptions(argv: string[]): VerifyOptions {
     ptau: pathOption(values.ptau ?? join(dir, CEREMONY_LAYOUT.ptau)),
     rebuildGenesis: values["rebuild-genesis"],
     local: values.local,
+    ...(transcriptSha256 ? { transcriptSha256 } : {}),
     ...(circuitsRepo ? { circuitsRepo } : {}),
     ...(vkPacker ? { vkPacker } : {}),
     ...(rustVerifier ? { rustVerifier } : {}),

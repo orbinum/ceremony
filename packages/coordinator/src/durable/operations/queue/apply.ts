@@ -1,8 +1,8 @@
 /**
- * Applies one queue event from a contributor or an operator: core decides which a caller may send
- * and what each does; uploads, results and finalization have their own operations. A join takes its
- * invitation from the frozen announcement, never from the caller. An event that changes nothing
- * writes nothing.
+ * Applies one queue event from a contributor or the operator (`by`, fixed by the RPC the caller
+ * used): core decides which each may send and what each does; uploads, results and finalization
+ * have their own operations. A join takes its invitation from the frozen announcement, never from
+ * the caller. An event that changes nothing writes nothing.
  */
 import {
   admittedJoin,
@@ -17,7 +17,11 @@ import { queueNow } from "../clock";
 import { done, refuse } from "../outcome";
 import type { Outcome } from "../types";
 
-export async function apply(store: Store, sent: QueueEvent): Promise<Outcome> {
+export async function apply(
+  store: Store,
+  sent: QueueEvent,
+  by: "contributor" | "operator",
+): Promise<Outcome> {
   let event = sent;
   if (event.type === "join") {
     const setup = db.readSetup(store.sql);
@@ -27,7 +31,7 @@ export async function apply(store: Store, sent: QueueEvent): Promise<Outcome> {
     event = join;
   }
   const linked = "githubId" in event && db.readIdentity(store.sql, event.githubId) !== null;
-  const why = clientEventRefusal(event, linked);
+  const why = clientEventRefusal(event, linked, by);
   if (why === "invalid-transition") return refuse(why);
   const state = db.readQueue(store.sql);
   if (!state) return refuse("not-configured");

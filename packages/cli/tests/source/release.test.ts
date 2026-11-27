@@ -99,6 +99,25 @@ describe("the audited circuits release", () => {
     }
   });
 
+  it("refuses to export while the clone's HEAD is not the release commit", async () => {
+    git("commit", "-q", "--allow-empty", "-m", "after the release");
+    const other = await mkdtemp(join(tmpdir(), "orbinum-work-"));
+    try {
+      const head = git("rev-parse", "HEAD");
+      await expect(exportSource(await resolveRelease(repo, "v1.0.0"), other)).rejects.toThrow(
+        `the clone's HEAD is ${head}, not v1.0.0 (${commit}): check out the tag and install from its lockfile`,
+      );
+      git("checkout", "-q", "v1.0.0");
+      await expect(
+        exportSource(await resolveRelease(repo, "v1.0.0"), other),
+      ).resolves.toMatchObject({
+        circomlib: "2.0.5",
+      });
+    } finally {
+      await rm(other, { recursive: true, force: true });
+    }
+  });
+
   it("compares remotes as repositories, whatever their spelling", () => {
     const id = "github.com/orbinum/circuits";
     for (const url of [

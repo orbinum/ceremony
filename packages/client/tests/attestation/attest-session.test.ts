@@ -1,7 +1,7 @@
 /**
  * The attestation signs exactly what the page showed: the session's accepted contributions in
- * session order, plus the circuits it knows only by name; a stale receipt, one with other hashes
- * or an extra contribution, or an empty session is never signed. The receipt file names the
+ * session order, plus the circuits it knows only by name, each with exactly one record; a stale
+ * receipt, one with other hashes or an extra contribution, or an empty session is never signed. The receipt file names the
  * ceremony and the session.
  */
 import {
@@ -144,6 +144,44 @@ describe("attestSession", () => {
       });
       expect(result).toMatchObject({ seq: 3 });
       expect(signed).toHaveBeenCalledOnce();
+    });
+
+    it("refuses a circuit known by name that the receipt holds twice, or not at all", async () => {
+      const full = receipt();
+      const shown = shownOf(full);
+      const earlier = shown.accepted.shift()!;
+      const byName = { accepted: shown.accepted, earlier: [earlier.circuit] };
+      const first = full.records[0]!;
+      const twice = {
+        ...full,
+        records: [
+          first,
+          { ...first, index: 2, output_sha256: "55".repeat(32) },
+          ...full.records.slice(1),
+        ],
+      };
+      const absent = { ...full, records: full.records.slice(1) };
+      for (const served of [twice, absent]) {
+        const { result: error, signed } = await attestAgainst(served as Receipt, byName);
+        expect(error).toBeInstanceOf(StaleReceipt);
+        expect(signed).not.toHaveBeenCalled();
+      }
+    });
+
+    it("refuses a circuit known by name whose record has no valid chain index", async () => {
+      const full = receipt();
+      const shown = shownOf(full);
+      const earlier = shown.accepted.shift()!;
+      const served = {
+        ...full,
+        records: [{ ...full.records[0]!, index: 0 }, ...full.records.slice(1)],
+      };
+      const { result: error, signed } = await attestAgainst(served as Receipt, {
+        accepted: shown.accepted,
+        earlier: [earlier.circuit],
+      });
+      expect(error).toBeInstanceOf(StaleReceipt);
+      expect(signed).not.toHaveBeenCalled();
     });
   });
 });

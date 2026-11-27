@@ -39,24 +39,47 @@ const NEVER = Number.MAX_SAFE_INTEGER;
 
 describe("who may send which event", () => {
   it("keeps uploads, results and finalization to their own checked paths", () => {
-    expect(clientEventRefusal({ type: "join", githubId: 1 }, true)).toBeNull();
-    expect(clientEventRefusal({ type: "claim", githubId: 1 }, false)).toBeNull();
-    expect(clientEventRefusal({ type: "pause" }, false)).toBeNull();
-    expect(clientEventRefusal({ type: "uploaded", githubId: 1, circuit: "shield" }, true)).toBe(
-      "invalid-transition",
-    );
-    expect(
-      clientEventRefusal(
-        { type: "verified", seq: 1, circuit: "shield", attempt: 1, outcome: "valid" },
-        true,
-      ),
-    ).toBe("invalid-transition");
-    expect(clientEventRefusal({ type: "finalize" }, true)).toBe("invalid-transition");
+    expect(clientEventRefusal({ type: "join", githubId: 1 }, true, "contributor")).toBeNull();
+    expect(clientEventRefusal({ type: "claim", githubId: 1 }, false, "contributor")).toBeNull();
+    expect(clientEventRefusal({ type: "pause" }, false, "operator")).toBeNull();
+    for (const by of ["contributor", "operator"] as const) {
+      expect(
+        clientEventRefusal({ type: "uploaded", githubId: 1, circuit: "shield" }, true, by),
+      ).toBe("invalid-transition");
+      expect(
+        clientEventRefusal(
+          { type: "verified", seq: 1, circuit: "shield", attempt: 1, outcome: "valid" },
+          true,
+          by,
+        ),
+      ).toBe("invalid-transition");
+      expect(clientEventRefusal({ type: "finalize" }, true, by)).toBe("invalid-transition");
+    }
     expect(OPERATOR_ACTIONS).toEqual(["pause", "resume", "close"]);
   });
 
+  it("keeps the operator's events to the operator, and the operator to them", () => {
+    for (const event of [
+      { type: "pause" },
+      { type: "resume" },
+      { type: "close" },
+      { type: "unhold", githubId: 1 },
+    ] as const) {
+      expect(clientEventRefusal(event, true, "contributor")).toBe("invalid-transition");
+      expect(clientEventRefusal(event, true, "operator")).toBeNull();
+    }
+    expect(clientEventRefusal({ type: "join", githubId: 1 }, true, "operator")).toBe(
+      "invalid-transition",
+    );
+    expect(clientEventRefusal({ type: "claim", githubId: 1 }, true, "operator")).toBe(
+      "invalid-transition",
+    );
+  });
+
   it("refuses a join from an identity without a linked wallet", () => {
-    expect(clientEventRefusal({ type: "join", githubId: 1 }, false)).toBe("not-linked");
+    expect(clientEventRefusal({ type: "join", githubId: 1 }, false, "contributor")).toBe(
+      "not-linked",
+    );
   });
 
   it("records an attestation whose session lapsed meanwhile, as the alarm would have", () => {
@@ -90,6 +113,16 @@ describe("who may send which event", () => {
       refusal: "attestation-closed",
     });
     expect(attestStep(s, 5, 1, OPEN - 1, OPEN).ok).toBe(true);
+  });
+
+  it("judges the beacon-time cut-off at the real time, not at a clock held behind it", () => {
+    const s = holding(5);
+    expect(attestStep(s, 5, 1, OPEN - 1, OPEN, OPEN + 1)).toEqual({
+      ok: false,
+      state: s,
+      refusal: "attestation-closed",
+    });
+    expect(attestStep(s, 5, 1, OPEN - 1, OPEN, OPEN - 1).ok).toBe(true);
   });
 
   it("ends a session by its attestation only if it is still the caller's slot", () => {
@@ -144,7 +177,7 @@ describe("views", () => {
 });
 
 describe("records of effects", () => {
-  it("records phase changes and an accepted contribution, in effect order", () => {
+  it("records phase changes and an accepted contribution, in effect order, never one without it", () => {
     const c = contribution(1);
     const records = recordsOfEffects(
       "x",
@@ -158,9 +191,9 @@ describe("records of effects", () => {
     );
     expect(records.map((r) => r.type)).toEqual(["state", "contribution"]);
     expect(records[1]).toBe(c);
-    expect(
+    expect(() =>
       recordsOfEffects("x", [{ type: "accepted", githubId: 5, seq: 1, circuit: "shield" }], "t"),
-    ).toEqual([]);
+    ).toThrow(/without its contribution/);
   });
 
   it("records finalization as the sealed beacon, and never without it", () => {

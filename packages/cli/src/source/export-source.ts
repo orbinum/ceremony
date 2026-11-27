@@ -1,13 +1,15 @@
 /**
  * Exports the release tree into `workDir` (no checkout, the repo is untouched) and links the repo's
  * installed `node_modules`, after checking its circomlib is the version locked at the release. The
- * verifier must have installed that clone itself: its install scripts run on their machine.
+ * verifier must have installed that clone itself: its install scripts run on their machine. The
+ * clone's HEAD must be the release commit, so what is installed came from the tag's own lockfile
+ * (`pnpm install --frozen-lockfile --ignore-scripts` at the tag), not from another branch's.
  */
 import { symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { asObject, asString, lockedCircomlibOf, VERSION } from "@orbinum-ceremony/core";
 import { ensureDir, readJsonFile } from "../io";
-import { exportTree, showFile } from "../tools";
+import { exportTree, resolveCommit, showFile } from "../tools";
 import type { CircuitRelease, ExportedSource } from "./types";
 
 async function installedCircomlib(repo: string): Promise<string> {
@@ -25,6 +27,12 @@ export async function exportSource(
   release: CircuitRelease,
   workDir: string,
 ): Promise<ExportedSource> {
+  const head = await resolveCommit(release.repo, "HEAD");
+  if (head !== release.commit) {
+    throw new Error(
+      `the clone's HEAD is ${head}, not ${release.tag} (${release.commit}): check out the tag and install from its lockfile`,
+    );
+  }
   const dir = join(workDir, "source");
   await ensureDir(dir);
   await exportTree(release.repo, release.commit, dir);

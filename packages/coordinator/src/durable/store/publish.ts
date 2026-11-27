@@ -4,11 +4,13 @@
  * logged, while `status.json` still goes out. Best effort: true when a write failed, so the caller
  * retries, each retry carrying the whole content again. Publications are chained, so an older one
  * never lands after a newer one, and the chain never rejects: one throw would fail every later
- * commit after its state was written.
+ * commit after its state was written. An object configured for another ceremony than the
+ * deployment's publishes nothing.
  */
 import { publicFilesOf } from "@orbinum-ceremony/core";
 import { publicBucket, putObject } from "../../storage";
 import * as db from "../db";
+import { isBound } from "./is-bound";
 import { records } from "./records";
 import type { Store } from "./types";
 
@@ -26,7 +28,7 @@ export function publish(store: Store): Promise<boolean> {
 async function publishNow(store: Store): Promise<boolean> {
   const setup = db.readSetup(store.sql);
   const state = db.readQueue(store.sql);
-  if (!setup || !state) return false;
+  if (!setup || !state || !isBound(store)) return false;
   let lagging = false;
   const files = publicFilesOf(setup, state, records(store), Date.now(), db.readFinals(store.sql));
   for (const f of files) {

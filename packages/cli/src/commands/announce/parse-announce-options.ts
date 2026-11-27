@@ -1,11 +1,13 @@
 /**
- * Parses `announce` argv; a bad option is a `UsageError`. `--invite` takes comma-separated numeric
- * GitHub ids (repeats dropped) and `--closed` limits admission to them. These rules exist only for
- * a readable error: core's announcement validator has the last word.
+ * Parses `announce` argv; a bad option is a `UsageError`. `--circuits-tag` must be a tag name
+ * before git ever sees it. `--invite` takes comma-separated numeric GitHub ids (repeats dropped)
+ * and `--closed` limits admission to them. These rules exist only for a readable error: core's
+ * announcement validator has the last word.
  */
 import {
   type Admission,
   asOneOf,
+  asTag,
   CIRCUITS_REPO_URL,
   DEFAULT_BEACON_DELAY_SECONDS,
   MAX_BEACON_DELAY_SECONDS,
@@ -85,6 +87,12 @@ export function parseAnnounceOptions(argv: string[]): AnnounceOptions {
   if (network !== "local" && circuitsUrl !== CIRCUITS_REPO_URL) {
     throw new UsageError(`--circuits-url must be ${CIRCUITS_REPO_URL} on ${network}`);
   }
+  const circuitsTag = required(values["circuits-tag"], "circuits-tag");
+  try {
+    asTag(circuitsTag, "circuits-tag");
+  } catch {
+    throw new UsageError("--circuits-tag must be a release tag name");
+  }
   const minContributions = intOption(
     required(values["min-contributions"], "min-contributions"),
     "min-contributions",
@@ -96,7 +104,7 @@ export function parseAnnounceOptions(argv: string[]): AnnounceOptions {
     dir: pathOption(required(values.dir, "dir")),
     network,
     circuitsRepo: pathOption(required(values["circuits-repo"], "circuits-repo")),
-    circuitsTag: required(values["circuits-tag"], "circuits-tag"),
+    circuitsTag,
     circuitsUrl,
     minContributions,
     open: values.open ? date(values.open, "open") : new Date(),

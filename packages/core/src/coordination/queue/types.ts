@@ -9,11 +9,13 @@
  * latest upload, so a late result names it. Invited contributors take reserved places, ahead of
  * everyone not invited. A slot's `activeMs` excludes the current running stretch, and
  * `runningSince` is null while frozen (verifying or paused). The `finalized` effect is recorded by
- * the sealed beacon, the transcript's last record.
+ * the sealed beacon, the transcript's last record. Operator events are the ones only the operator
+ * sends.
  */
 import type { CircuitName } from "../../config";
 import type { CeremonyState } from "../../ceremony";
 import type { VerificationResult } from "../../verification";
+import type { OPERATOR_EVENTS } from "./constants";
 
 export interface QueueRules {
   claimWindowMs: number;
@@ -98,6 +100,8 @@ export type QueueEvent =
   | { type: "close" }
   | { type: "unhold"; githubId: number }
   | { type: "finalize" };
+
+export type OperatorEvent = Extract<QueueEvent, { type: (typeof OPERATOR_EVENTS)[number] }>;
 
 export type ReleaseReason = "finished" | "no-show" | "timeout" | "banned" | "closed" | "infra";
 

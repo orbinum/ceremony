@@ -3,11 +3,13 @@
  * contribute` run the turn on one's own machine. The command leaves `--announcement-sha256` for
  * the contributor to fill from Orbinum's own channels: it anchors every check the CLI makes, so it
  * must not come from the coordinator being checked. This site's hash is shown only to compare.
+ * The token is shown apart, to paste at the command's silent prompt.
  */
 import { useState } from "react";
 import { cliToken, getAnnouncementSha256 } from "../../../api";
 import { Button, Notice } from "../../../ui";
 import { errorText } from "../text";
+import { cliCommand } from "./cli-command";
 
 export function CliOption() {
   const [token, setToken] = useState<{ token: string; expiresAt: number } | null>(null);
@@ -24,9 +26,7 @@ export function CliOption() {
       setError(e);
     }
   };
-  const command = token
-    ? `ORBINUM_CEREMONY_TOKEN=${token.token} orbinum-ceremony contribute --coordinator ${window.location.origin} --announcement-sha256 <sha256-published-by-orbinum>`
-    : null;
+  const command = token ? cliCommand(window.location.origin) : null;
 
   return (
     <details className="group border border-border">
@@ -40,7 +40,10 @@ export function CliOption() {
         <ol className="list-decimal space-y-1 pl-4">
           <li>Join the line on this page.</li>
           <li>Create a token below and keep it secret: it acts as you for a few hours.</li>
-          <li>Run the command it gives on your machine, before your turn comes.</li>
+          <li>
+            Run the command it gives on your machine, before your turn comes. It first waits
+            silently for the token: paste it there and press Enter.
+          </li>
           <li>Come back here to sign your contribution (step 5).</li>
         </ol>
         <Button wide variant="secondary" onClick={mint}>
@@ -49,6 +52,14 @@ export function CliOption() {
         {token && command && (
           <div className="space-y-1">
             <textarea
+              readOnly
+              aria-label="CLI token"
+              value={token.token}
+              onFocus={(e) => e.currentTarget.select()}
+              className="h-20 w-full border border-border bg-surface p-2 text-base break-all text-text sm:h-16 sm:text-xs"
+            />
+            <textarea
+              aria-label="Command"
               readOnly
               value={command}
               onFocus={(e) => e.currentTarget.select()}

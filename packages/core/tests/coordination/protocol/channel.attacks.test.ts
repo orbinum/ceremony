@@ -231,11 +231,11 @@ const spec = (previous: unknown[], index = previous.length + 1): unknown => ({
 });
 
 describe("job spec bounds", () => {
-  it("takes MAX_CONTRIBUTIONS worst-case entries within MAX_JOB_SPEC_BYTES, refuses one more", () => {
-    const full = Array.from({ length: MAX_CONTRIBUTIONS }, (_, i) => entry(i));
+  it("takes up to index MAX_CONTRIBUTIONS within MAX_JOB_SPEC_BYTES, refuses one more", () => {
+    const full = Array.from({ length: MAX_CONTRIBUTIONS - 1 }, (_, i) => entry(i));
     const text = JSON.stringify(spec(full));
     expect(utf8(text).length).toBeLessThanOrEqual(MAX_JOB_SPEC_BYTES);
-    expect(validateJobSpec(JSON.parse(text)).job.index).toBe(MAX_CONTRIBUTIONS + 1);
+    expect(validateJobSpec(JSON.parse(text)).job.index).toBe(MAX_CONTRIBUTIONS);
     expect(() => validateJobSpec(spec([...full, entry(0)]))).toThrow(/more than/);
   });
 

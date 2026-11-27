@@ -49,6 +49,7 @@ describe("error contract", () => {
     expect(apiErrorStatus("internal")).toBe(500);
     expect(apiErrorStatus("storage")).toBe(503);
     expect(apiErrorStatus("busy")).toBe(409);
+    expect(apiErrorStatus("circuit-full")).toBe(409);
   });
 });
 

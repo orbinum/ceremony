@@ -325,6 +325,18 @@ describe("POST /admin/finalize", () => {
     expect((await stub.snapshot())?.phase).toBe("FINALIZED");
   });
 
+  it("keeps a final file's write hold when an upload release names no key", async () => {
+    const { id, stub, request } = await closedCeremony(true);
+    const { zkey, vk } = finalBytes("shield");
+    await putFile(id, CEREMONY_LAYOUT.finalZkey("shield"), zkey);
+    await putFile(id, CEREMONY_LAYOUT.finalVk("shield"), vk);
+    const hold = await stub.holdFinalWrite();
+    await stub.releaseUpload("");
+    expect(await refusal(await finalize(id, request))).toEqual([409, "busy"]);
+    await stub.releaseFinalWrite(hold);
+    expect((await finalize(id, request)).status).toBe(200);
+  });
+
   it("does not seal while a final file is still being written", async () => {
     const { id, stub, request } = await closedCeremony(true);
     const { zkey, vk } = finalBytes("shield");

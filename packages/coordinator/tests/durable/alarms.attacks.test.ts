@@ -1,11 +1,21 @@
 /**
  * Attacks the Durable Object's alarm under at-least-once delivery (duplicate, early, late, during a
- * promotion), a slow promotion copy that must not rewind a heartbeat sent during it, and a
- * publication that throws, which fails neither its commit nor later ones.
+ * promotion), and after the deployment moved on to another ceremony; a slow promotion copy that
+ * must not rewind a heartbeat sent during it nor shorten the next contributor's claim window; the
+ * beacon-time cut-off of attestations under a held clock; and a publication that throws, which
+ * fails neither its commit nor later ones.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
-import { nextDeadline, QUEUE_RULES, type QueueState } from "@orbinum-ceremony/core";
+import { env } from "cloudflare:workers";
+import {
+  CEREMONY_LAYOUT,
+  type Job,
+  nextDeadline,
+  QUEUE_RULES,
+  type QueueState,
+} from "@orbinum-ceremony/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { commit, type Store, unpublishUnrecorded } from "../../src/durable/store";
 import {
   claimOf,
   clearBuckets,
@@ -25,6 +35,11 @@ import {
 type Stub = ReturnType<typeof stubOf>;
 const alarmOf = (stub: Stub) => runInDurableObject(stub, (_, state) => state.storage.getAlarm());
 const snapshot = async (stub: Stub) => (await stub.snapshot()) as QueueState;
+const moveTo = (stub: Stub, id: string) =>
+  runInDurableObject(stub, (instance) => {
+    const store = (instance as unknown as { store: { env: Env } }).store;
+    store.env = { ...store.env, CEREMONY_ID: id };
+  });
 
 async function granted(): Promise<Stub> {
   const stub = stubOf(freshId("alarms-attacks"));
@@ -121,6 +136,44 @@ describe("alarms delivered at least once", () => {
   });
 });
 
+describe("an object whose deployment moved on to another ceremony", () => {
+  it("lets its alarm write nothing into the new folder, chain nothing, and drop itself", async () => {
+    const stub = await granted();
+    await setQueue(stub, (s) => {
+      s.schedule.closeAt = Date.now() - 1000;
+    });
+    const before = await snapshot(stub);
+    const records = (await readTranscript(stub)).records.length;
+    const moved = freshId("alarms-moved");
+    await moveTo(stub, moved);
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect((await env.PUBLIC.list({ prefix: `${moved}/` })).objects).toEqual([]);
+    const chained = (await readTranscript(stub)).records;
+    expect(chained).toHaveLength(records);
+    expect(chained.some((r) => (r as { ceremony_id?: string }).ceremony_id === moved)).toBe(false);
+    expect(await snapshot(stub)).toEqual(before);
+    expect(await alarmOf(stub)).toBeNull();
+  });
+
+  it("refuses to commit, and removes no public copy from the new folder", async () => {
+    const stub = await granted();
+    const state = await snapshot(stub);
+    const moved = freshId("alarms-moved");
+    const copy = `${moved}/${CEREMONY_LAYOUT.zkey("shield", 1)}`;
+    await env.PUBLIC.put(copy, "the new ceremony's copy");
+    await moveTo(stub, moved);
+    await runInDurableObject(stub, async (instance) => {
+      const store = (instance as unknown as { store: Store }).store;
+      await expect(commit(store, state, [])).rejects.toThrow(/commit refused/);
+      await unpublishUnrecorded(store, { circuit: "shield", index: 1 } as Job);
+    });
+    expect((await env.PUBLIC.list({ prefix: `${moved}/` })).objects.map((o) => o.key)).toEqual([
+      copy,
+    ]);
+    expect(await snapshot(stub)).toEqual(state);
+  });
+});
+
 describe("a promotion copy that outlasts the clock hold", () => {
   beforeEach(() => vi.useFakeTimers({ toFake: ["Date"] }));
   afterEach(() => vi.useRealTimers());
@@ -149,6 +202,65 @@ describe("a promotion copy that outlasts the clock hold", () => {
       rewound: false,
       hb: { ok: true, effects: [] },
     });
+  });
+});
+
+describe("a slot granted when a slow promotion settles", () => {
+  beforeEach(() => vi.useFakeTimers({ toFake: ["Date"] }));
+  afterEach(() => vi.useRealTimers());
+
+  it("starts the next contributor's claim window at the grant, not at the result's receipt", async () => {
+    const stub = await granted();
+    await stub.apply({ type: "claim", githubId: 1 });
+    await linkDirect(stub, 2);
+    await stub.apply({ type: "join", githubId: 2 });
+    await setQueue(stub, (s) => {
+      for (const c of s.slot?.circuits ?? []) if (c.circuit !== "shield") c.status = "skipped";
+    });
+    const job = await uploadShield(stub, new TextEncoder().encode("slow copy, next in line"));
+    const t0 = Date.now();
+    await wrapBucket(stub, "PUBLIC", (method, key) => {
+      if (method === "put" && key === "contributions/shield/1.zkey") vi.setSystemTime(t0 + 40_000);
+    });
+    try {
+      expect(await stub.report(validReport(job))).toEqual({ ok: true, status: "applied" });
+    } finally {
+      await unwrapBuckets(stub);
+    }
+    const slot = (await snapshot(stub)).slot;
+    expect(slot?.githubId).toBe(2);
+    expect(slot?.grantedAt).toBeGreaterThanOrEqual(t0 + 40_000);
+    expect(await stub.apply({ type: "claim", githubId: 2 })).toMatchObject({ ok: true });
+    expect((await snapshot(stub)).identities["2"]?.noShows).toBe(0);
+  });
+});
+
+describe("an attestation under a clock held for a promotion", () => {
+  beforeEach(() => vi.useFakeTimers({ toFake: ["Date"] }));
+  afterEach(() => vi.useRealTimers());
+
+  it("is refused from the announced beacon time on, though the held clock is earlier", async () => {
+    const stub = await granted();
+    const closesAt = Date.parse((await stub.setup())?.announcement.schedule.beacon ?? "");
+    vi.setSystemTime(closesAt + 1000);
+    await runInDurableObject(stub, (instance) => {
+      (instance as unknown as { store: { receivedAt: Map<string, number> } }).store.receivedAt.set(
+        "shield/1",
+        closesAt - 1000,
+      );
+    });
+    try {
+      expect(await stub.attest(1, {} as never, "ab")).toEqual({
+        ok: false,
+        refusal: "attestation-closed",
+      });
+    } finally {
+      await runInDurableObject(stub, (instance) => {
+        (
+          instance as unknown as { store: { receivedAt: Map<string, number> } }
+        ).store.receivedAt.clear();
+      });
+    }
   });
 });
 

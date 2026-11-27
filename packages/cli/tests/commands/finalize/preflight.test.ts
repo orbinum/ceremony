@@ -50,6 +50,35 @@ describe("finalize preflight", () => {
     );
   });
 
+  it("refuses a transcript whose link signature does not verify, as publishing the final would", async () => {
+    const c = await syntheticCeremony({ finalized: false });
+    const copy = await tamperedCopy(c.dir, (d) =>
+      rewriteHistory(
+        d,
+        (records) =>
+          records.map((r, i) =>
+            i === 0
+              ? {
+                  ...r,
+                  identity: {
+                    github_id: 7,
+                    github_login: "mallory",
+                    account: `0x${"11".repeat(20)}`,
+                    scheme: "eip712",
+                    nonce: "00".repeat(32),
+                    issued_at: 0,
+                  },
+                  link_sig: "00".repeat(65),
+                }
+              : r,
+          ) as typeof records,
+      ),
+    );
+    expect(await check(c, copy)).toMatch(
+      /^not finalizable: shield #1: link signature does not verify/,
+    );
+  });
+
   it("refuses before close, and a head file other than the recorded one", async () => {
     const c = await syntheticCeremony({ finalized: false });
     expect(await check(c, c.dir, CLOCK.contribute())).toMatch(/contributions are open until/);

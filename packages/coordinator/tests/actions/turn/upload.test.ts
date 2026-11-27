@@ -1,6 +1,7 @@
 /**
- * Receiving an upload: a failed bucket is `storage`, other bytes are `malformed`, a turn that ended
- * meanwhile is refused, and the private object never survives a refusal.
+ * Receiving an upload: a failed bucket is `storage`, as is a write that found its key taken, other
+ * bytes are `malformed`, a turn that ended meanwhile is refused, and the private object never
+ * survives a refusal nor a Durable Object call that throws.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -33,6 +34,16 @@ function hooked(bucket: R2Bucket, method: string, hook: () => Promise<void> | vo
       };
     },
   });
+}
+
+function ceremonyWith(e: Env, uploaded: () => Promise<never>): Env["CEREMONY"] {
+  const real = e.CEREMONY.getByName(e.CEREMONY_ID);
+  const stub = {
+    prepareUpload: (...a: Parameters<typeof real.prepareUpload>) => real.prepareUpload(...a),
+    releaseUpload: (...a: Parameters<typeof real.releaseUpload>) => real.releaseUpload(...a),
+    uploaded,
+  };
+  return { getByName: () => stub } as unknown as Env["CEREMONY"];
 }
 
 const BYTES = new TextEncoder().encode("an upload");
@@ -110,6 +121,43 @@ describe("receiveUpload", () => {
       ok: false,
       code: "not-your-slot",
     });
+    expect(await privateKeys()).toEqual(before);
+  });
+
+  it("refuses a write that did not store a new object, keeps nothing and frees the job", async () => {
+    const e = envOf();
+    const stub = await inSession(e);
+    const taken = new Proxy(e.PRIVATE, {
+      get(target, prop) {
+        if (prop === "put") {
+          return async (_key: string, body: ReadableStream) => {
+            await new Response(body).arrayBuffer();
+            return null;
+          };
+        }
+        const value = (target as unknown as Record<PropertyKey, unknown>)[prop];
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const before = await privateKeys();
+    expect(await receiveUpload({ ...e, PRIVATE: taken }, upload(), () => undefined)).toMatchObject({
+      ok: false,
+      code: "storage",
+    });
+    expect(await privateKeys()).toEqual(before);
+    expect(await stub.latestJob(1, "shield")).toBeNull();
+    expect(await receiveUpload(e, upload(), () => undefined)).toMatchObject({ ok: true });
+  });
+
+  it("removes the stored upload when the Durable Object call after it throws", async () => {
+    const e = envOf();
+    await inSession(e);
+    const failing = {
+      ...e,
+      CEREMONY: ceremonyWith(e, () => Promise.reject(new Error("object reset"))),
+    };
+    const before = await privateKeys();
+    await expect(receiveUpload(failing, upload(), () => undefined)).rejects.toThrow("object reset");
     expect(await privateKeys()).toEqual(before);
   });
 
