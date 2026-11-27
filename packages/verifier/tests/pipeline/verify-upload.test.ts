@@ -1,7 +1,9 @@
 /**
- * The SPEC §2.5 pipeline on an upload, hermetic: real uploads built from the multiplier fixture
- * and the pairing checks replaced so every outcome can be forced. An honest upload, and every
- * pre-check refusal, which is definitive and never reaches snarkjs.
+ * The upload pipeline on an upload, hermetic: real uploads built from the multiplier fixture and
+ * the pairing checks replaced so every outcome can be forced. An honest upload, and every pre-check
+ * refusal, which is definitive and never reaches snarkjs. A secret-1 upload has the header's δ and
+ * the entry's δ_after rewritten to the previous ones (found by the header's current δ1 bytes, as
+ * both are written as `writeG1`); a huge n8q is one snarkjs would allocate from.
  */
 import { execFileSync } from "node:child_process";
 import { rm, symlink } from "node:fs/promises";
@@ -52,22 +54,15 @@ const verify = (
     head,
   );
 
-/** `bytes` written as a new upload, claiming `hash` (c1's by default). */
 const upload = (name: string, bytes: Uint8Array, hash = u.c1.hash) =>
   written(u.dir, name, bytes, hash);
 
-/** n8q (the Groth16 header's first field) set huge: snarkjs would allocate from it. */
 const headerBomb = () => {
   const bytes = u.c1.bytes.slice();
   new DataView(bytes.buffer).setUint32(groth16Offset(bytes), 0xfffffffc, true);
   return upload("n8q-bomb.zkey", bytes);
 };
 
-/**
- * `up` as if its last contribution had secret 1: the Groth16 header's δ and the entry's δ_after
- * become `from`'s (the genesis', or the previous upload's). Both are written as `writeG1`, so the
- * entry is found by the header's current δ1 bytes. h_k is the file's own.
- */
 const noop = async (name: string, up: Upload, from: Upload) => {
   const bytes = up.bytes.slice();
   const g16 = groth16Offset;
@@ -252,7 +247,6 @@ describe("pre-check refusals: definitive, and snarkjs never runs", () => {
     const fifo = join(u.dir, "fifo.zkey");
     execFileSync("mkfifo", [fifo]);
     for (const path of [link, fifo, join(u.dir, "missing.zkey")]) {
-      // oxlint-disable-next-line no-await-in-loop -- one upload at a time
       const res = await within(5_000, path, verify({ ...u.c1, path }));
       expect(res.verdict).toMatchObject({ result: "rejected", reason: "malformed" });
     }

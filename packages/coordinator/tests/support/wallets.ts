@@ -12,21 +12,17 @@ import {
 } from "@orbinum-ceremony/core";
 import type { BaseWallet } from "ethers";
 
-/** An EIP-712 link signature. */
 export const signLinkEvm = (wallet: BaseWallet, payload: LinkPayload) =>
   wallet.signTypedData(...ethersTypedData(linkTypedData(payload)));
 
-/** An EIP-712 attestation signature. */
 export const signAttestationEvm = (wallet: BaseWallet, payload: AttestationPayload) =>
   wallet.signTypedData(...ethersTypedData(attestationTypedData(payload)));
 
-/** A fresh keyring pair of `type` (sr25519 by default). */
 export async function polkadotPair(type: "sr25519" | "ed25519" = "sr25519") {
   await cryptoWaitReady();
   return new Keyring({ type }).addFromUri(`//test-${type}-${Math.random()}`);
 }
 
-/** An sr25519 (or ed25519) signature over the prefixed JCS message, maybe `<Bytes>`-wrapped. */
 export function signPolkadot(
   pair: Awaited<ReturnType<typeof polkadotPair>>,
   kind: "link" | "attestation",

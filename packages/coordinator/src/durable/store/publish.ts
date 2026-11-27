@@ -1,18 +1,18 @@
-/** The public files after each commit: in order, only when changed. SPEC §6.1, KL-28, KL-31. */
+/**
+ * Writes the public files that changed after a commit (core `publicFilesOf`, with a sealed
+ * ceremony's finals), in order. A transcript that fails its integrity checks is withheld and
+ * logged, while `status.json` still goes out. Best effort: true when a write failed, so the caller
+ * retries, each retry carrying the whole content again. Publications are chained, so an older one
+ * never lands after a newer one, and the chain never rejects: one throw would fail every later
+ * commit after its state was written.
+ */
 import { publicFilesOf } from "@orbinum-ceremony/core";
 import { publicBucket, putObject } from "../../storage";
 import * as db from "../db";
-import { records, type Store } from "./store";
+import { records } from "./records";
+import type { Store } from "./types";
 
-/**
- * Writes the public files that changed (core `publicFilesOf`, with a sealed ceremony's finals): a
- * transcript that fails its integrity checks is withheld and logged, while `status.json` still
- * goes out (KL-31). Best effort: true when a write failed, so the caller retries; each retry
- * carries the whole content again (KL-28). Publications are chained, so an older one can never
- * land after a newer one.
- */
 export function publish(store: Store): Promise<boolean> {
-  // Never a rejected chain: one throw would fail every later commit after its state was written.
   const next = store.publishing
     .then(() => publishNow(store))
     .catch((error: unknown) => {
@@ -36,7 +36,7 @@ async function publishNow(store: Store): Promise<boolean> {
       continue;
     }
     try {
-      // oxlint-disable-next-line no-await-in-loop -- two small writes, in order
+      // oxlint-disable-next-line no-await-in-loop
       await putObject(publicBucket(store.env), f.key, f.body.text, {
         httpMetadata: { contentType: f.contentType, cacheControl: "no-cache" },
       });

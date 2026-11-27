@@ -1,6 +1,6 @@
 /**
  * `verify` on synthetic ceremonies: the pin, the expected network and mode, the summary, the exit
- * code, transcript tampering, and the circuits clone (origin, pinned circom flags). SPEC §6.2, §9.
+ * code, transcript tampering, and the circuits clone (origin, pinned circom flags).
  */
 import { execFileSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -27,7 +27,6 @@ const options = (c: Synthetic, extra: Partial<VerifyOptions> = {}): VerifyOption
   ...extra,
 });
 
-/** git in a fixture repository, unsigned and with a fixed author. */
 const git = (cwd: string, ...args: string[]) =>
   execFileSync(
     "git",
@@ -117,7 +116,6 @@ describe("verify, rooted in the pin and the expected network", () => {
   });
 
   it("refuses a pinned ceremony.json that is not in canonical form", async () => {
-    // Same values, other bytes (compact JSON), pinned by their own SHA-256.
     const text = `${JSON.stringify(c.announcement)}\n`;
     const copy = await tamperedCopy(c.dir, (d) => writeFile(join(d, "ceremony.json"), text));
     const failed = await failures(options(c, { dir: copy, announcementSha256: sha256Utf8(text) }));
@@ -152,7 +150,6 @@ describe("verify with the verifier's own circuits clone", () => {
   let commit: string;
   beforeAll(async () => {
     work = await mkdtemp(join(tmpdir(), "orbinum-verify-clone-"));
-    // A circom that records how it was called and writes an empty r1cs.
     const bin = join(work, "bin");
     log = join(work, "circom.log");
     await mkdir(bin);

@@ -1,7 +1,6 @@
 /**
- * Operator routes in a local run (COORDINATOR §3): setup files published once and immutable, the
- * setup frozen once against them, the state actions (finalizing has its own route), and bounded
- * bodies.
+ * Operator routes in a local run: setup files published once and immutable, the setup frozen once
+ * against them, the state actions (finalizing has its own route), and bounded bodies.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { CEREMONY_LAYOUT, serializeJson, sha256Hex } from "@orbinum-ceremony/core";
@@ -32,7 +31,6 @@ describe("operator routes (local run)", () => {
     const configure = (body: unknown) =>
       call("POST", "/admin/configure", undefined, { ...as, body });
     const setup = await publishedSetup(Date.now() - 1000, Date.now() + 86_400_000);
-    // Sizes or hashes that are not the published files are refused, and nothing is configured.
     const wrongSize = await configure({
       ...setup,
       genesisSizes: { ...setup.genesisSizes, shield: 1 },
@@ -120,10 +118,8 @@ describe("setup files (cli publish-init)", () => {
   it("takes ceremony.json and init.json only as valid documents within the document bound", async () => {
     for (const key of [CEREMONY_LAYOUT.announcement, CEREMONY_LAYOUT.init]) {
       for (const body of ["{}", "x", `${serializeJson(INIT)} `, " ".repeat(1024 * 1024 + 1)]) {
-        // oxlint-disable-next-line no-await-in-loop -- one file at a time
         expect(await refusal(await put(key, body))).toEqual([400, "malformed"]);
       }
-      // oxlint-disable-next-line no-await-in-loop -- one key at a time
       expect(await PUBLIC.head(key)).toBeNull();
     }
   });
@@ -142,9 +138,7 @@ describe("setup files (cli publish-init)", () => {
     ]);
     expect((await put(CEREMONY_LAYOUT.init, serializeJson(INIT))).status).toBe(201);
     for (const key of [CEREMONY_LAYOUT.r1cs("private_sweep"), CEREMONY_LAYOUT.zkey("other", 0)]) {
-      // oxlint-disable-next-line no-await-in-loop -- one key at a time
       expect(await refusal(await put(key, "x"))).toEqual([400, "malformed"]);
-      // oxlint-disable-next-line no-await-in-loop -- one key at a time
       expect(await PUBLIC.head(key)).toBeNull();
     }
     expect((await put(CEREMONY_LAYOUT.zkey("shield", 0), "genesis")).status).toBe(201);
@@ -158,13 +152,11 @@ describe("setup files (cli publish-init)", () => {
       await put("genesis/init.json", "x", { "x-content-sha256": "nothex" }),
     ];
     for (const r of refusals) {
-      // oxlint-disable-next-line no-await-in-loop -- one answer at a time
       expect(await refusal(r)).toEqual([400, "malformed"]);
     }
     const chunked = await raw("/admin/artifacts/genesis/init.json", {
       method: "PUT",
       headers: { "x-ceremony-operator": "1", "x-content-sha256": sha("x") },
-      // A stream of unknown length: no Content-Length.
       body: new ReadableStream({
         start(controller) {
           controller.enqueue(new TextEncoder().encode("x"));

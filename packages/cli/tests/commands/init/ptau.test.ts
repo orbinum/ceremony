@@ -1,4 +1,8 @@
-/** The pinned ptau when no mirror answers, and where it is looked for first. */
+/**
+ * The pinned ptau when no mirror answers, and where it is looked for first. The original Hermez
+ * hosts answer 403 since September 2026, so the operator must learn that any copy works with
+ * --ptau: the pin is what is checked.
+ */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,8 +17,6 @@ describe("obtainPtau when no mirror answers", () => {
   });
   afterAll(() => rm(dir, { recursive: true, force: true }));
 
-  // The original Hermez hosts answer 403 since September 2026: the operator must learn that any
-  // copy works with --ptau, because the pin is what is checked.
   it("says why and how to continue with a local copy", async () => {
     const error = await obtainPtau(dir, undefined, ["http://127.0.0.1:9/ptau"]).then(
       () => undefined,

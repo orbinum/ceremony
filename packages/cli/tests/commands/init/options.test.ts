@@ -14,7 +14,6 @@ const base = [
   "shield=3,unshield=2,transfer=1",
 ];
 
-/** `base` with other `--circuit-ids`. */
 const withIds = (ids: string) => [...base.slice(0, -2), "--circuit-ids", ids];
 
 describe("parseInitOptions", () => {

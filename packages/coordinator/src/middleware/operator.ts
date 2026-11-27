@@ -1,8 +1,8 @@
 /**
- * Operator routes (COORDINATOR §3): the operator's marker header (a custom header forces a CORS
- * preflight, so no page can make an operator's browser call them), a valid Cloudflare Access
- * token for this application, and an identity on the `ACCESS_OPERATORS` list. A local run serves
- * them without Access.
+ * Guards `/admin/*`: the operator's marker header (a custom header forces a CORS preflight, so no
+ * page can make an operator's browser call them), a valid Cloudflare Access token for this
+ * application, and an identity on the `ACCESS_OPERATORS` list; each admitted call is logged. A
+ * local run serves them without Access.
  */
 import { OPERATOR_HEADER } from "@orbinum-ceremony/core";
 import { createMiddleware } from "hono/factory";
@@ -17,7 +17,6 @@ const operatorsOf = (env: Env) =>
       .filter(Boolean),
   );
 
-/** Guards `/admin/*`. */
 export const operator = createMiddleware<AppEnv>(async (c, next) => {
   if (c.req.header(OPERATOR_HEADER) !== "1") {
     return fail(c, "forbidden", `${OPERATOR_HEADER}: 1 is required`);

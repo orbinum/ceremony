@@ -47,7 +47,6 @@ describe.skipIf(!PTAU_PATH)("attacks on the final keys", { timeout: 180_000 }, (
   });
 
   it("rejects a final key without the beacon, although snarkjs verifies it", async () => {
-    // The head contribution passed off as the final key, its record updated to match.
     const copy = await tamperedCopy(ceremony.dir, async (d) => {
       await cp(layout(d).zkey("shield", 2), layout(d).finalZkey("shield"));
       const sha = await hashFile(layout(d).finalZkey("shield"), createSha256());

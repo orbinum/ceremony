@@ -1,6 +1,7 @@
 /**
- * Attacks on `download` from a hostile mirror (SPEC §6.1), each against a synthetic
- * ceremony served from loopback.
+ * Attacks on `download` from a hostile mirror, each against a synthetic ceremony served from
+ * loopback. A zkey is bounded by its genesis size + 1 KiB per contribution and a log by
+ * MAX_LOG_CHARS, so a mirror cannot fill the disk.
  */
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -51,7 +52,6 @@ async function serve(dir: string) {
   return s;
 }
 
-/** A raw TCP "HTTP" server: each request gets exactly the bytes `answer` writes. */
 async function rawServer(answer: (socket: Socket, path: string) => void) {
   const sockets = new Set<Socket>();
   const server: Server = createServer((socket) => {
@@ -79,7 +79,6 @@ async function rawServer(answer: (socket: Socket, path: string) => void) {
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }
 
-/** Appends `n` invented, self-consistent shield contributions (before the beacon), files written. */
 async function inventContributions(
   dir: string,
   n: number,
@@ -114,7 +113,6 @@ async function inventContributions(
     }
     return [...contributions, ...added, ...rest];
   });
-  // Write the files the invented records pin.
   const t = JSON.parse(await readFile(paths.transcript, "utf8")) as Transcript;
   await mkdir(paths.contributions("shield"), { recursive: true });
   await mkdir(join(dir, "logs", "shield"), { recursive: true });
@@ -179,7 +177,6 @@ describe("download against a hostile mirror", () => {
     cleanup.push(() => rm(copy, { recursive: true, force: true }));
     const s = await serve(copy);
     const out = await fresh();
-    // 3 documents + r1cs + genesis + 27 × (zkey, log) + final zkey + vk
     expect(await download(c, s.url, out)).toBe(3 + 2 + 27 * 2 + 2);
   });
 
@@ -205,7 +202,6 @@ describe("download against a hostile mirror", () => {
     );
     expect(e.message).toMatch(/not the one --transcript-sha256 pins/);
     expect(s.requests.some((r) => /^\/(contributions|logs|final)/.test(r.path))).toBe(false);
-    // The real one, pinned, downloads.
     const real = await serve(c.dir);
     expect(
       await runDownload({
@@ -218,8 +214,6 @@ describe("download against a hostile mirror", () => {
   });
 
   it("refuses an intermediate zkey or log far above what an honest one can be", async () => {
-    // A zkey is bounded by genesis size + 1 KiB per contribution (core maxZkeyBytes), a log by
-    // MAX_LOG_CHARS.
     const c = await syntheticCeremony({ network: "testnet" });
     const big = new Uint8Array(4 * 1024 * 1024).fill(0x41);
     const copy = await tamperedCopy(c.dir, (d) =>
@@ -266,7 +260,6 @@ describe("download against a hostile mirror", () => {
     cleanup.push(() => redirector.close());
     const out = await fresh();
     expect(await download(c, redirector.url, out)).toBe(11);
-    // Every file was actually served by the other host.
     expect(real.requests.length).toBe(11);
   });
 
@@ -287,7 +280,6 @@ describe("download against a hostile mirror", () => {
     const c = await syntheticCeremony({ network: "testnet" });
     const real = await serve(c.dir);
     const elsewhere = new URL(real.url);
-    // Same server, reached through a name that is not loopback: the hop must never be made.
     elsewhere.hostname = "ceremony-mirror.invalid";
     const s = await localServer({
       "*": (req, res) =>
@@ -362,7 +354,6 @@ describe("download against a hostile mirror", () => {
       socket.end(Buffer.concat([ann, Buffer.from("trailing garbage")]));
     });
     const out = await fresh();
-    // The short file fails its pin, or the extra bytes fail the connection.
     await expect(download(c, url, out)).rejects.toThrow(
       /does not match its pinned hash|all mirrors failed/,
     );

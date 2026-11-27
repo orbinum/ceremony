@@ -1,4 +1,8 @@
-// cli/artifacts: a ceremony directory on disk, its documents and its pinned setup.
+/** A ceremony directory on disk: its layout, its documents and its pinned setup. */
+export { assertPinnedSetup } from "./assert-pinned-setup";
 export { layout } from "./layout";
-export { loadAnnouncement, loadCeremony, type Loaded, loadInit, loadTranscript } from "./load";
-export { assertPinnedSetup } from "./pins";
+export { loadAnnouncement } from "./load-announcement";
+export { loadCeremony } from "./load-ceremony";
+export { loadInit } from "./load-init";
+export { loadTranscript } from "./load-transcript";
+export type { Loaded } from "./types";

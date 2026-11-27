@@ -6,8 +6,8 @@
 import type { CeremonyAnnouncement } from "../../announcement";
 import type { InitRecord } from "../../init";
 import type { Chained } from "../types";
-import { checkMinContributions } from "./check-min-contributions";
-import { checkRecordsInWindow } from "./check-records-in-window";
+import { checkMinContributions } from "./finished";
+import { checkRecordsInWindow } from "./integrity";
 
 export function checkFinalizable(
   records: readonly Chained[],

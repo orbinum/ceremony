@@ -1,7 +1,11 @@
 /**
- * One contributor, as the browser or CLI client will act (SPEC §4.1): GitHub identity (the local
- * development header), a wallet linked by EIP-712, a session, a contribution per circuit, and the
- * attestation at the end. Each step can also be sent altered, for the attack flows.
+ * One contributor, as the browser or CLI client acts: GitHub identity (the local development
+ * header), a wallet linked by EIP-712, a session, a contribution per circuit, and the attestation
+ * at the end. Each step can also be sent altered, for the attack flows. Requests are retried when
+ * wrangler dev's ProxyWorker drops its connection (a plain-text 500, never a coordinator answer;
+ * production has no ProxyWorker). A `flip` tamper changes a byte of the new entry's transcript,
+ * which h_k covers but which is no curve point (the pre-checks would refuse an off-curve one), and
+ * claims the changed h_k: the upload passes the pre-checks and only snarkjs's verify can refuse it.
  */
 import { execFile } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -27,38 +31,26 @@ import { Wallet } from "ethers";
 
 const SNARKJS = join(import.meta.dirname, "..", "..", "node_modules", ".bin", "snarkjs");
 const CLIENT = { name: "orbinum-ceremony-e2e", version: "0.0.0", commit: "0e2e0e2" };
-/** How long one upload may take to be verified before the test gives up. */
 const RESULT_TIMEOUT_MS = 10 * 60_000;
 
-/**
- * `fetch`, sent again (up to 3 times) when the answer is wrangler dev's own: its ProxyWorker drops
- * its connection to the Worker now and then and fails a request with a body instead of retrying
- * it (a plain-text 500, never one of the coordinator's JSON answers). Production has no ProxyWorker.
- */
 async function send(url: string, init: RequestInit): Promise<Response> {
   for (let attempt = 1; ; attempt++) {
-    // oxlint-disable-next-line no-await-in-loop -- one attempt after the other
     const response = await fetch(url, init);
     const proxyLost =
       response.status === 500 &&
       !response.headers.get("content-type")?.includes("json") &&
-      // oxlint-disable-next-line no-await-in-loop -- read only to recognize the dev server's error
       (await response.clone().text()).includes("Network connection lost");
     if (!proxyLost || attempt === 3) return response;
   }
 }
 
-/** An answer: its status and JSON body (an `{ error: { code } }` for a refusal). */
 export interface Answer {
   status: number;
   body: Record<string, any>;
 }
 
-/** What `contributeTo` uploads instead of an honest contribution. */
 export interface Tamper {
-  /** Flips a byte of the h_k the zkey carries (claimed accordingly): only snarkjs can refuse it. */
   flip?: boolean;
-  /** Claims an output hash other than the uploaded bytes'. */
   wrongOutputHash?: boolean;
 }
 
@@ -66,7 +58,6 @@ export class Contributor {
   readonly wallet = Wallet.createRandom();
   private heartbeat: NodeJS.Timeout | undefined;
 
-  /** `diagnose`: what to add to a timeout (the verifier's stderr). */
   constructor(
     private readonly base: string,
     private readonly ceremonyId: string,
@@ -87,7 +78,6 @@ export class Contributor {
     };
   }
 
-  /** A call as this contributor; resolves with any answer. */
   async request(
     method: string,
     path: string,
@@ -106,14 +96,12 @@ export class Contributor {
     return { status: response.status, body: (await response.json()) as Record<string, any> };
   }
 
-  /** A call that must succeed; returns its body. */
   async call(method: string, path: string, body?: unknown): Promise<Record<string, any>> {
     const { status, body: json } = await this.request(method, path, body);
     if (status >= 400) throw new Error(`${method} ${path}: ${status} ${JSON.stringify(json)}`);
     return json;
   }
 
-  /** A fresh link payload for this contributor, with `change` applied. */
   async linkPayload(change: Partial<LinkPayload> = {}): Promise<LinkPayload> {
     const { nonce } = await this.call("POST", "/api/link/nonce");
     return {
@@ -129,7 +117,6 @@ export class Contributor {
     };
   }
 
-  /** Signs and sends a link payload; resolves with the answer. */
   async sendLink(payload: LinkPayload): Promise<Answer> {
     const signature = await this.wallet.signTypedData(...ethersTypedData(linkTypedData(payload)));
     return this.request("POST", "/api/link", { scheme: "eip712", payload, signature });
@@ -140,20 +127,17 @@ export class Contributor {
     if (status >= 400) throw new Error(`link: ${status} ${JSON.stringify(body)}`);
   }
 
-  /** Joins and claims the slot; heartbeats until `end`. Returns the session's seq. */
   async start(): Promise<number> {
     await this.call("POST", "/api/queue/join");
     const me = await this.call("GET", "/api/queue/me");
     if (!me.slot) throw new Error("no slot after joining an empty queue");
     await this.call("POST", "/api/session/claim");
-    // A refused heartbeat means the session ended (released or closed): stop sending them.
     this.heartbeat = setInterval(() => {
       this.call("POST", "/api/session/heartbeat").catch(() => this.end());
     }, 15_000);
     return me.slot.seq as number;
   }
 
-  /** The current head of `circuit`, downloaded and checked against its published hash. */
   async head(circuit: CircuitName): Promise<{ sha256: string; bytes: Uint8Array }> {
     const head = await this.call("GET", `/api/session/head/${circuit}`);
     const bytes = new Uint8Array(await (await fetch(`${this.base}${head.url}`)).arrayBuffer());
@@ -162,7 +146,6 @@ export class Contributor {
     return { sha256: head.output_sha256, bytes };
   }
 
-  /** Contributes on top of the head of `circuit`; returns the output and its claim. */
   async contribution(circuit: CircuitName, tamper: Tamper = {}) {
     const head = await this.head(circuit);
     const inPath = join(this.work, `${this.githubId}-${circuit}-in.zkey`);
@@ -171,7 +154,6 @@ export class Contributor {
     const name = `contributor-${this.githubId}`;
     const entropy = `${this.githubId}-${circuit}-${crypto.randomUUID()}`;
     if (this.method === "cli") {
-      // The CLI path: stock snarkjs, h_k read back from the file it wrote.
       await promisify(execFile)(SNARKJS, [
         "zkey",
         "contribute",
@@ -184,10 +166,6 @@ export class Contributor {
       await contribute(inPath, outPath, name, entropy);
     }
     const output = new Uint8Array(await readFile(outPath));
-    // The flipped byte lies in the new entry's transcript, which h_k covers but which is no point
-    // (the pre-checks would refuse an off-curve one): the entry ends with type, parameter length
-    // and the name parameter (tag, length, name). Claiming the changed h_k gets the upload past
-    // the pre-checks, so only snarkjs's verify can refuse it (g2_sp no longer hashes to it).
     if (tamper.flip) {
       const at = output.length - (2 + new TextEncoder().encode(name).length) - 8 - 32;
       output[at] = (output[at] ?? 0) ^ 1;
@@ -202,7 +180,6 @@ export class Contributor {
     return { output, claim };
   }
 
-  /** Uploads `output` for `circuit` with `claim`; resolves with the answer. */
   async upload(circuit: CircuitName, output: Uint8Array, claim: unknown): Promise<Answer> {
     const upload = await send(`${this.base}/api/session/upload/${circuit}`, {
       method: "PUT",
@@ -212,10 +189,6 @@ export class Contributor {
     return { status: upload.status, body: (await upload.json()) as Record<string, any> };
   }
 
-  /**
-   * Contributes, uploads and waits for the verifier (polls as the client does, SPEC §4.1, for
-   * at most `RESULT_TIMEOUT_MS`).
-   */
   async contributeTo(circuit: CircuitName, tamper: Tamper = {}): Promise<Record<string, any>> {
     const { output, claim } = await this.contribution(circuit, tamper);
     const upload = await this.upload(circuit, output, claim);
@@ -225,10 +198,8 @@ export class Contributor {
     const deadline = Date.now() + RESULT_TIMEOUT_MS;
     let result: Record<string, any> = {};
     while (Date.now() < deadline) {
-      // oxlint-disable-next-line no-await-in-loop -- polls the result as the client does
       result = await this.call("GET", `/api/session/result/${circuit}`);
       if (result.status !== "pending") return result;
-      // oxlint-disable-next-line no-await-in-loop -- polls the result as the client does
       await new Promise((r) => setTimeout(r, 1000));
     }
     throw new Error(
@@ -236,7 +207,6 @@ export class Contributor {
     );
   }
 
-  /** The attestation payload of session `seq` over `records`. */
   attestation(seq: number, records: Chained[]): AttestationPayload {
     return buildAttestationPayload({
       ceremonyId: this.ceremonyId,
@@ -248,7 +218,6 @@ export class Contributor {
     });
   }
 
-  /** Signs `payload` with `signer` (default: the linked wallet) and sends it. */
   async sendAttestation(
     payload: AttestationPayload,
     signer: Pick<Wallet, "signTypedData"> = this.wallet,
@@ -257,13 +226,11 @@ export class Contributor {
     return this.request("POST", "/api/session/attest", { payload, signature });
   }
 
-  /** Signs the session's accepted records (SPEC §3.5); the coordinator then closes the session. */
   async attest(seq: number, records: Chained[]): Promise<void> {
     const { status, body } = await this.sendAttestation(this.attestation(seq, records));
     if (status >= 400) throw new Error(`attest: ${status} ${JSON.stringify(body)}`);
   }
 
-  /** Ends the session without attesting (e.g. after a rejected upload). */
   async finish(): Promise<void> {
     await this.call("POST", "/api/session/finish");
   }

@@ -1,7 +1,4 @@
-/**
- * `publish-final` against a fake coordinator: final files, then the sealed beacon and finals (SPEC
- * §2.6).
- */
+/** `publish-final` against a fake coordinator: final files, then the sealed beacon and finals. */
 import { readFile, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
@@ -31,7 +28,6 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((s) => s.close()));
 });
 
-/** A coordinator that stores what it is sent; `finalize` answers the finalize call. */
 async function coordinator(
   finalize: Route = (_q, res) => json(res, 200, { ok: true }),
   extra = {},
@@ -46,7 +42,6 @@ async function coordinator(
   return server;
 }
 
-/** A coordinator already sealed, and one serving a published document. */
 const finalized: Route = (_q, res) =>
   json(res, 409, { error: { code: "finalized", message: "finalized" } });
 const serve =
@@ -78,7 +73,6 @@ describe("publish-final", () => {
     expect(post?.path).toBe("/admin/finalize");
     const request = validateFinalizeRequest(JSON.parse(String(post?.body)));
     expect(request).toEqual({ beacon: c.transcript.records.at(-1), finals: c.transcript.finals });
-    // Plaintext to a local coordinator: the Access token is never sent.
     expect(server.requests.some((r) => "cf-access-client-secret" in r.headers)).toBe(false);
   });
 

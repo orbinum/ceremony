@@ -1,6 +1,6 @@
 /**
- * Startup checks that fail fast, and the draining shutdown (COORDINATOR §5): hermetic, under a
- * stand-in ptau pin.
+ * Startup checks that fail fast, and the draining shutdown: hermetic, under a stand-in ptau pin. A
+ * pinned genesis that is not a zkey makes the canary task fail as a broken host would.
  */
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
@@ -50,7 +50,6 @@ describe("startup", { timeout: 60_000 }, () => {
   });
 
   it("fails, leaving no copies, when the snarkjs child cannot do its work", async () => {
-    // A genesis that is pinned but not a zkey: the canary task fails as a broken host would.
     const { dir, ptau } = await multiplierCeremony(FAKE_PTAU_TEXT);
     const garbage = new TextEncoder().encode("pinned, but not a zkey");
     await writeFile(join(dir, "genesis", "shield.genesis.zkey"), garbage);
@@ -92,7 +91,6 @@ describe("shutdown", { timeout: 30_000 }, () => {
     const server = createServer();
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
     try {
-      // The job is in flight once its child has started.
       await until(10_000, "the job's child started", () => existsSync(pidFile));
       await drain(server, queue, inputs, 100);
       expect(await within(10_000, "the job's child", outcome)).toMatchObject({

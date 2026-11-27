@@ -17,7 +17,6 @@ import {
 } from "@orbinum-ceremony/core";
 import { INIT, setupInput } from "./setup";
 
-/** Quicknet round 1000, as api.drand.sh serves it. */
 export const R1000: DrandRound = {
   round: 1000,
   randomness: "fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff3cd603d930e54fdd",
@@ -25,14 +24,10 @@ export const R1000: DrandRound = {
     "b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39",
 };
 
-/** When round 1000 was emitted (epoch ms). */
 export const ROUND_AT = roundTime(R1000.round) * 1000;
-/** The ceremony's opening, three hours before the round. */
 export const OPEN = ROUND_AT - 3 * 3_600_000;
-/** The ceremony's close, an hour before the round (the beacon delay). */
 export const CLOSE = ROUND_AT - 3_600_000;
 
-/** A one-circuit (shield) local setup whose beacon is round 1000. */
 export function pastSetup() {
   const init = structuredClone(INIT);
   init.circuits = init.circuits.filter((c) => c.name === "shield");
@@ -42,16 +37,11 @@ export function pastSetup() {
   });
 }
 
-/** The bytes of a circuit's final files, as `finalize` writes them. */
 export const finalBytes = (c: CircuitName) => ({
   zkey: new TextEncoder().encode(`final zkey of ${c}`),
   vk: new TextEncoder().encode(`{"vk":"${c}"}`),
 });
 
-/**
- * What `cli finalize` sends from the transcript it downloaded: the beacon chained after its head
- * and one final per circuit of `setup`, bound to the beacon and to `finalBytes`.
- */
 export function finalizeRequest(setup: Setup, records: readonly Chained[]): FinalizeRequest {
   const beacon = appendRecord(
     records,

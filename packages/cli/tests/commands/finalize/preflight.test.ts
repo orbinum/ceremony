@@ -1,4 +1,4 @@
-/** Finalize's preflight: every refusal happens before the beacon is sealed (SPEC §2.6). */
+/** Finalize's preflight: every refusal happens before the beacon is sealed. */
 import { writeFile } from "node:fs/promises";
 import type { ContributionRecord } from "@orbinum-ceremony/core";
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,6 @@ import {
   tamperedCopy,
 } from "../../support";
 
-/** Runs preflight on `dir` (a synthetic ceremony, maybe tampered) at `now`. */
 async function check(c: Synthetic, dir = c.dir, now = CLOCK.finalize(), packer?: string) {
   const [announcement, init] = await opened(dir);
   const store = await openTranscript(dir, announcement);

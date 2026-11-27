@@ -1,14 +1,14 @@
 /**
  * A coordinator for one turn, in memory: every circuit's head is `multiplier_1`, each upload is
  * verified on the next poll with the verdict queued for its circuit (`valid` by default), and the
- * turn closes itself once nothing is left to do — as the queue does.
+ * turn closes itself once nothing is left to do, as the queue does. A test can serve other head
+ * bytes, or make the next uploads throw.
  */
 import type { CeremonyState, CircuitName } from "@orbinum-ceremony/core";
 import type { Head, JobResult, Slot, UploadClaim } from "../../src/api";
 import type { SessionApi } from "../../src/contribution";
 import { chain } from "./fixtures";
 
-/** The fake ceremony's circuits, in session order. */
 export const CIRCUIT_NAMES: CircuitName[] = ["shield", "unshield", "transfer"];
 
 type CircuitStatus = "todo" | "verifying" | "accepted" | "skipped";
@@ -17,12 +17,9 @@ type Outcome = NonNullable<JobResult["status"]>;
 export class FakeCoordinator implements SessionApi {
   readonly seq = 7;
   phase: CeremonyState = "OPEN";
-  /** The head's bytes as served (an attack test serves others). */
   headBytes = () => chain().head;
   readonly status = new Map<CircuitName, CircuitStatus>(CIRCUIT_NAMES.map((c) => [c, "todo"]));
-  /** Verdicts to give, per circuit, in order; `valid` once none is left. */
   readonly verdicts = new Map<CircuitName, Outcome[]>();
-  /** Errors the next uploads throw, in order. */
   readonly uploadErrors: Error[] = [];
   readonly uploads: { circuit: CircuitName; claim: UploadClaim; bytes: Uint8Array }[] = [];
   readonly calls: string[] = [];

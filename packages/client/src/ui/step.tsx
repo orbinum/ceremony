@@ -1,4 +1,8 @@
-/** One step of a guided flow: its number (a check once done), title, a line about it, and its content. */
+/**
+ * One step of a guided flow: its number (a check once done), title, one line under the title (what
+ * the step is, or what it settled), and its content: full width on a phone, beside the rail from sm
+ * up.
+ */
 import type { ReactNode } from "react";
 
 export type StepState = "done" | "current" | "upcoming";
@@ -7,7 +11,6 @@ export function Step(props: {
   n: number;
   title: string;
   state: StepState;
-  /** One line under the title: what the step is, or what it settled. */
   summary?: ReactNode;
   last?: boolean;
   children?: ReactNode;
@@ -56,7 +59,6 @@ export function Step(props: {
           {props.summary && <p className="mt-0.5 text-xs text-muted">{props.summary}</p>}
         </div>
       </div>
-      {/* Full width on a phone; beside the rail from sm up. */}
       {props.children && (
         <div className="mt-4 space-y-3 text-sm text-text sm:pl-11">{props.children}</div>
       )}

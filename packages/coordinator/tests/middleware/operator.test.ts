@@ -1,6 +1,6 @@
 /**
- * Operator routes (COORDINATOR §3): an RS256 Access token of this team and audience, refetching
- * keys on rotation at most every 30 s, the operator header, and an identity on the list.
+ * Operator routes: an RS256 Access token of this team and audience, refetching keys on rotation at
+ * most every 30 s, the operator header, and an identity on the list.
  */
 import { toBase64url, utf8 } from "@orbinum-ceremony/core";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,6 @@ import { appWith, json, refusal } from "../support";
 
 const AUD = "access-audience-tag";
 let team = 0;
-/** A fresh team URL per case: the key cache is per team. */
 const nextTeam = () => `https://team-${++team}.cloudflareaccess.com`;
 
 type Pair = CryptoKeyPair;
@@ -51,7 +50,6 @@ const jwk = async (p: Pair, kid: string) => ({
   kid,
 });
 
-/** An operator call outside a local run. */
 const configure = (patch: Partial<Env>, headers: Record<string, string>) =>
   appWith({ ENVIRONMENT: "production", ...patch }, "https://ceremony.example/admin/state", {
     method: "POST",
@@ -59,7 +57,6 @@ const configure = (patch: Partial<Env>, headers: Record<string, string>) =>
     body: JSON.stringify({ action: "pause" }),
   });
 
-/** Serves each team's keys; `keysOf` decides per call (rotation, outage). */
 let keysOf: (team: string, call: number) => Promise<Response>;
 const calls = new Map<string, number>();
 
@@ -119,7 +116,6 @@ describe("Access tokens (verifyAccess)", () => {
       await token({ ...good(t), email: undefined }),
     ];
     for (const b of bad) {
-      // oxlint-disable-next-line no-await-in-loop -- each case on its own
       expect(await verifyAccess(b, t, AUD, NOW)).toBeNull();
     }
     expect(await verifyAccess(await token({ ...good(t), nbf: secs() - 60 }), t, AUD, NOW)).toBe(
@@ -134,7 +130,6 @@ describe("Access tokens (verifyAccess)", () => {
     keysOf = async (_, call) => Response.json({ keys: call === 1 ? [j1] : [j1, j2] });
     expect(await verifyAccess(await token(good(t)), t, AUD, NOW)).toBe("ops@orbinum.io");
     const rotated = await token(good(t), { key: k2, header: { kid: "k2" } });
-    // Inside the minimum interval: no refetch, refused.
     expect(await verifyAccess(rotated, t, AUD, NOW + 1000)).toBeNull();
     expect(calls.get(t)).toBe(1);
     expect(await verifyAccess(rotated, t, AUD, NOW + 31_000)).toBe("ops@orbinum.io");
@@ -174,7 +169,6 @@ describe("operator routes outside a local run", () => {
     expect([r.status, (await json(r)).error.code]).toEqual([403, "forbidden"]);
     const noAudience = await configure({ ...env, ACCESS_AUD: "" }, { ...op, ...access });
     expect(await refusal(noAudience)).toEqual([403, "forbidden"]);
-    // Through every check, the request reaches the route (the ceremony is not configured here).
     expect(await refusal(await configure(env, { ...op, ...access }))).toEqual([
       503,
       "not-configured",

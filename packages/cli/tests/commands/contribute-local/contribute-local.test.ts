@@ -1,4 +1,7 @@
-/** `contribute-local` with the real ptau: every simulated upload verified like a real one. */
+/**
+ * `contribute-local` with the real ptau: every simulated upload verified like a real one, and
+ * cross-checked from r1cs.
+ */
 import { readFile, rm } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { layout } from "../../../src/artifacts";
@@ -6,7 +9,6 @@ import { runContributeLocal } from "../../../src/commands/contribute-local";
 import { loadMetrics } from "../../../src/store";
 import { CLOCK, PTAU_PATH, shieldOnlyCeremony } from "../../support";
 
-/** Simulated contributions verified like uploads, cross-checked from r1cs (SPEC §2.5). */
 describe.skipIf(!PTAU_PATH)("contribute-local --cross-check-r1cs", { timeout: 180_000 }, () => {
   const ptau = PTAU_PATH as string;
 

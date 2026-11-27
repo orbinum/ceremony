@@ -1,6 +1,7 @@
 /**
- * Attacks the local-run privileges (KL-29) with near-miss environments and hosts: the development
- * identity, `/admin` without Access and joining without Turnstile need exactly `local` on loopback.
+ * Attacks the local-run privileges with near-miss environments and hosts: the development identity,
+ * `/admin` without Access and joining without Turnstile need exactly `local` on loopback, and an
+ * unknown ENVIRONMENT never reaches a route.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -40,7 +41,6 @@ const NON_LOOPBACK_HOSTS = [
   "https://ceremony.example",
   "http://127.0.0.1.nip.io",
 ];
-/** Spellings the URL parser turns into a listed loopback name (still this machine only). */
 const LOOPBACK_SPELLINGS = [
   "http://LOCALHOST",
   "http://localhost:8787",
@@ -73,13 +73,11 @@ describe("isLocal", () => {
 });
 
 const DEV = { "x-dev-github-id": "9101", "x-dev-github-login": "dev" };
-/** (environment, base URL) pairs that must not count as local. */
 const NOT_LOCAL: [string | undefined, string][] = [
   ...NEAR_MISS_ENVS.map((e) => [e, "http://localhost"] as [string | undefined, string]),
   ...NON_LOOPBACK_HOSTS.map((h) => ["local", h] as [string, string]),
 ];
 
-/** An unknown ENVIRONMENT never reaches a route: the configuration gate answers first. */
 const refusedAs = (env: string | undefined, status: number, code: string) =>
   (ENVIRONMENTS as readonly (string | undefined)[]).includes(env)
     ? [status, code]
@@ -90,11 +88,9 @@ describe("local privileges are unreachable outside a local run", () => {
 
   it("refuses the development identity header", async () => {
     for (const [ENVIRONMENT, base] of NOT_LOCAL) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const r = await appWith({ ENVIRONMENT } as Partial<Env>, `${base}/api/link`, {
         headers: { ...DEV, "cf-connecting-ip": "10.77.0.1" },
       });
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       expect([ENVIRONMENT, base, ...(await refusal(r))]).toEqual([
         ENVIRONMENT,
         base,
@@ -106,20 +102,17 @@ describe("local privileges are unreachable outside a local run", () => {
   it("refuses /admin without an Access token (operator header present)", async () => {
     const fetches = vi.spyOn(globalThis, "fetch");
     for (const [ENVIRONMENT, base] of NOT_LOCAL) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const r = await appWith({ ENVIRONMENT } as Partial<Env>, `${base}/admin/state`, {
         method: "POST",
         headers: { "x-ceremony-operator": "1", "content-type": "application/json" },
         body: JSON.stringify({ action: "pause" }),
       });
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       expect([ENVIRONMENT, base, ...(await refusal(r))]).toEqual([
         ENVIRONMENT,
         base,
         ...refusedAs(ENVIRONMENT, 403, "forbidden"),
       ]);
     }
-    // No Access domain configured: nothing was fetched.
     expect(fetches).not.toHaveBeenCalled();
   });
 
@@ -137,7 +130,6 @@ describe("local privileges are unreachable outside a local run", () => {
         .spyOn(globalThis, "fetch")
         .mockImplementation(async () => Response.json({ success: false }));
       for (const [ENVIRONMENT, base] of NOT_LOCAL) {
-        // oxlint-disable-next-line no-await-in-loop -- one case at a time
         const r = await appWith(
           { ENVIRONMENT, ...routedTo(name) } as Partial<Env>,
           `${base}/api/queue/join`,
@@ -146,14 +138,12 @@ describe("local privileges are unreachable outside a local run", () => {
             headers: { cookie: sessionCookie(9102), "cf-connecting-ip": "10.77.0.2" },
           },
         );
-        // oxlint-disable-next-line no-await-in-loop -- one case at a time
         expect([ENVIRONMENT, base, ...(await refusal(r))]).toEqual([
           ENVIRONMENT,
           base,
           ...refusedAs(ENVIRONMENT, 403, "turnstile"),
         ]);
       }
-      // No token was sent: siteverify is never asked.
       expect(siteverify).not.toHaveBeenCalled();
     });
   });

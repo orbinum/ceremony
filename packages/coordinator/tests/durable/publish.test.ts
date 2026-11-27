@@ -1,7 +1,7 @@
 /**
- * Publishing `transcript.json` and `status.json` (SPEC §6.1, KL-28, KL-31): in order, only when
- * changed, withheld when the transcript fails its checks, and retried by the alarm until a write
- * that failed lands.
+ * Publishing `transcript.json` and `status.json`: in order (a held publication delays the next),
+ * only when changed (an event that changes nothing queues none), withheld when the transcript fails
+ * its checks, and retried by the alarm until a write that failed lands.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -13,7 +13,6 @@ let n = 0;
 const fresh = () => env.CEREMONY.getByName(`publish-test-${++n}-${Date.now()}`);
 type Stub = ReturnType<typeof fresh>;
 
-/** An open ceremony; every test reads the bucket it publishes to. */
 async function opened(): Promise<Stub> {
   const stub = fresh();
   await stub.configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
@@ -73,7 +72,6 @@ describe("publishing transcript.json and status.json", () => {
     const stub = await opened();
     const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const before = await published();
-    // A record altered behind the object's back: the chain no longer verifies.
     await runInDurableObject(stub, (instance, state) => {
       state.storage.sql.exec(
         "UPDATE records SET json = json_set(json, '$.reason', 'tampered') WHERE n = 1",
@@ -101,7 +99,6 @@ describe("publishing transcript.json and status.json", () => {
     await runInDurableObject(stub, (instance) => {
       storeOf(instance).publishing = marker;
     });
-    // Leaving a queue one is not in changes nothing: no commit, so no publication is queued.
     expect(await stub.apply({ type: "leave", githubId: 1 })).toEqual({ ok: true, effects: [] });
     expect(
       await runInDurableObject(stub, (instance) => storeOf(instance).publishing === marker),
@@ -119,7 +116,6 @@ describe("publishing transcript.json and status.json", () => {
       writes.push(writes.length === 0 ? "first" : "second");
       if (writes.length === 1) await held.promise;
     });
-    // The first publication is held in its write; the second commits meanwhile and waits.
     const first = stub.apply({ type: "pause" });
     await vi.waitFor(() => expect(writes).toEqual(["first"]));
     const second = stub.apply({ type: "resume" });

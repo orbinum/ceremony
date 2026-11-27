@@ -1,4 +1,8 @@
-/** Operator commands with the real ptau against their peers: a fake coordinator, a local mirror. */
+/**
+ * Operator commands with the real ptau against their peers: a fake coordinator, a local mirror. The
+ * beacon is deterministic, so a rebuilt final key has the same bytes: a refused finalize must leave
+ * final/ as the very same files (same inode), never rewritten.
+ */
 import { existsSync } from "node:fs";
 import { chmod, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -29,7 +33,6 @@ import {
   type TestCeremony,
 } from "../support";
 
-/** A local mirror of `dir` and an empty directory to download it into. */
 async function mirror(dir: string) {
   const server = await serveDir(dir);
   const out = await mkdtemp(join(tmpdir(), "orbinum-mirror-"));
@@ -129,7 +132,6 @@ describe.skipIf(!PTAU_PATH)("operator commands against their peers", { timeout: 
           withPtau: false,
           force: false,
         });
-        // 3 documents + r1cs + genesis + 2 × (zkey, log) + final zkey + vk.
         expect(count).toBe(11);
         expect(await readFile(layout(out).finalZkey("shield"))).toEqual(
           await readFile(layout(ceremony.dir).finalZkey("shield")),
@@ -149,14 +151,11 @@ describe.skipIf(!PTAU_PATH)("operator commands against their peers", { timeout: 
           (t.records[0] as { chain: string }).chain = "00".repeat(32);
         },
       ]) {
-        // oxlint-disable-next-line no-await-in-loop -- one tampered mirror at a time
         const copy = await tamperedCopy(ceremony.dir, (d) =>
           editJson(layout(d).transcript, tamper),
         );
-        // oxlint-disable-next-line no-await-in-loop -- one tampered mirror at a time
         const { server, out } = await mirror(copy);
         try {
-          // oxlint-disable-next-line no-await-in-loop -- one tampered mirror at a time
           await expect(
             runDownload({
               from: server.url,
@@ -169,7 +168,6 @@ describe.skipIf(!PTAU_PATH)("operator commands against their peers", { timeout: 
           expect(server.requests.some((r) => r.path.startsWith("/contributions/"))).toBe(false);
           expect(existsSync(layout(out).transcript)).toBe(false);
         } finally {
-          // oxlint-disable-next-line no-await-in-loop -- cleanup
           await server.close();
         }
       }
@@ -195,8 +193,6 @@ describe.skipIf(!PTAU_PATH)("operator commands against their peers", { timeout: 
       const packer = join(copy, "failing-packer.sh");
       await writeFile(packer, "#!/bin/sh\necho broken >&2\nexit 1\n");
       await chmod(packer, 0o755);
-      // The beacon is deterministic, so a rebuilt key has the same bytes: untouched means the
-      // very same file (same inode), never rewritten.
       const finalBefore = await stat(layout(copy).finalZkey("shield"));
       const transcriptBefore = await readFile(layout(copy).transcript, "utf8");
       await expect(
@@ -227,7 +223,6 @@ describe.skipIf(!PTAU_PATH)("operator commands against their peers", { timeout: 
         beyondMeasuredBounds: false,
       };
       for (const force of [false, true]) {
-        // oxlint-disable-next-line no-await-in-loop -- two calls
         await expect(runInit({ ...options, force })).rejects.toThrow(
           /already has contributions: it cannot be rebuilt/,
         );

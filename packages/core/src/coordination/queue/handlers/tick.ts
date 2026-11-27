@@ -7,7 +7,7 @@
 import { grantNext, release, setPhase } from "../moves";
 import { activeMs } from "../slot";
 import type { StepContext } from "../types";
-import { applyResult } from "./apply-result";
+import { applyResult } from "./verifier";
 
 export function tick(ctx: StepContext): null {
   const { s, now, rules } = ctx;

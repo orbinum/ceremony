@@ -1,8 +1,8 @@
 /**
- * Promoting a valid upload (SPEC §2.5, §6.1): the record is the authority over its public path,
- * so a leftover at an unrecorded index is replaced and never wedges the circuit, a copy the
- * transcript does not record never stays public, a result received in time is judged at receipt,
- * and nothing is recorded outside the acceptance window.
+ * Promoting a valid upload: the record is the authority over its public path, so a leftover at an
+ * unrecorded index is replaced and never wedges the circuit, a copy the transcript does not record
+ * never stays public, a result received in time is judged at receipt (the queue's clock holds while
+ * the first copy runs), and nothing is recorded outside the acceptance window.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { sha256Hex, toHex, type Setup } from "@orbinum-ceremony/core";
@@ -31,7 +31,6 @@ type Stub = ReturnType<typeof stubOf>;
 const ZKEY = "contributions/shield/1.zkey";
 const LOG_KEY = "logs/shield/1.log";
 
-/** An open ceremony whose contributor 1 holds a claimed slot. */
 async function inSession(): Promise<Stub> {
   const stub = stubOf(freshId("promotion"));
   await stub.configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
@@ -42,7 +41,6 @@ async function inSession(): Promise<Stub> {
   return stub;
 }
 
-/** Uploads `bytes` as the route does (attempt by attempt); returns the job. */
 async function uploadShield(stub: Stub, bytes: Uint8Array) {
   const upload = {
     githubId: 1,
@@ -60,7 +58,6 @@ async function uploadShield(stub: Stub, bytes: Uint8Array) {
 
 const sha = (s: string | Uint8Array) =>
   sha256Hex(typeof s === "string" ? new TextEncoder().encode(s) : s);
-/** The SHA-256 of what a public key holds, or null. */
 const holding = async (key: string) => {
   const o = await PUBLIC.head(key);
   return o ? toHex(o.checksums.sha256 ?? new ArrayBuffer(0)) : null;
@@ -106,7 +103,6 @@ describe("promotion of a valid upload", () => {
   it("never wedges a circuit: after a copy failing past the deadline, the next upload records", async () => {
     const stub = await inSession();
     const first = await uploadShield(stub, new TextEncoder().encode("first"));
-    // The zkey copy fails on every try, and so does the cleanup: the first log stays behind.
     await wrapBucket(stub, "PUBLIC", (method, key) => {
       if (method === "put" && key === ZKEY) throw new Error("R2 down");
       if (method === "delete") throw new Error("R2 down");
@@ -162,7 +158,6 @@ describe("promotion of a valid upload", () => {
         if (s.slot) s.slot.verifyDeadline = Date.now() + 5;
       });
       await new Promise((r) => setTimeout(r, 50));
-      // Another caller's event meanwhile: its step runs the queue's clock, which holds.
       await object.apply({ type: "join", githubId: 2 });
     });
     try {
@@ -197,7 +192,6 @@ describe("promotion of a valid upload", () => {
     const job = await uploadShield(stub, new TextEncoder().encode("slow"));
     const held = deferred();
     let puts = 0;
-    // Only the first copy is held: a second one, if let through, would land at once.
     await wrapBucket(stub, "PUBLIC", async (method, key) => {
       if (method === "put" && key === ZKEY && ++puts === 1) await held.promise;
     });
@@ -213,7 +207,6 @@ describe("promotion of a valid upload", () => {
   it("never records a contribution outside the acceptance window: infra instead", async () => {
     const stub = await inSession();
     const job = await uploadShield(stub, new TextEncoder().encode("late"));
-    // The announced close passed (the queue's own clock has not closed yet).
     await runInDurableObject(stub, (_, state) => {
       const row = state.storage.sql.exec<{ json: string }>("SELECT json FROM setup").one();
       const setup = JSON.parse(row.json) as Setup;

@@ -1,4 +1,4 @@
-// cli/tests/support: real and synthetic ceremonies, tampering, local servers and errors.
+/** Test support: real and synthetic ceremonies, tampering, local servers and errors. */
 export {
   CIRCUITS_REPO,
   finalizedCeremony,

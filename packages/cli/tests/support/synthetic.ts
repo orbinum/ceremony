@@ -2,7 +2,7 @@
  * A synthetic ceremony directory: the real documents (init.json, ceremony.json, a hash-chained
  * transcript, a sealed drand round, final records) over fake key files whose hashes they pin. No
  * ptau and no snarkjs, so every check that needs no pairing (pins, anchor, chain, links, window,
- * modes, rollback, finalize preflight, publication) runs without the real inputs (TEST-51).
+ * modes, rollback, finalize preflight, publication) runs without the real inputs.
  */
 import { randomBytes } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
@@ -41,7 +41,6 @@ import { layout } from "../../src/artifacts";
 import { ensureDir, writeAtomic, writeJson } from "../../src/io";
 import { ROUND_1000, scheduleFor, T_ROUND } from "./clock";
 
-/** The shapes of circuits v0.17.1, as `init` would pin them. */
 const SHAPES: Record<
   string,
   { id: number; version: number; constraints: number; publicSignals: number }
@@ -56,23 +55,17 @@ const shapeOf = (c: string) => {
   return s;
 };
 
-/** The release a synthetic ceremony announces (a real one is not needed: nothing compiles). */
 export const SYNTHETIC_RELEASE = { tag: "v1.0.0", commit: "c0ffee".padEnd(40, "0") };
 
-/** What the synthetic ceremony is made of. */
 export interface SyntheticOptions {
   network?: Network;
   circuits?: readonly CircuitName[];
-  /** Simulated contributors, each contributing to every circuit (also the announced minimum). */
   contributors?: number;
-  /** Seal round 1000 and write the final keys and records. */
   finalized?: boolean;
   release?: { tag: string; commit: string };
-  /** init.json's circom flags (default: the pinned ones). */
   circomFlags?: string[];
 }
 
-/** A synthetic ceremony on disk. */
 export interface Synthetic {
   dir: string;
   init: InitRecord;
@@ -83,10 +76,8 @@ export interface Synthetic {
 
 const hex = (bytes: number) => randomBytes(bytes).toString("hex");
 
-/** Unique bytes standing in for a key file. */
 const fake = (what: string) => utf8(`synthetic ${what} ${hex(16)}`);
 
-/** Writes `bytes` under the ceremony key `key`; returns their SHA-256. */
 async function put(dir: string, key: string, bytes: Uint8Array): Promise<string> {
   const path = join(dir, key);
   await ensureDir(join(path, ".."));
@@ -94,7 +85,6 @@ async function put(dir: string, key: string, bytes: Uint8Array): Promise<string>
   return sha256Hex(bytes);
 }
 
-/** Builds a synthetic ceremony in a fresh directory. */
 export async function syntheticCeremony(options: SyntheticOptions = {}): Promise<Synthetic> {
   const network = options.network ?? "local";
   const circuits = options.circuits ?? ["shield"];
@@ -117,7 +107,6 @@ export async function syntheticCeremony(options: SyntheticOptions = {}): Promise
     },
     source: { ref: release.tag, commit: release.commit },
     circuits: await Promise.all(
-      // In session order, as `init` writes them.
       circuits
         .toSorted((a, b) => shapeOf(a).constraints - shapeOf(b).constraints)
         .map(async (c) => ({
@@ -161,10 +150,8 @@ export async function syntheticCeremony(options: SyntheticOptions = {}): Promise
   const previous = new Map(init.circuits.map((c) => [c.name, c.genesis_sha256]));
   for (let seq = 1; seq <= contributors; seq++) {
     for (const c of circuits) {
-      /* oxlint-disable no-await-in-loop -- the chain is sequential */
       const output = await put(dir, `contributions/${c}/${seq}.zkey`, fake(`${c} #${seq}`));
       const log = await put(dir, `logs/${c}/${seq}.log`, fake(`${c} log ${seq}`));
-      /* oxlint-enable no-await-in-loop */
       const h = hex(64);
       const record = buildContributionRecord({
         ceremonyId: init.ceremony_id,
@@ -206,10 +193,8 @@ export async function syntheticCeremony(options: SyntheticOptions = {}): Promise
     });
     records.push(appendRecord(records, genesis, beacon));
     for (const c of init.circuits) {
-      /* oxlint-disable no-await-in-loop -- a few files */
       const zkey = await put(dir, `final/${c.name}.final.zkey`, fake(`${c.name} final`));
       const vk = await put(dir, `final/${c.name}.vk.json`, utf8(`{"synthetic":"${hex(8)}"}\n`));
-      /* oxlint-enable no-await-in-loop */
       transcript.finals.push(
         buildFinalRecord({
           circuit: c.name,

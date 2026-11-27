@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-27
+
+### Changed
+
+- **Code layout.** Every package holds one thing per file, named after it in kebab-case, with each
+  folder's shared types in `types.ts` and its constants in `constants.ts`. Barrels only re-export:
+  the Worker entry is now `packages/coordinator/src/worker.ts` and the CLI entry
+  `packages/cli/src/main.ts`. No behaviour, route, format or exported name changes.
+- **Folders.** Crowded directories are grouped into subfolders by responsibility (about eight
+  files each at most, each with its barrel), and tests mirror them. Lint now also refuses deep
+  imports past a client or core-coordination barrel, and coordinator layer imports from two levels
+  up.
+- **Comments.** Each source and test file opens with one header saying what it holds and why, and
+  carries no other comment. Lint enforces both rules: `unicorn/filename-case` and
+  `ceremony/header-only-comments` (`scripts/oxlint-ceremony-plugin.mjs`).
+- The CLI help no longer cites internal spec sections.
+
 ## [0.6.3] - 2026-11-27
 
 ### Fixed

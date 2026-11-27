@@ -1,5 +1,9 @@
-// coordinator/durable/store: the object's state, its commits, publications and public copies
-// (over durable/db).
+/** The object's state, its commits, publications and public copies, over durable/db. */
+export { append } from "./append";
 export { commit } from "./commit";
-export { indexOf, isRecorded, unpublishUnrecorded } from "./copies";
-export { append, records, type Store, storeOf } from "./store";
+export { indexOf } from "./index-of";
+export { isRecorded } from "./is-recorded";
+export { records } from "./records";
+export { storeOf } from "./store-of";
+export type { Store } from "./types";
+export { unpublishUnrecorded } from "./unpublish-unrecorded";

@@ -1,10 +1,13 @@
-/** What a session needs from the outside world, and what it reports back to the page. */
+/**
+ * What a turn needs from the outside world and reports back to the page: the coordinator calls
+ * (the `api` module in the browser, fakes in the tests), how a contribution is computed (the
+ * worker, or a fake), how to wait (injected so the tests do not), and the one request and one
+ * reply between the page and the contribution worker. The worker gets a copy of the head, so the
+ * page keeps its own for the checks; `name` is printable ASCII, written into the new MPC entry.
+ */
 import type { CircuitName, ClientInfo } from "@orbinum-ceremony/core";
 import type { Head, JobResult, Slot, UploadClaim } from "../api";
-import type { Compute } from "./compute";
-import type { Sleep } from "./retry";
 
-/** The coordinator calls a session makes (the `api` module in the browser, fakes in the tests). */
 export interface SessionApi {
   getSlot(): Promise<Slot>;
   claimTurn(): Promise<unknown>;
@@ -20,21 +23,25 @@ export interface SessionApi {
   getResult(circuit: CircuitName): Promise<JobResult>;
 }
 
-/** Everything `contributeAll` uses. */
+export interface Computed {
+  output: Uint8Array;
+  contributionHash: string;
+}
+
+export type Compute = (input: Uint8Array, name: string, text: string) => Promise<Computed>;
+
+export type Sleep = (ms: number) => Promise<void>;
+
 export interface RunDeps {
   api: SessionApi;
   compute: Compute;
-  /** Each circuit's csHash, from the published `init.json`. */
   csHashes: Map<CircuitName, string>;
   client: ClientInfo;
-  /** The contributor's own text, mixed into each circuit's randomness. */
   text: string;
-  /** Why the session is lost (the heartbeats stopped holding it), or null while it holds. */
   lost: () => Error | null;
   sleep: Sleep;
 }
 
-/** One accepted contribution, as the records and the attestation name it. */
 export interface Accepted {
   circuit: CircuitName;
   index: number;
@@ -43,7 +50,6 @@ export interface Accepted {
   contributionHash: string;
 }
 
-/** Where one circuit is. */
 export type Stage =
   | "downloading"
   | "computing"
@@ -54,10 +60,18 @@ export type Stage =
   | "rejected"
   | "retrying";
 
-/** A step of the session, for the page. */
 export type Progress =
   | { circuit: CircuitName; stage: Stage; detail?: string }
   | { circuit: null; stage: "paused" };
 
-/** Where a verdict leaves an upload. */
 export type Verdict = JobResult["status"];
+
+export interface WorkerRequest {
+  input: Uint8Array;
+  name: string;
+  text: string;
+}
+
+export type WorkerReply =
+  | { ok: true; output: Uint8Array; contributionHash: string }
+  | { ok: false; message: string };

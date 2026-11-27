@@ -1,4 +1,4 @@
-/** Sealing the announced drand round: relays, quorum, and an already-sealed beacon (SPEC §5). */
+/** Sealing the announced drand round: relays, quorum, and an already-sealed beacon. */
 import {
   buildAnnouncement,
   buildBeaconRecord,
@@ -11,7 +11,7 @@ import {
   appendRecord,
 } from "@orbinum-ceremony/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sealBeacon } from "../../../src/commands/finalize/beacon";
+import { sealBeacon } from "../../../src/commands/finalize/seal-beacon";
 import type { TranscriptStore } from "../../../src/store";
 import { ROUND_1000, ROUND_1001 } from "../../support";
 
@@ -34,7 +34,6 @@ const announcement = {
 };
 announcement.beacon = { ...announcement.beacon, round: 1000 };
 
-/** A transcript held in memory, appended like the operator's store. */
 function memoryStore(): TranscriptStore {
   const genesis = chainGenesis(announcement.ceremony_id, announcement);
   const transcript = transcriptOf(announcement.ceremony_id, "11".repeat(32), []);

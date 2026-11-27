@@ -1,4 +1,7 @@
-// cli/io: files, pins and safe text (from the verifier package), downloads and HTTP.
+/**
+ * Files, pins and safe text (from the verifier package), mirror downloads, and the coordinator's
+ * contributor and operator APIs over HTTP.
+ */
 export {
   assertPinnedBytes,
   assertPinnedFile,
@@ -15,15 +18,14 @@ export {
   writeAtomic,
   writeJson,
 } from "@orbinum-ceremony/verifier";
-export { adminCall, postJson, publicJson, publishArtifact } from "./admin";
-export { CoordinatorRefusal } from "./answer";
 export {
+  adminCall,
   type Contributor,
   contributorCall,
-  fetchAnnounced,
-  fetchLiveTranscript,
-  fetchPublic,
-} from "./contributor";
-export { isInternalAddress, publicOnlyLookup } from "./address";
-export { downloadFirst, redirectRefusal } from "./download";
-export { fetchJson } from "./http";
+  CoordinatorRefusal,
+  postJson,
+  publishArtifact,
+} from "./coordinator";
+export { fetchJson } from "./fetch-json";
+export { downloadFirst, isInternalAddress, publicOnlyLookup, redirectRefusal } from "./mirrors";
+export { fetchAnnounced, fetchLiveTranscript, fetchPublic, publicJson } from "./public";

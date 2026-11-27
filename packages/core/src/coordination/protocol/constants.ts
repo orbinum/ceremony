@@ -8,7 +8,7 @@
  * once published, its bytes checked against `CONTENT_SHA256_HEADER`.
  */
 import type { CircuitName } from "../../config";
-import { jobKey } from "./job-key";
+import { jobKey } from "./jobs";
 import type { JobId } from "./types";
 
 export const TIMESTAMP_HEADER = "x-ceremony-timestamp";

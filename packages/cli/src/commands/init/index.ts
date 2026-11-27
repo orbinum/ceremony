@@ -1,9 +1,7 @@
-// cli/commands/init: the `init` command and its options.
-export { initCommand, runInit } from "./init";
-export { obtainPtau } from "./ptau";
-export {
-  type InitCircuitOption,
-  type InitOptions,
-  parseCircuitIds,
-  parseInitOptions,
-} from "./options";
+/** The `init` command: pins the ptau, compiles the circuits and builds the genesis zkeys. */
+export { initCommand } from "./init-command";
+export { runInit } from "./run-init";
+export { obtainPtau } from "./obtain-ptau";
+export { parseCircuitIds } from "./parse-circuit-ids";
+export { parseInitOptions } from "./parse-init-options";
+export type { InitCircuitOption, InitOptions } from "./types";

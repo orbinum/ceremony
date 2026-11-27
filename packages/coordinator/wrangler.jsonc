@@ -5,7 +5,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ceremony-coordinator",
-  "main": "src/index.ts",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-10-06",
   "observability": { "enabled": true },
   "upload_source_maps": true,
@@ -24,7 +24,7 @@
   ],
 
   // PUBLIC: published artifacts (genesis, accepted contributions), immutable once written.
-  // PRIVATE: uploads under verification (verify/…), never served to the public (SPEC §6.1).
+  // PRIVATE: uploads under verification (verify/…), never served to the public.
   "r2_buckets": [
     { "binding": "PUBLIC", "bucket_name": "orbinum-ceremony-public-local" },
     { "binding": "PRIVATE", "bucket_name": "orbinum-ceremony-private-local" },
@@ -102,7 +102,7 @@
   // rate-limit namespaces, GitHub OAuth app and secrets (`wrangler secret put … --env <name>`).
   // Bindings, vars and secrets are not inherited, so each environment lists all of them.
   "env": {
-    // Worker `ceremony-coordinator-testnet`: the public rehearsal (SPEC §0.1).
+    // Worker `ceremony-coordinator-testnet`: the public rehearsal.
     "testnet": {
       "routes": [{ "pattern": "ceremony.testnet.orbinum.network", "custom_domain": true }],
       "durable_objects": {

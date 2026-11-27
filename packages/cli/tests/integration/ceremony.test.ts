@@ -81,7 +81,6 @@ describe.skipIf(!PTAU_PATH)("operator guards", { timeout: 120_000 }, () => {
     await expect(runFinalize({ dir, ptau }, CLOCK.finalize)).rejects.toThrow(
       /not finalizable: shield: 1 contributions/,
     );
-    // Nothing irreversible happened: a second contributor can still join.
     await runContributeLocal(
       { dir, ptau, contributors: 1, crossCheckR1cs: false },
       CLOCK.contribute,

@@ -23,7 +23,6 @@ describe("CI pins", () => {
     expect(text.match(/secrets\.CIRCUITS_READ_TOKEN/g)).toHaveLength(1);
     const job = text.slice(text.indexOf("\n  circuits:"), text.indexOf("\n  test:"));
     expect(job).toContain("secrets.CIRCUITS_READ_TOKEN");
-    // Only the checkout and the artifact upload: no install, no script, no repository code.
     expect(job.match(/uses: /g)).toHaveLength(2);
     expect(job).not.toMatch(/\brun: /);
   });

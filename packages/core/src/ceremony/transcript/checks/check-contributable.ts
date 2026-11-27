@@ -3,7 +3,7 @@
  * and before the beacon is sealed.
  */
 import { type CeremonyAnnouncement, windowState } from "../../announcement";
-import { sealedBeaconOf } from "../sealed-beacon-of";
+import { sealedBeaconOf } from "../reads";
 import type { Chained } from "../types";
 
 export function checkContributable(

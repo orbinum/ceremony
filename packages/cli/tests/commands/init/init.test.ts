@@ -1,6 +1,4 @@
-/**
- * `init` refuses to rebuild a ceremony anything builds on, before touching any tool (SPEC §2.1).
- */
+/** `init` refuses to rebuild a ceremony anything builds on, before touching any tool. */
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -26,7 +24,6 @@ describe("init over an existing ceremony", () => {
     await rm(layout(c.dir).init);
     await rm(layout(c.dir).transcript);
     for (const force of [false, true]) {
-      // oxlint-disable-next-line no-await-in-loop -- two calls
       expect((await rejection(runInit(options(c.dir, force)))).message).toBe(
         `${c.dir} already has contributions: it cannot be rebuilt`,
       );
@@ -65,7 +62,6 @@ describe("init over an existing ceremony", () => {
     await rm(layout(c.dir).contributions("shield"), { recursive: true });
     await rm(layout(c.dir).announcement);
     expect((await rejection(runInit(options(c.dir, false)))).message).toMatch(/pass --force/);
-    // With --force the guards pass and the build starts (and stops: no circom, or no ptau).
     expect((await rejection(runInit(options(c.dir, true)))).message).not.toMatch(
       /contributions|announced|--force/,
     );

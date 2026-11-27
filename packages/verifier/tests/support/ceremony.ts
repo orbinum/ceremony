@@ -1,4 +1,10 @@
-/** Ceremony fixtures: the real `shield` genesis when the ptau is given, and hermetic stand-ins. */
+/**
+ * Ceremony fixtures: the real `shield` genesis when the ptau is given (it is 75 MB and not in the
+ * repo, so those tests run only when it is provided), and hermetic stand-ins: a stand-in genesis
+ * or the multiplier's, a stand-in ptau that can never match its pin unless a test swaps core's pin
+ * for it, and `Inputs` staged as `loadInputs` stages them. `CEREMONY_ID` is the ceremony every
+ * fixture belongs to, bound into every MAC.
+ */
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,16 +22,13 @@ import {
 import { createStage, hashFile, newGenesisZkey, readBytes, writeJson } from "../../src";
 import type { Inputs } from "../../src/service";
 
-/** The real ptau is 75 MB and not in the repo: these tests run only when it is provided. */
 export const PTAU_PATH = process.env.ORBINUM_PTAU;
 
-/** The ceremony every fixture belongs to (init.json `ceremony_id`, bound into every MAC). */
 export const CEREMONY_ID = "verifier-test";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const R1CS = join(FIXTURES, "shield.r1cs");
 
-/** A valid init.json for the `shield` fixture with the given genesis pins. */
 export async function shieldInit(genesisSha256: string, csHash: string): Promise<InitRecord> {
   const header = readR1csHeader(await readBytes(R1CS));
   return {
@@ -57,7 +60,6 @@ export async function shieldInit(genesisSha256: string, csHash: string): Promise
   };
 }
 
-/** A ceremony directory with the real `shield` genesis (v0.16.0 r1cs fixture) and its init.json. */
 export async function shieldCeremony(ptau: string): Promise<{ dir: string; init: InitRecord }> {
   const dir = await mkdtemp(join(tmpdir(), "orbinum-verifier-test-"));
   await mkdir(join(dir, "genesis"));
@@ -71,10 +73,6 @@ export async function shieldCeremony(ptau: string): Promise<{ dir: string; init:
   return { dir, init };
 }
 
-/**
- * A hermetic ceremony directory: a stand-in genesis (any bytes) pinned by a valid init.json, and a
- * stand-in ptau that can never match its pin.
- */
 export async function fakeCeremony(): Promise<{ dir: string; ptau: string; init: InitRecord }> {
   const dir = await mkdtemp(join(tmpdir(), "orbinum-verifier-fake-"));
   await mkdir(join(dir, "genesis"));
@@ -87,10 +85,6 @@ export async function fakeCeremony(): Promise<{ dir: string; ptau: string; init:
   return { dir, ptau, init };
 }
 
-/**
- * A hermetic ceremony on the multiplier fixture: its genesis (a real zkey) stands in for
- * `shield`'s, and `ptauText` for the ptau (pinned only where a test swaps core's pin for it).
- */
 export async function multiplierCeremony(
   ptauText: string,
 ): Promise<{ dir: string; ptau: string; init: InitRecord }> {
@@ -105,16 +99,11 @@ export async function multiplierCeremony(
   return { dir, ptau, init };
 }
 
-/**
- * `Inputs` built directly from a fake ceremony, staged like `loadInputs` does but without pinning
- * the ptau (which a stand-in cannot pass): every job's pin check then fails, as on a tampered host.
- */
 export async function fakeInputs(): Promise<{ dir: string; inputs: Inputs }> {
   const { dir, ptau, init } = await fakeCeremony();
   return { dir, inputs: await stagedInputs(dir, ptau, init) };
 }
 
-/** `Inputs` staged from `dir` and `ptau` as `loadInputs` stages them, assumed pinned. */
 export async function stagedInputs(dir: string, ptau: string, init: InitRecord): Promise<Inputs> {
   const stage = await createStage("orbinum-verifier-test-inputs-");
   const genesis = await stage.copy(join(dir, "genesis", "shield.genesis.zkey"), "shield.zkey");

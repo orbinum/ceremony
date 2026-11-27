@@ -1,8 +1,7 @@
 /** core/verification/upload: acceptance of one upload before pairings. */
-export { checkAgainstGenesis } from "./check-against-genesis";
 export { checkContinuity } from "./check-continuity";
 export { CONTINUITY_FAILURES, REJECT_REASONS } from "./constants";
-export { genesisLayoutOf } from "./genesis-layout-of";
+export { checkAgainstGenesis, genesisLayoutOf } from "./genesis";
 export { isStaleHead } from "./is-stale-head";
 export { logLine } from "./log-line";
 export { maxUploadSize } from "./max-upload-size";

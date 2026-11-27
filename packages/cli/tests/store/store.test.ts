@@ -1,4 +1,8 @@
-/** The operator's state on disk: the lock, the transcript store and local metrics (SPEC §6.3). */
+/**
+ * The operator's state on disk: the lock, the transcript store and local metrics. A rewritten
+ * history with a recomputed chain still opens (its users check integrity), and the read-only
+ * directory case is skipped as root, which ignores directory permissions.
+ */
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,13 +24,11 @@ describe("the ceremony lock", () => {
     await withLock(lock, async () => {
       expect(await readFile(lock, "utf8")).toBe(`${process.pid}\n`);
       await expect(withLock(lock, async () => undefined)).rejects.toThrow(/locked by another run/);
-      // The refused run must not have removed the lock it did not create.
       expect(await readFile(lock, "utf8")).toBe(`${process.pid}\n`);
     });
     await expect(withLock(lock, async () => "again")).resolves.toBe("again");
   });
 
-  // Root ignores directory permissions, so the refusal cannot be provoked as root.
   it.skipIf(process.getuid?.() === 0)(
     "reports an error that is not contention as itself",
     async () => {
@@ -42,7 +44,6 @@ describe("the ceremony lock", () => {
   );
 });
 
-/** Opens the transcript store of the ceremony in `ceremony`. */
 const open = async (ceremony: string) => openTranscript(ceremony, (await opened(ceremony))[0]);
 
 describe("the transcript store", () => {
@@ -69,7 +70,6 @@ describe("the transcript store", () => {
       (t.records[1] as { prev_chain: string }).prev_chain = "00".repeat(32);
     });
     expect((await rejection(open(c.dir))).message).toBe("transcript chain broken at record 1");
-    // A rewritten history whose chain was recomputed opens: integrity is checked by its users.
     const d = await syntheticCeremony({ finalized: false });
     await rewriteHistory(d.dir, (records) => records.slice(0, 1));
     expect((await open(d.dir)).transcript.records).toHaveLength(1);

@@ -1,6 +1,6 @@
 /**
- * Private copies of untrusted inputs (SPEC §7): checked and copied from one descriptor, never
- * followed out of their root.
+ * Private copies of untrusted inputs: checked and copied from one descriptor, never followed out
+ * of their root. A file named outside the root (an explicit --ptau) is the caller's choice.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
@@ -40,7 +40,6 @@ describe("staged copies", () => {
 
   it("refuses names that are not a single plain component", async () => {
     for (const name of ["", "a/b", ".hidden", "..", "../escape"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one name at a time
       await expect(stage.copy(join(dir, "plain"), name)).rejects.toThrow(`bad stage name ${name}`);
     }
   });
@@ -91,7 +90,6 @@ describe("staging under a root", () => {
       await expect(stage.copy(join(root, "final", "x.final.zkey"), "f")).rejects.toThrow(
         "f: a parent directory leaves the ceremony directory",
       );
-      // A file named outside the root (an explicit --ptau) is the caller's choice.
       const explicit = await stage.copy(join(outside, "x.final.zkey"), "p");
       expect(await readFile(explicit, "utf8")).toBe("elsewhere");
     } finally {

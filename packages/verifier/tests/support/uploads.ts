@@ -1,6 +1,8 @@
 /**
  * Real uploads built from the multiplier fixture (contribute and beacon need no ptau), the heads
- * they apply to, and byte-level mutations of them, for the hermetic pipeline suites.
+ * they apply to, the claims an honest client makes, and byte-level mutations of them, for the
+ * hermetic pipeline suites. A δ2 limb rewritten as `limb + q` is a non-canonical spelling of the
+ * same point that snarkjs' pairing tolerates.
  */
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -17,39 +19,32 @@ import {
 import { applyBeacon, contribute } from "../../src/snarkjs";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
-/** The multiplier genesis: the pinned genesis of the hermetic pipeline suites. */
 export const MULTIPLIER_GENESIS = join(FIXTURES, "multiplier_0.zkey");
-/** Its r1cs, for the cross-check from r1cs. */
 export const MULTIPLIER_R1CS = join(FIXTURES, "multiplier.r1cs");
 
-/** A built upload: its path, bytes and h_k. */
 export interface Upload {
   path: string;
   bytes: Uint8Array;
   hash: string;
 }
 
-/** The uploads of one suite, under `dir`. */
 export interface Uploads {
   dir: string;
   genesis: Upload;
   atGenesis: CurrentHead;
   afterC1: CurrentHead;
-  /** #1 on the genesis, #2 on #1, a beacon on #1, and #2 with a control byte in its name. */
   c1: Upload;
   c2: Upload;
   beacon: Upload;
   badName: Upload;
 }
 
-/** The claim an honest client makes for `u` on `head`. */
 export const claimFor = (u: Upload, head: CurrentHead): UploadClaim => ({
   inputSha256: head.outputSha256,
   outputSha256: sha256Hex(u.bytes),
   contributionHash: u.hash,
 });
 
-/** Writes `bytes` as a new upload `name` in `dir`, claiming `hash` as its h_k. */
 export async function written(
   dir: string,
   name: string,
@@ -67,7 +62,6 @@ async function built(dir: string, name: string, make: (out: string) => Promise<s
   return { path, bytes: new Uint8Array(await readFile(path)), hash };
 }
 
-/** Builds every upload of `Uploads` in a fresh directory. */
 export async function buildUploads(): Promise<Uploads> {
   const dir = await mkdtemp(join(tmpdir(), "orbinum-verify-upload-"));
   const bytes = new Uint8Array(await readFile(MULTIPLIER_GENESIS));
@@ -94,13 +88,8 @@ export async function buildUploads(): Promise<Uploads> {
   return { dir, genesis, atGenesis, afterC1, c1, c2, beacon, badName };
 }
 
-/** Where the Groth16 header (section 2) starts. */
 export const groth16Offset = (b: Uint8Array) => uniqueSection(readSections(b, "zkey"), 2).offset;
 
-/**
- * `bytes` with one Fq limb of the header's δ2 (0: x.c0, 1: x.c1, 2: y.c0, 3: y.c1) rewritten as
- * `limb + q`: a non-canonical spelling of the same point that snarkjs' pairing tolerates.
- */
 export function delta2LimbPlusQ(bytes: Uint8Array, limb: 0 | 1 | 2 | 3): Uint8Array {
   const out = bytes.slice();
   const at = groth16Offset(out);

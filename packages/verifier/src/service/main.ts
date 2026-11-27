@@ -1,6 +1,8 @@
 /**
- * The verifier service process (COORDINATOR §5): config and startup checks, then the HTTP server
- * and the job queue until SIGTERM/SIGINT, which drains the job in flight.
+ * The verifier service process: config and startup checks, then the HTTP server and the job queue
+ * until SIGTERM/SIGINT, which drains the job in flight for up to 30 s before killing its snarkjs
+ * child. After an uncaught exception the state is unknown, so the process exits and the supervisor
+ * restarts it.
  */
 import { errorMessage } from "../text";
 import { loadConfig } from "./config";
@@ -8,13 +10,11 @@ import { createVerifierServer } from "./http";
 import { createQueue, JOB_DEADLINE_MS, jobSinkOf, runJob } from "./jobs";
 import { drain, prepare } from "./lifecycle";
 
-/** How long shutdown waits for the job in flight before killing its snarkjs child. */
 const DRAIN_MS = 30_000;
 
 process.on("unhandledRejection", (error) =>
   console.error(`unhandled rejection: ${errorMessage(error)}`),
 );
-// State after an uncaught exception is unknown: exit, the supervisor restarts (COORDINATOR §5).
 process.on("uncaughtException", (error) => {
   console.error(`uncaught exception: ${errorMessage(error)}`);
   process.exit(1);

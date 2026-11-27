@@ -1,7 +1,6 @@
 /**
- * Sign-in with GitHub (SPEC §3.2): OAuth state and PKCE bound to a __Host- cookie, admission
- * checked against the frozen setup, every failure without a session, and the whole flow limited
- * per client network.
+ * Sign-in with GitHub: OAuth state and PKCE bound to a __Host- cookie, admission checked against
+ * the frozen setup, every failure without a session, and the whole flow limited per client network.
  */
 import { env } from "cloudflare:workers";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -17,7 +16,6 @@ import {
   stubOf,
 } from "../support";
 
-/** The ceremony these sign-ins reach (configured in `beforeAll` where a test needs it). */
 let ceremony = freshId("auth");
 const call = (
   method: string,
@@ -26,7 +24,6 @@ const call = (
   init: Parameters<typeof request>[3] = {},
 ) => request(method, path, githubId, { ceremony, ...init });
 
-/** GitHub's answers: the token endpoint, then `GET /user`; every token request is kept. */
 const sent: Record<string, unknown>[] = [];
 function mockGithub(
   user: Record<string, unknown> | (() => Response),
@@ -55,7 +52,6 @@ const OCTOCAT = {
   following: 9,
 };
 
-/** Starts the flow and returns the state GitHub would echo plus the cookie the browser keeps. */
 async function start() {
   const r = await call("GET", "/auth/github");
   const location = new URL(r.headers.get("location") ?? "");
@@ -82,8 +78,7 @@ describe("GitHub sign-in before the ceremony is configured", () => {
   });
 });
 
-describe("GitHub sign-in (SPEC §3.2)", () => {
-  // init.json created_at (the admission cutoff) is 2026-01-01 in the fixture.
+describe("GitHub sign-in", () => {
   beforeAll(async () => {
     ceremony = freshId("auth");
     await stubOf(ceremony).configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
@@ -138,13 +133,11 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
     const set = r.headers.getSetCookie().find((c) => c.startsWith("__Host-ceremony-session="));
     expect(set).toMatch(/Max-Age=43200.+Path=\/.+HttpOnly.+Secure.+SameSite=Lax/i);
     expect(set).not.toMatch(/Domain=/i);
-    // The state cookie is spent.
     expect(r.headers.getSetCookie().some((c) => /^__Host-oauth-state=;.*Max-Age=0/i.test(c))).toBe(
       true,
     );
     const linked = await call("GET", "/api/link", undefined, { cookie: session });
     expect(linked.status).toBe(200);
-    // Everything a link payload names but the nonce: the session's identity and this ceremony.
     expect(await json(linked)).toEqual({
       ceremonyId: "local",
       githubId: 583231,
@@ -164,7 +157,6 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
   });
 
   it("gives no session to an account below the thresholds, and says why", async () => {
-    // Created yesterday: after the cutoff and under 30 days old, whenever the test runs.
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
     mockGithub({ ...OCTOCAT, created_at: yesterday, following: 0 });
     const { cookie, state } = await start();
@@ -199,9 +191,7 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
     ] as const) {
       vi.restoreAllMocks();
       mockGithub(user, token);
-      // oxlint-disable-next-line no-await-in-loop -- one failure at a time
       const { cookie, state } = await start();
-      // oxlint-disable-next-line no-await-in-loop -- one failure at a time
       const r = await call("GET", `/auth/github/callback?code=c&state=${state}`, undefined, {
         cookie,
       });
@@ -233,7 +223,6 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
       [`code=c&state=${state}`, asSession],
       [`state=${state}`, cookie],
     ] as const) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const r = await call(
         "GET",
         `/auth/github/callback?${query}`,
@@ -253,7 +242,7 @@ describe("GitHub sign-in (SPEC §3.2)", () => {
   });
 });
 
-describe("sign-in limits (COORDINATOR §3)", () => {
+describe("sign-in limits", () => {
   it("bound /auth per client network: a whole IPv6 /64 is one client", async () => {
     const { binding, counts } = countingLimiter(2);
     const from = (ip: string, path = "/auth/github") =>

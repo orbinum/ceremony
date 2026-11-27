@@ -1,6 +1,7 @@
 /**
- * Verifier results (SPEC §2.5, §4.2): applied once per job, only while the job is the slot's
- * current verification; valid, rejected, ambiguous and infra each move the queue as core says.
+ * Verifier results: applied once per job, only while the job is the slot's current verification;
+ * valid, rejected, ambiguous and infra each move the queue as core says, and `infra` pauses the
+ * ceremony without penalizing the contributor.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -43,7 +44,6 @@ const upload = (patch: object = {}) => ({
   ...patch,
 });
 
-/** An open ceremony whose contributor 1 holds a claimed slot. */
 async function inSession(): Promise<Stub> {
   const stub = fresh();
   await stub.configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
@@ -54,7 +54,6 @@ async function inSession(): Promise<Stub> {
   return stub;
 }
 
-/** Puts the bytes where `prepareUpload` says and records the upload, as the route does. */
 async function uploadShield(stub: Stub) {
   const prepared = await stub.prepareUpload(upload());
   if (!prepared.ok) throw new Error(prepared.refusal);
@@ -143,7 +142,6 @@ describe("CeremonyDO verification results", () => {
     expect(await contributions(stub)).toEqual([]);
     expect(await published()).toEqual({ zkey: null, log: null });
     expect((await PRIVATE.list({ prefix: "verify/1/shield/" })).objects).toEqual([]);
-    // The silence was `infra`: the ceremony paused, the contributor was not penalized.
     const s = await stub.snapshot();
     expect(s).toMatchObject({ phase: "PAUSED", pausedBy: "verifier" });
     expect(s?.slot?.circuits[0]).toMatchObject({ status: "todo", attempts: 0, infra: 1 });
@@ -169,20 +167,14 @@ describe("CeremonyDO verification results", () => {
       (r: VerifierReport) => ({ ...r, log: "another log" }),
       (r: VerifierReport) => ({ ...r, job: { ...r.job, index: 2 } }),
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one ceremony per case
       const stub = await inSession();
-      // oxlint-disable-next-line no-await-in-loop -- one ceremony per case
       const job = await uploadShield(stub);
-      // oxlint-disable-next-line no-await-in-loop -- one ceremony per case
       expect(await stub.report(contradiction(validReport(job)) as VerifierReport)).toEqual({
         ok: true,
         status: "applied",
       });
-      // oxlint-disable-next-line no-await-in-loop -- one ceremony per case
       expect(await contributions(stub)).toEqual([]);
-      // oxlint-disable-next-line no-await-in-loop -- one ceremony per case
       expect(await stub.snapshot()).toMatchObject({ phase: "PAUSED", pausedBy: "verifier" });
-      // oxlint-disable-next-line no-await-in-loop -- one ceremony per case
       expect(await published()).toEqual({ zkey: null, log: null });
     }
   });

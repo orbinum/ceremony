@@ -1,15 +1,14 @@
 /**
- * Everything that can fail is checked before the beacon is sealed, because sealing is
- * irreversible (SPEC §2.6): core's `checkTranscriptIntegrity` (anchor, chain, per-circuit links,
- * window, simulated contributions) and `checkFinalizable` (closed, minimum), the vk packer when
- * one is needed, then the pinned r1cs and head files on disk.
+ * Every precondition of sealing the beacon, checked before it is sealed because sealing is
+ * irreversible: core's `checkTranscriptIntegrity` (anchor, chain, per-circuit links, window,
+ * simulated contributions) and `checkFinalizable` (closed, minimum), the vk packer when one is
+ * needed, then the pinned r1cs and head files on disk. Returns each circuit's plan.
  */
 import {
   type CeremonyAnnouncement,
   type Chained,
   checkFinalizable,
   checkTranscriptIntegrity,
-  type CircuitName,
   circuitsOf,
   type ContributionRecord,
   contributionsOf,
@@ -21,15 +20,8 @@ import { layout } from "../../artifacts";
 import { assertPinnedFile, hashFile } from "../../io";
 import type { TranscriptStore } from "../../store";
 import { assertExecutable } from "../../tools";
+import type { CircuitPlan } from "./types";
 
-/** One circuit's accepted chain and the head zkey the beacon is applied to. */
-export interface CircuitPlan {
-  circuit: CircuitName;
-  accepted: Chained<ContributionRecord>[];
-  headZkey: string;
-}
-
-/** Every precondition of sealing, checked; returns each circuit's plan. */
 export async function preflight(
   dir: string,
   init: InitRecord,

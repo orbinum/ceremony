@@ -1,5 +1,6 @@
-// client/hooks: React state over the api, wallets, contribution and attestation modules.
-export { useDismiss } from "./dismiss";
-export { usePoll } from "./poll";
-export { type CircuitStages, type TurnState, useTurn } from "./turn";
-export { useDetectedWallets } from "./wallets";
+/** client/hooks: React state over the api, wallets, contribution and attestation modules. */
+export { type CircuitStages, type TurnState } from "./types";
+export { useDetectedWallets } from "./use-detected-wallets";
+export { useDismiss } from "./use-dismiss";
+export { usePoll } from "./use-poll";
+export { useTurn } from "./use-turn";

@@ -1,6 +1,8 @@
 /**
- * The service process (`tsx src/service/main.ts`, COORDINATOR §5): startup refusals that fail
- * fast, and, with the real ptau, a start from `/` and a draining shutdown.
+ * The service process (`tsx src/service/main.ts`): startup refusals that fail fast, and, with the
+ * real ptau, a start from `/` (systemd's default working directory, where snarkjs children must
+ * still start) and a draining shutdown while a held-back object keeps a job in flight. Bounds are
+ * generous: the job re-checks its pins (the 75 MB ptau included) before it fetches.
  */
 import { chmod, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -92,7 +94,6 @@ describe("service process", { timeout: 60_000 }, () => {
     it("starts from /, serves /healthz, and on SIGTERM drains the job in flight", async () => {
       const port = await freePort();
       const url = `http://127.0.0.1:${port}`;
-      // systemd's default working directory: snarkjs children must still start.
       const service = spawnService(
         {
           COORDINATOR_URL: coordinator.url,
@@ -118,7 +119,6 @@ describe("service process", { timeout: 60_000 }, () => {
           { size: bytes.length, outputSha256: sha256Hex(bytes), contributionHash: hash },
         );
         coordinator.objects.set("1/shield/1", zkey);
-        // The object is held back, so the job is in flight when the signal arrives.
         coordinator.objectDelayMs = 2_000;
         const body = JSON.stringify(spec);
         const response = await fetch(`${url}/verify`, {
@@ -127,7 +127,6 @@ describe("service process", { timeout: 60_000 }, () => {
           body,
         });
         expect(response.status).toBe(202);
-        // The job re-checks its pins (the 75 MB ptau included) before it fetches: slow under load.
         await until(60_000, "object fetch", () => coordinator.fetches().length > 0);
         service.child.kill("SIGTERM");
 

@@ -1,9 +1,11 @@
-// cli/tools: external programs, and snarkjs and the upload pipeline (isolated, from the verifier).
+/**
+ * External programs (git, circom, the vk packer, the Rust verifier), run without a shell, bounded
+ * and with a minimal environment; and snarkjs and the upload pipeline, isolated, from the verifier.
+ */
 export { circomVersion, compileR1cs } from "./circom";
 export { exportTree, originUrl, resolveCommit, showFile } from "./git";
-export { runIndependentVerifier } from "./independent-verifier";
 export { assertExecutable, run, runBytes, runTool, toolEnv } from "./process";
-export { packedVkHash } from "./vk-packer";
+export { packedVkHash, runIndependentVerifier } from "./rust";
 export {
   applyBeacon,
   contribute,

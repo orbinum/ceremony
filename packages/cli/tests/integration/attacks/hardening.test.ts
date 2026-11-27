@@ -85,7 +85,6 @@ describe.skipIf(!PTAU_PATH)("verify and contribute-local, hardened", { timeout: 
       const paths = layout(d);
       let mainnet: CeremonyAnnouncement | undefined;
       await editJson<CeremonyAnnouncement>(paths.announcement, (a) => {
-        // A valid mainnet schedule: the same beacon, a day after close.
         const close = Date.parse(a.schedule.beacon) - MIN_BEACON_DELAY_SECONDS.mainnet * 1000;
         a.network = "mainnet";
         a.min_contributions = 50;
@@ -124,7 +123,6 @@ describe.skipIf(!PTAU_PATH)("verify and contribute-local, hardened", { timeout: 
 
   it("does not accept a contribution whose record would fall after the close", async () => {
     const late = await shieldOnlyCeremony(ptau);
-    // Open when the contribution starts, closed by the time its record is stamped.
     const times = [CLOCK.contribute(), CLOCK.afterClose()];
     const clock = () => times.shift() ?? CLOCK.afterClose();
     await expect(

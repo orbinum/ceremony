@@ -1,7 +1,7 @@
-// coordinator/middleware: who may call what, and whether the deployment may serve at all.
-export { byNetwork, rateLimit, turnstile } from "./abuse";
-export { configured } from "./config";
-export { browserOnly, contributor, identity } from "./identity";
+/** Who may call what, and whether the deployment may serve at all. */
+export { browserOnly, sameOrigin, turnstile } from "./browser";
+export { configured } from "./configured";
+export { contributor, identity } from "./identity";
+export { byNetwork, rateLimit } from "./limits";
 export { operator } from "./operator";
-export { sameOrigin } from "./origin";
-export { verifierBody, verifierHeaders } from "./verifier-auth";
+export { verifierBody, verifierHeaders } from "./verifier";

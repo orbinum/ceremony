@@ -1,6 +1,7 @@
 /**
  * The coordinator client against a real loopback server that misbehaves: compressed answers,
- * redirects, endless error bodies, short and long bodies.
+ * redirects, endless error bodies, short and long bodies. Control bytes from a body never reach
+ * the message.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { mkdtemp, readdir } from "node:fs/promises";
@@ -46,7 +47,6 @@ describe("coordinator client vs a misbehaving coordinator", () => {
         res.end(gz);
       };
       const dest = join(dir, `gz-${size}.zkey`);
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       await expect(fetchObject(ep, JOB, size, dest, AbortSignal.timeout(5_000))).rejects.toThrow(
         /object fetch|more than \d+ bytes/,
       );
@@ -92,7 +92,6 @@ describe("coordinator client vs a misbehaving coordinator", () => {
     );
     expect(error?.message).toMatch(/^report: the coordinator answered 409 A+/);
     expect((error?.message.length ?? 0) < 1_100).toBe(true);
-    // Control bytes from the body never reach the message.
     expect(error?.message).not.toContain("\u001b");
   });
 

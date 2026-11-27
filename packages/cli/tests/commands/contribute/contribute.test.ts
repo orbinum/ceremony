@@ -34,7 +34,6 @@ import {
   type TestCeremony,
 } from "../../support";
 
-/** A token shaped as the coordinator mints it, `life` ms from now (the CLI reads only its exp). */
 const tokenFor = (life: number) =>
   `${Buffer.from(JSON.stringify({ gid: 1, login: "user-1", exp: Date.now() + life })).toString("base64url")}.${"0".repeat(64)}`;
 const TOKEN = tokenFor(3_600_000);
@@ -51,23 +50,14 @@ const OTHER_CIRCUIT = join(
   "multiplier_0.zkey",
 );
 
-/** How the fake coordinator misbehaves. */
 interface Script {
-  /** The slot as `/api/queue/me` shows it once granted (default: an honest one). */
   slot?: unknown;
-  /** Answers before `/api/queue/me` answers at all. */
   failMe?: number;
-  /** The head bytes (default: the real shield genesis). */
   head?: Uint8Array;
-  /** `finish` answers `busy` this many times first. */
   busy?: number;
-  /** The upload lands, but its answer is lost (the connection drops). */
   dropUploadAnswer?: boolean;
-  /** `/api/queue/me` refuses the token. */
   refuseToken?: boolean;
-  /** The published transcript (default: no contribution yet); null when it is not published. */
   transcript?: Transcript | null;
-  /** What `/api/transcript` serves (the object's live records); none: 404. */
   live?: Transcript;
 }
 
@@ -86,7 +76,6 @@ afterEach(async () => {
   servers = [];
 });
 
-/** The transcript of this ceremony with `count` accepted shield contributions (random h_k). */
 async function transcriptWith(count: number): Promise<Transcript> {
   const announcement = parseAnnouncement(
     await readFile(join(ceremony.dir, CEREMONY_LAYOUT.announcement), "utf8"),
@@ -126,7 +115,6 @@ async function transcriptWith(count: number): Promise<Transcript> {
   return transcriptOf(announcement.ceremony_id, ceremony.announcementSha256, records);
 }
 
-/** A coordinator for one session of seq 7, contributing to shield only. */
 async function coordinator(script: Script = {}) {
   const file = (key: string) => readFile(join(ceremony.dir, key));
   const head = script.head ?? genesis;
@@ -227,7 +215,6 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
     const lines: string[] = [];
     const summary = await runContribute(c.options, (l) => lines.push(l));
     expect(summary).toMatchObject({ seq: 7, contributions: [{ circuit: "shield", index: 1 }] });
-    // What was uploaded passes the verifier's own pre-checks and carries the claimed h_k.
     const bytes = new Uint8Array(c.uploaded() as Buffer);
     const params = readMpcParams(genesis);
     const pre = precheckUpload(
@@ -260,9 +247,7 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
       { seq: 7, claimed: true, circuits: [{ circuit: "shield\u001b[2K", status: "todo" }] },
       { seq: 7, claimed: true, circuits: [{ circuit: "shield", status: "pwned" }] },
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one coordinator at a time
       const c = await coordinator({ slot });
-      // oxlint-disable-next-line no-await-in-loop -- one coordinator at a time
       await rejection(runContribute(c.options, quiet));
       expect(c.uploaded()).toBeUndefined();
     }
@@ -278,7 +263,6 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
   });
 
   it("never contributes to a head with the recorded contributions but other bytes", async () => {
-    // The MPC section untouched, a point of the key changed: not the key the transcript pins.
     const head = genesis.slice();
     const at = Math.floor(head.length / 2);
     head[at] = (head[at] as number) ^ 1;
@@ -303,7 +287,6 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
       /shield: cannot check the head: GET \/artifacts\/transcript.json: HTTP 404/,
     );
     expect(missing.uploaded()).toBeUndefined();
-    // Neither source checks: both reasons are named.
     expect((await rejection(runContribute(missing.options, quiet))).message).toMatch(
       /GET \/api\/transcript: HTTP 404/,
     );
@@ -323,7 +306,6 @@ describe.skipIf(!PTAU_PATH)("contribute against a coordinator", { timeout: 120_0
     const withheld = await coordinator({ transcript: null, live: await transcriptWith(0) });
     await runContribute(withheld.options, quiet);
     expect(withheld.uploaded()).toBeDefined();
-    // Behind (published) but recorded live: the closer of the two is judged.
     const behind = await coordinator({
       transcript: await transcriptWith(1),
       live: await transcriptWith(1),

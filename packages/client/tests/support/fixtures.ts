@@ -11,14 +11,12 @@ const FIXTURES = join(import.meta.dirname, "..", "..", "..", "core", "tests", "f
 export const zkey = (name: "multiplier_1" | "multiplier_2"): Uint8Array =>
   new Uint8Array(readFileSync(join(FIXTURES, `${name}.zkey`)));
 
-/** Flips one bit of `bytes` at `at` (from the end when negative): a tampered key. */
 export function flip(bytes: Uint8Array, at: number): Uint8Array {
   const i = at < 0 ? bytes.length + at : at;
   bytes[i] = (bytes[i] ?? 0) ^ 1;
   return bytes;
 }
 
-/** The head (`multiplier_1`) and an honest contribution on top of it (`multiplier_2`). */
 export function chain() {
   const head = zkey("multiplier_1");
   const output = zkey("multiplier_2");

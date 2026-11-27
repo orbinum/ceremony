@@ -8,7 +8,7 @@ import { checkZkeyStructure, readMpcParams } from "../../formats/mpc";
 import { FormatError } from "../../primitives/errors";
 import { sha256Hex } from "../../primitives/hashing";
 import { normalizeHex } from "../../primitives/schema";
-import { checkAgainstGenesis } from "./check-against-genesis";
+import { checkAgainstGenesis } from "./genesis";
 import { checkContinuity } from "./check-continuity";
 import { isStaleHead } from "./is-stale-head";
 import type { CurrentHead, GenesisLayout, UploadClaim, VerificationResult } from "./types";

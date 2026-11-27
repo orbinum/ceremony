@@ -1,4 +1,4 @@
-// cli/commands/verify/checks: the groups of checks `verify` runs, in order.
-export { checkFinal } from "./finals";
-export { checkInputs } from "./inputs";
-export { reportTranscript } from "./transcript";
+/** The groups of checks `verify` runs, in order: inputs, transcript, then each final key. */
+export { checkFinal } from "./check-final";
+export { checkInputs } from "./check-inputs";
+export { reportTranscript } from "./report-transcript";

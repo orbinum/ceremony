@@ -1,4 +1,4 @@
-// verifier/service: the HTTP service the coordinator dispatches uploads to (run by `main.ts`).
+/** The HTTP service the coordinator dispatches uploads to, run as its own process by `main.ts`. */
 export { loadConfig, type ServiceConfig } from "./config";
 export { fetchObject, MAX_ATTEMPTS, postReport, REQUEST_TIMEOUT_MS } from "./coordinator";
 export { createVerifierServer, type JobSink, type Submission } from "./http";

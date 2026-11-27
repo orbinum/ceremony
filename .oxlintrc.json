@@ -175,7 +175,13 @@
                   "../operations",
                   "../operations/**",
                   "../object",
-                  "../object/**"
+                  "../object/**",
+                  "../../store",
+                  "../../store/**",
+                  "../../operations",
+                  "../../operations/**",
+                  "../../object",
+                  "../../object/**"
                 ],
                 "message": "durable layers: object → operations → store → db; db may not import from a layer above it."
               }
@@ -216,7 +222,7 @@
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
-                "group": ["../object", "../object/**"],
+                "group": ["../object", "../object/**", "../../object", "../../object/**"],
                 "message": "durable layers: object → operations → store → db; operations may not import from a layer above it."
               }
             ]
@@ -236,7 +242,18 @@
                 "message": "Import other packages only through their barrel (package root)."
               },
               {
-                "group": ["hono", "hono/*", "../routes", "../routes/**", "../http", "../http/**"],
+                "group": [
+                  "hono",
+                  "hono/*",
+                  "../routes",
+                  "../routes/**",
+                  "../http",
+                  "../http/**",
+                  "../../routes",
+                  "../../routes/**",
+                  "../../http",
+                  "../../http/**"
+                ],
                 "message": "actions do what an endpoint does, without HTTP: no Hono, no routes (answers are built in routes and http); actions return core results, HTTP shapes live in http/."
               }
             ]
@@ -644,13 +661,13 @@
               },
               {
                 "group": [
-                  "**/admission/*",
-                  "**/attestation/*",
-                  "**/finalize/*",
-                  "**/protocol/*",
-                  "**/publish/*",
-                  "**/queue/*",
-                  "**/upload/*"
+                  "**/admission/**",
+                  "**/attestation/**",
+                  "**/finalize/**",
+                  "**/protocol/**",
+                  "**/publish/**",
+                  "**/queue/**",
+                  "**/upload/**"
                 ],
                 "message": "core/coordination: import a sibling module only through its barrel."
               }
@@ -822,15 +839,37 @@
               },
               {
                 "group": [
-                  "**/api/*",
-                  "**/wallets/*",
-                  "**/contribution/*",
-                  "**/attestation/*",
-                  "**/hooks/*",
-                  "**/ui/*",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/http/**",
+                  "**/archive/**",
+                  "**/identity/**",
+                  "**/published/**",
+                  "**/queue/**",
+                  "**/session/**",
+                  "**/errors/**",
+                  "**/evm/**",
+                  "**/solana/**",
+                  "**/substrate/**",
+                  "**/checks/**",
+                  "**/compute/**",
+                  "**/retry/**",
+                  "**/turn/**",
+                  "**/theme/**",
+                  "**/about/**",
+                  "**/journey/**",
+                  "**/sign-in/**",
+                  "**/status/**",
+                  "**/steps/**",
+                  "**/text/**",
+                  "**/wallet-dialog/**",
                   "!./*"
                 ],
-                "message": "Import another client directory only through its barrel (its index.ts)."
+                "message": "Import another client directory, or a subfolder of one, only through its barrel (its index.ts)."
               }
             ]
           }
@@ -859,15 +898,37 @@
               },
               {
                 "group": [
-                  "**/api/*",
-                  "**/wallets/*",
-                  "**/contribution/*",
-                  "**/attestation/*",
-                  "**/hooks/*",
-                  "**/ui/*",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/http/**",
+                  "**/archive/**",
+                  "**/identity/**",
+                  "**/published/**",
+                  "**/queue/**",
+                  "**/session/**",
+                  "**/errors/**",
+                  "**/evm/**",
+                  "**/solana/**",
+                  "**/substrate/**",
+                  "**/checks/**",
+                  "**/compute/**",
+                  "**/retry/**",
+                  "**/turn/**",
+                  "**/theme/**",
+                  "**/about/**",
+                  "**/journey/**",
+                  "**/sign-in/**",
+                  "**/status/**",
+                  "**/steps/**",
+                  "**/text/**",
+                  "**/wallet-dialog/**",
                   "!./*"
                 ],
-                "message": "Import another client directory only through its barrel (its index.ts)."
+                "message": "Import another client directory, or a subfolder of one, only through its barrel (its index.ts)."
               },
               {
                 "group": [
@@ -913,15 +974,37 @@
               },
               {
                 "group": [
-                  "**/api/*",
-                  "**/wallets/*",
-                  "**/contribution/*",
-                  "**/attestation/*",
-                  "**/hooks/*",
-                  "**/ui/*",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/http/**",
+                  "**/archive/**",
+                  "**/identity/**",
+                  "**/published/**",
+                  "**/queue/**",
+                  "**/session/**",
+                  "**/errors/**",
+                  "**/evm/**",
+                  "**/solana/**",
+                  "**/substrate/**",
+                  "**/checks/**",
+                  "**/compute/**",
+                  "**/retry/**",
+                  "**/turn/**",
+                  "**/theme/**",
+                  "**/about/**",
+                  "**/journey/**",
+                  "**/sign-in/**",
+                  "**/status/**",
+                  "**/steps/**",
+                  "**/text/**",
+                  "**/wallet-dialog/**",
                   "!./*"
                 ],
-                "message": "Import another client directory only through its barrel (its index.ts)."
+                "message": "Import another client directory, or a subfolder of one, only through its barrel (its index.ts)."
               },
               {
                 "group": [
@@ -967,15 +1050,37 @@
               },
               {
                 "group": [
-                  "**/api/*",
-                  "**/wallets/*",
-                  "**/contribution/*",
-                  "**/attestation/*",
-                  "**/hooks/*",
-                  "**/ui/*",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/http/**",
+                  "**/archive/**",
+                  "**/identity/**",
+                  "**/published/**",
+                  "**/queue/**",
+                  "**/session/**",
+                  "**/errors/**",
+                  "**/evm/**",
+                  "**/solana/**",
+                  "**/substrate/**",
+                  "**/checks/**",
+                  "**/compute/**",
+                  "**/retry/**",
+                  "**/turn/**",
+                  "**/theme/**",
+                  "**/about/**",
+                  "**/journey/**",
+                  "**/sign-in/**",
+                  "**/status/**",
+                  "**/steps/**",
+                  "**/text/**",
+                  "**/wallet-dialog/**",
                   "!./*"
                 ],
-                "message": "Import another client directory only through its barrel (its index.ts)."
+                "message": "Import another client directory, or a subfolder of one, only through its barrel (its index.ts)."
               },
               {
                 "group": [
@@ -1019,15 +1124,37 @@
               },
               {
                 "group": [
-                  "**/api/*",
-                  "**/wallets/*",
-                  "**/contribution/*",
-                  "**/attestation/*",
-                  "**/hooks/*",
-                  "**/ui/*",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/http/**",
+                  "**/archive/**",
+                  "**/identity/**",
+                  "**/published/**",
+                  "**/queue/**",
+                  "**/session/**",
+                  "**/errors/**",
+                  "**/evm/**",
+                  "**/solana/**",
+                  "**/substrate/**",
+                  "**/checks/**",
+                  "**/compute/**",
+                  "**/retry/**",
+                  "**/turn/**",
+                  "**/theme/**",
+                  "**/about/**",
+                  "**/journey/**",
+                  "**/sign-in/**",
+                  "**/status/**",
+                  "**/steps/**",
+                  "**/text/**",
+                  "**/wallet-dialog/**",
                   "!./*"
                 ],
-                "message": "Import another client directory only through its barrel (its index.ts)."
+                "message": "Import another client directory, or a subfolder of one, only through its barrel (its index.ts)."
               },
               {
                 "group": [
@@ -1069,15 +1196,37 @@
               },
               {
                 "group": [
-                  "**/api/*",
-                  "**/wallets/*",
-                  "**/contribution/*",
-                  "**/attestation/*",
-                  "**/hooks/*",
-                  "**/ui/*",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/http/**",
+                  "**/archive/**",
+                  "**/identity/**",
+                  "**/published/**",
+                  "**/queue/**",
+                  "**/session/**",
+                  "**/errors/**",
+                  "**/evm/**",
+                  "**/solana/**",
+                  "**/substrate/**",
+                  "**/checks/**",
+                  "**/compute/**",
+                  "**/retry/**",
+                  "**/turn/**",
+                  "**/theme/**",
+                  "**/about/**",
+                  "**/journey/**",
+                  "**/sign-in/**",
+                  "**/status/**",
+                  "**/steps/**",
+                  "**/text/**",
+                  "**/wallet-dialog/**",
                   "!./*"
                 ],
-                "message": "Import another client directory only through its barrel (its index.ts)."
+                "message": "Import another client directory, or a subfolder of one, only through its barrel (its index.ts)."
               },
               {
                 "group": [
@@ -1123,15 +1272,37 @@
               },
               {
                 "group": [
-                  "**/api/*",
-                  "**/wallets/*",
-                  "**/contribution/*",
-                  "**/attestation/*",
-                  "**/hooks/*",
-                  "**/ui/*",
+                  "**/api/**",
+                  "**/wallets/**",
+                  "**/contribution/**",
+                  "**/attestation/**",
+                  "**/hooks/**",
+                  "**/ui/**",
+                  "**/http/**",
+                  "**/archive/**",
+                  "**/identity/**",
+                  "**/published/**",
+                  "**/queue/**",
+                  "**/session/**",
+                  "**/errors/**",
+                  "**/evm/**",
+                  "**/solana/**",
+                  "**/substrate/**",
+                  "**/checks/**",
+                  "**/compute/**",
+                  "**/retry/**",
+                  "**/turn/**",
+                  "**/theme/**",
+                  "**/about/**",
+                  "**/journey/**",
+                  "**/sign-in/**",
+                  "**/status/**",
+                  "**/steps/**",
+                  "**/text/**",
+                  "**/wallet-dialog/**",
                   "!./*"
                 ],
-                "message": "Import another client directory only through its barrel (its index.ts)."
+                "message": "Import another client directory, or a subfolder of one, only through its barrel (its index.ts)."
               },
               {
                 "group": ["**/ui", "**/pages", "**/ui/**", "**/pages/**"],
@@ -1156,6 +1327,41 @@
     },
     {
       "files": ["packages/core/src/**", "packages/core/tests/**"],
+      "rules": {
+        "ceremony/header-only-comments": "error",
+        "unicorn/filename-case": ["error", { "case": "kebabCase" }]
+      }
+    },
+    {
+      "files": ["packages/client/src/**", "packages/client/tests/**"],
+      "rules": {
+        "ceremony/header-only-comments": "error",
+        "unicorn/filename-case": ["error", { "case": "kebabCase" }]
+      }
+    },
+    {
+      "files": ["packages/verifier/src/**", "packages/verifier/tests/**"],
+      "rules": {
+        "ceremony/header-only-comments": "error",
+        "unicorn/filename-case": ["error", { "case": "kebabCase" }]
+      }
+    },
+    {
+      "files": ["packages/coordinator/src/**", "packages/coordinator/tests/**"],
+      "rules": {
+        "ceremony/header-only-comments": "error",
+        "unicorn/filename-case": ["error", { "case": "kebabCase" }]
+      }
+    },
+    {
+      "files": ["packages/e2e/tests/**", "packages/e2e/scripts/**"],
+      "rules": {
+        "ceremony/header-only-comments": "error",
+        "unicorn/filename-case": ["error", { "case": "kebabCase" }]
+      }
+    },
+    {
+      "files": ["packages/cli/src/**", "packages/cli/tests/**"],
       "rules": {
         "ceremony/header-only-comments": "error",
         "unicorn/filename-case": ["error", { "case": "kebabCase" }]

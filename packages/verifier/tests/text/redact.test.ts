@@ -1,4 +1,7 @@
-/** Text that may leave the host (SPEC §7): private paths and terminal control bytes removed. */
+/**
+ * Text that may leave the host: private paths and terminal control bytes removed, whatever text
+ * precedes a path (an escape sequence, a URL scheme, a prefix).
+ */
 import { realpathSync } from "node:fs";
 import { mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -18,7 +21,6 @@ describe("redact", () => {
     expect(redact("/data/rootfs/a /data/root.bak /data/root-1", extra)).toBe(
       "/data/rootfs/a /data/root.bak /data/root-1",
     );
-    // Text before the path does not shield it (an escape sequence, a URL scheme, a prefix).
     expect(redact("\u001b[1A/data/root/a /srv/data/root/a", extra)).toBe("?[1A<r>/a /srv<r>/a");
     expect(redact("at /data/root/a, '/data/root' (/data/root)", extra)).toBe(
       "at <r>/a, '<r>' (<r>)",

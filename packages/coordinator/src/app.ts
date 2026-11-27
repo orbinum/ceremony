@@ -1,6 +1,6 @@
 /**
- * The Worker (COORDINATOR §3): its configuration checked first, security headers on every
- * answer, the routes, and the error answers.
+ * The Worker's Hono app: the deployment's configuration checked first, security headers on every
+ * answer, every route group, and coded error answers for unknown routes and unexpected errors.
  */
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
@@ -9,7 +9,6 @@ import { fail, onError } from "./http";
 import { configured } from "./middleware";
 import { routes } from "./routes";
 
-/** The Worker: every route group, behind the security headers and the configuration check. */
 export const app = new Hono<AppEnv>()
   .use(secureHeaders())
   .use(configured)

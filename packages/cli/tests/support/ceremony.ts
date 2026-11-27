@@ -1,4 +1,9 @@
-/** Real ceremonies on the shield circuit (needs the 75 MB ptau): built, contributed, finalized. */
+/**
+ * Real ceremonies on the shield circuit: built, contributed, finalized. They need the 75 MB ptau,
+ * which is not in the repo, so these suites run only when it is provided; the circuits clone, vk
+ * packer and Rust verifier are optional. The shield r1cs fixture (v0.16.0) is byte-identical in
+ * circuits v0.17.1, still at active version 1.
+ */
 import { copyFile, mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,16 +32,10 @@ import { openTranscript } from "../../src/store";
 import { newGenesisZkey } from "../../src/tools";
 import { CLOCK, ROUND_1000, scheduleFor } from "./clock";
 
-/** The real ptau is 75 MB and not in the repo: end-to-end tests run only when it is provided. */
 export const PTAU_PATH = process.env.ORBINUM_PTAU;
 
-/** Optional: a clone of the circuits repo, for the release/source checks. */
 export const CIRCUITS_REPO = process.env.ORBINUM_CIRCUITS_REPO;
 
-/**
- * circuits v0.17.1, the release of the real-key vectors; the shield r1cs fixture (from v0.16.0) is
- * byte-identical in it, still at active version 1.
- */
 export const RELEASE = { tag: "v0.17.1", commit: "05e7d6fa7cde898b34b30d522a1fb38cfcafb5e7" };
 
 export interface TestCeremony {
@@ -45,10 +44,6 @@ export interface TestCeremony {
   announcementSha256: string;
 }
 
-/**
- * A ceremony directory with only the real `shield` circuit (v0.16.0 r1cs fixture), its init.json
- * and its ceremony.json: the same layout `init` + `announce` produce, built without circom.
- */
 export async function shieldOnlyCeremony(
   ptau: string,
   network: Network = "local",
@@ -107,7 +102,6 @@ export async function shieldOnlyCeremony(
   return { dir, init, announcementSha256: sha256Hex(bytes) };
 }
 
-/** Seals a real drand round in the transcript, as finalize would after fetching it. */
 export async function sealRound(dir: string, round: typeof ROUND_1000): Promise<void> {
   const [announcement] = await opened(dir);
   const store = await openTranscript(dir, announcement);
@@ -123,15 +117,10 @@ export async function sealRound(dir: string, round: typeof ROUND_1000): Promise<
   });
 }
 
-/** Optional: groth16-proofs `pack-verifying-key`, for ceremonies that must record vk_hash. */
 export const VK_PACKER = process.env.ORBINUM_VK_PACKER;
 
-/**
- * Optional: the independent verifier binary (`ceremony-verifier/target/release/ceremony-verifier`).
- */
 export const RUST_VERIFIER = process.env.ORBINUM_RUST_VERIFIER;
 
-/** A shield-only ceremony taken all the way: 2 contributions, sealed round 1000, finalized. */
 export async function finalizedCeremony(
   ptau: string,
   network: Network = "local",
@@ -151,7 +140,6 @@ export async function finalizedCeremony(
   return ceremony;
 }
 
-/** A ceremony's announcement and init, as `openTranscript` takes them. */
 export async function opened(dir: string) {
   const { announcement, init } = await loadCeremony(dir);
   return [announcement, init.value] as const;

@@ -1,7 +1,9 @@
 /**
- * One job (COORDINATOR §5, SPEC §2.5), hermetic: the multiplier ceremony under a stand-in ptau
- * pin, real pre-checks, and the pairing check replaced so every verdict can be forced. Verdicts,
- * reports, the attempt record, and what never leaves the host.
+ * One job, hermetic: the multiplier ceremony under a stand-in ptau pin, real pre-checks, and the
+ * pairing check replaced so every verdict can be forced. Verdicts, reports, the attempt record,
+ * the time the download leaves to verification and the report, and what never leaves the host
+ * (the service's working directory included; the pipeline itself hides the temp dir and home).
+ * TMPDIR is stubbed, not assigned, so an unset one (Linux CI) is unset again afterwards.
  */
 import { chmod, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -89,7 +91,6 @@ describe("run job: verdicts and reports", () => {
   });
 
   it("keeps the operator's paths out of a pipeline verdict", async () => {
-    // The service's working directory (the pipeline itself hides the temp dir and home).
     zkvi.mockRejectedValue(new Error(`Invalid zkey ${process.cwd()}/build/x.zkey`));
     const { report } = await h.run(honest, { contributionHash: honestHash });
     expect(report).toMatchObject({
@@ -137,7 +138,6 @@ describe("run job: bounds", () => {
   });
 
   it("lowers snarkjs's bound to what the deadline leaves, minus the report's share", async () => {
-    // The download takes 200 s of the deadline: the clock jumps as the object is served.
     const start = Date.now();
     let spent = 0;
     const now = vi.spyOn(Date, "now").mockImplementation(() => start + spent);
@@ -148,18 +148,14 @@ describe("run job: bounds", () => {
       h.coordinator.onObject = undefined;
       now.mockRestore();
     }
-    // 300 s deadline − 200 s spent − 15 s kept for the report.
     expect(JOB_DEADLINE_MS).toBe(300_000);
     expect(zkvi.mock.calls[0]?.[3]).toEqual({ timeoutMs: 85_000 });
   });
 });
 
-/** Runs `fn` with TMPDIR pointing at a fresh directory, and returns what is left in it. */
 async function inOwnTmp(fn: () => Promise<void>): Promise<string[]> {
   const tmp = join(h.dir, `tmp-${Math.random().toString(36).slice(2)}`);
   await mkdir(tmp);
-  // stubEnv, not an assignment: restoring an unset TMPDIR (Linux CI) must unset it again,
-  // not set it to "undefined".
   vi.stubEnv("TMPDIR", tmp);
   try {
     await fn();

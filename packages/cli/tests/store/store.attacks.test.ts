@@ -1,6 +1,8 @@
 /**
  * Attacks on the operator's lock and transcript store (concurrency, stale locks, symlinks) and on
- * publish-final's handover to a hostile coordinator.
+ * publish-final's handover to a hostile coordinator. When a run's lock was deleted as stale and
+ * retaken by another, the first run must not remove it on exit, or a third could start beside the
+ * second.
  */
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
@@ -46,7 +48,6 @@ describe("the ceremony lock", { timeout: 60_000 }, () => {
     await symlink(victim, join(d, ".local", "lock"));
     await expect(withLock(join(d, ".local", "lock"), async () => 1)).rejects.toThrow(/locked/);
     expect(await readFile(victim, "utf8")).toBe("untouched");
-    // A dangling link is refused too (O_EXCL).
     await rm(join(d, ".local", "lock"));
     await symlink(join(d, "nowhere"), join(d, ".local", "lock"));
     await expect(withLock(join(d, ".local", "lock"), async () => 1)).rejects.toThrow(/locked/);
@@ -65,8 +66,6 @@ describe("the ceremony lock", { timeout: 60_000 }, () => {
   });
 
   it("a run never removes a lock it no longer owns", async () => {
-    // A runs; the operator deletes A's lock as stale; B takes it. When A ends, B's lock must
-    // survive, or a third run could start next to B.
     const d = await fresh();
     const lock = join(d, ".local", "lock");
     let releaseB!: () => void;
@@ -139,7 +138,6 @@ describe("publish-final against a hostile coordinator", { timeout: 60_000 }, () 
       delete process.env.CF_ACCESS_CLIENT_SECRET;
     }
     expect(elsewhere.requests).toEqual([]);
-    // Plain http (local coordinator): no Access header went out on any request.
     expect(s.requests.some((r) => r.headers["cf-access-client-secret"] !== undefined)).toBe(false);
   });
 

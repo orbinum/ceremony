@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import { VerifierContainer } from "../../src/verifier";
 import { freshId, setupInput, stubOf } from "../support";
 
-/** Durable storage in memory, enough for the object (no SQL). */
 function fakeStorage() {
   const data = new Map<string, unknown>();
   let alarm: number | null = null;
@@ -27,7 +26,6 @@ function fakeStorage() {
   };
 }
 
-/** A container that answers `/healthz` and records each `/verify`, per start. */
 function fakeContainer() {
   const c = {
     running: false,
@@ -68,7 +66,6 @@ async function object() {
   const container = fakeContainer();
   const ctx = { storage, container } as unknown as DurableObjectState;
   const routed = { ...env, CEREMONY_ID: ceremony, VERIFIER_URL: "" } as Env;
-  // The base class only takes a real DurableObjectState: the object is built around the fakes.
   const o = Object.create(VerifierContainer.prototype) as VerifierContainer;
   Object.defineProperties(o, { ctx: { value: ctx }, env: { value: routed } });
   return { o, storage, container };
@@ -90,7 +87,6 @@ describe("VerifierContainer", () => {
     await o.alarm();
     expect(container.posted).toEqual([{ start: 1, job: "1/shield" }]);
     expect(storage.data.has("job:1/shield/1")).toBe(true);
-    // Watched while it may still run.
     expect(storage.alarm()).toBeGreaterThan(Date.now());
   });
 

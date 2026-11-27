@@ -10,7 +10,6 @@ beforeAll(async () => {
   server = await localServer({
     "/ok": (_q, res) => json(res, 200, { round: 1 }),
     "/big": (_q, res) => res.writeHead(200).end("x".repeat(70 * 1024)),
-    // Undeclared length: the cap must hold while reading, in bytes (3 bytes per character here).
     "/multibyte": (_q, res) => {
       res.writeHead(200, { "transfer-encoding": "chunked" });
       res.end(`"${"€".repeat(25_000)}"`);

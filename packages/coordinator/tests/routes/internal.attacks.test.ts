@@ -1,6 +1,8 @@
 /**
- * Attacks on the verifier's routes (COORDINATOR §5): path spellings against the MAC and the router,
- * body bounds before the MAC, and reports that contradict the job or the network.
+ * Attacks on the verifier's routes: path spellings against the MAC and the router, body bounds
+ * before the MAC, and reports that contradict the job or the network. The verifier is trusted for
+ * the fields of a report it signs; a simulated (`cli-local`) contribution is still never recorded on
+ * mainnet, where it would fail every later transcript check.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -38,7 +40,6 @@ import {
 const BYTES = new TextEncoder().encode("internal-attacks upload");
 const OBJECT = "/internal/objects/1/shield/1";
 
-/** A mainnet setup of this environment's ceremony (same fixture init, 50 contributions). */
 function mainnetSetup(openAt: number, closeAt: number): SetupInput {
   const init = serializeJson(INIT);
   const announcement = buildAnnouncement({
@@ -79,7 +80,6 @@ async function pending(setup = setupInput(Date.now() - 1000, Date.now() + 86_400
   await PRIVATE.put(prepared.key, BYTES);
   const r = await stub.uploaded(upload, prepared.key);
   if (!r.ok) throw new Error(r.refusal);
-  /** Sends `path` with headers signed for `signedPath` (default: what is sent). */
   const send = (
     method: string,
     path: string,
@@ -117,9 +117,7 @@ describe("object path spellings", () => {
       "/internal/objects/1%2Fshield%2F1",
       "/internal/objects/1/SHIELD/1",
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       const r = await send("GET", path, { signedPath: OBJECT });
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       expect([path, (await refusal(r))[0]]).toEqual([path, 401]);
     }
   });
@@ -136,9 +134,7 @@ describe("object path spellings", () => {
       ["/internal/objects/1/shield/1/", 404],
       ["/internal/objects/1%2Fshield%2F1", 404],
     ] as const) {
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       const r = await send("GET", path);
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       expect([path, r.status]).toEqual([path, status]);
     }
   });
@@ -146,7 +142,6 @@ describe("object path spellings", () => {
   it("refuses a query string, which the MAC does not cover", async () => {
     const { send } = await pending();
     for (const q of ["?anything=1", "?"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one spelling at a time
       const r = await send("GET", `${OBJECT}${q}`, { signedPath: OBJECT });
       expect(r.status).toBe(401);
     }
@@ -181,12 +176,10 @@ describe("object path spellings", () => {
       "/internal/objects/2/shield/1",
       "/internal/objects/1/unshield/1",
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       expect(await refusal(await send("GET", path))).toEqual([404, "unknown-job"]);
     }
   });
 
-  // Only a wider read window: any report is judged stale at receipt.
   it("serves the object after the verify deadline until an alarm or a report ticks", async () => {
     const { stub, send } = await pending();
     await setQueue(stub, (s) => {
@@ -206,7 +199,6 @@ describe("the MAC before the body", () => {
       "x-ceremony-body-sha256": "cd".repeat(32),
     };
     for (const headers of [{}, stale]) {
-      // More than the report bound: reading it would answer 413, not 401.
       const big = new Uint8Array(2 * MAX_LOG_CHARS + 128 * 1024);
       const body = new ReadableStream<Uint8Array>({
         start(c) {
@@ -214,14 +206,12 @@ describe("the MAC before the body", () => {
           c.close();
         },
       });
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       const r = await raw("/internal/verifications", {
         method: "POST",
         headers: { "content-type": "application/json", ...headers },
         body,
         duplex: "half",
       } as RequestInit);
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       expect(await refusal(r)).toEqual([401, "unauthenticated"]);
     }
   });
@@ -251,7 +241,6 @@ describe("the MAC before the body", () => {
       duplex: "half",
     } as RequestInit);
     expect(await refusal(r)).toEqual([401, "unauthenticated"]);
-    // The runtime may prime one chunk when it builds the request; the guard reads none of the 40.
     expect(pulled).toBeLessThanOrEqual(1);
   });
 
@@ -307,9 +296,7 @@ describe("the MAC before the body", () => {
         "{}",
         at,
       );
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       const r = await raw("/internal/verifications", { method: "POST", headers, body: "{}" });
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       expect(await refusal(r)).toEqual([401, "unauthenticated"]);
     }
   });
@@ -320,9 +307,7 @@ describe("the MAC before the body", () => {
       { "x-ceremony-timestamp": String(Date.now()), "x-ceremony-signature": "AB".repeat(32) },
       { "x-ceremony-timestamp": `${Date.now()}.0`, "x-ceremony-signature": "ab".repeat(32) },
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       const r = await raw("/internal/verifications", { method: "POST", headers, body: "{}" });
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       expect(await refusal(r)).toEqual([401, "unauthenticated"]);
     }
   });
@@ -367,7 +352,6 @@ describe("reports that contradict the job", () => {
     expect(records.filter((r) => r.type === "contribution")).toEqual([]);
   });
 
-  // Accepted limit (KL-26 in docs/KNOWN_LIMITS.md): the verifier is trusted for these fields.
   it("records a valid's zkeyName and deltaAfter on the verifier's word", async () => {
     const { stub, job, report } = await pending();
     const r = await report({
@@ -382,10 +366,6 @@ describe("reports that contradict the job", () => {
 });
 
 describe("a report's version string", () => {
-  /**
-   * `cli-local` marks a simulated contribution; recorded on mainnet it would fail every later
-   * transcript integrity check, and records are append-only.
-   */
   it("refuses a 'cli-local' verified contribution in a mainnet ceremony", async () => {
     const { stub, job, report } = await pending(
       mainnetSetup(Date.now() - 1000, Date.now() + 86_400_000),

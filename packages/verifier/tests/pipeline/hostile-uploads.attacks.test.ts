@@ -1,8 +1,13 @@
 /**
- * Hostile uploads through the whole SPEC §2.5 pipeline (pre-check + snarkjs zkvi in a bounded child)
- * on the testnet-rehearsal-2 keys; chosen-secret contributions carry valid proofs of knowledge.
- * Never `valid` unless a genuine extension, never `infra` for a crafted file (infra pauses the ceremony).
- * `ORBINUM_EXHAUSTIVE=1` runs every baseline key, 40 seeded flips and a 400-entry chain (~2 min).
+ * Hostile uploads through the whole pipeline (pre-check + snarkjs zkvi in a bounded child) on the
+ * testnet-rehearsal-2 keys (the finished rehearsal from fetch-test-inputs.sh, or the local one);
+ * chosen-secret contributions carry valid proofs of knowledge, built exactly as `zkey contribute`
+ * would and with self-contained binfile surgery. Never `valid` unless a genuine extension, never
+ * `infra` for a crafted file (infra pauses the ceremony). Off-curve and small-order points are
+ * refused by core's point checks before zkvi; beacon parameters lie outside h_k and zkvi ignores
+ * them on a contribution entry, so the parser must refuse them. Seeded flips hit only the ranges
+ * zkvi alone judges. `ORBINUM_EXHAUSTIVE=1` runs every baseline key, 40 seeded flips and a
+ * 400-entry chain (~2 min).
  */
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -23,21 +28,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyBeacon, verifyUpload } from "../../src";
 import { PTAU_PATH } from "../support";
 
-/** The finished rehearsal with its whole chain (fetch-test-inputs.sh), or the local one. */
 const DIR =
   process.env.ORBINUM_REHEARSAL_DIR ??
   join(import.meta.dirname, "..", "..", "..", "..", "artifacts", "testnet-rehearsal-2");
 const R = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 const Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
 const EXHAUSTIVE = process.env.ORBINUM_EXHAUSTIVE === "1";
-/** Real keys checked as valid baselines: all of them, or the first of each circuit. */
 const BASELINE_KEYS = EXHAUSTIVE ? [1, 2, 3] : [1];
-/** Seeded byte flips run through zkvi (~1.3 s each). */
 const FLIPS = EXHAUSTIVE ? 40 : 6;
-/** Entries in the long valid chain. */
 const CHAIN_N = EXHAUSTIVE ? 400 : 16;
 
-// ---------------------------------------------------------------- binfile surgery (self-contained)
 interface Sec {
   type: number;
   data: Uint8Array;
@@ -56,7 +56,7 @@ function split(bytes: Uint8Array): { version: number; sections: Sec[] } {
 function join2(version: number, sections: Sec[]): Uint8Array {
   const out = new Uint8Array(12 + sections.reduce((n, s) => n + 12 + s.data.length, 0));
   const v = new DataView(out.buffer);
-  out.set([0x7a, 0x6b, 0x65, 0x79]); // "zkey"
+  out.set([0x7a, 0x6b, 0x65, 0x79]);
   v.setUint32(4, version, true);
   v.setUint32(8, sections.length, true);
   let pos = 12;
@@ -73,7 +73,6 @@ const u32 = (b: Uint8Array, at: number) => new DataView(b.buffer, b.byteOffset).
 const setU32 = (b: Uint8Array, at: number, x: number) =>
   new DataView(b.buffer, b.byteOffset).setUint32(at, x, true);
 
-/** Raw entries of an MPC section: [start, end) of each. */
 function entryRanges(mpc: Uint8Array): Array<[number, number]> {
   const n = u32(mpc, 64);
   const out: Array<[number, number]> = [];
@@ -86,8 +85,6 @@ function entryRanges(mpc: Uint8Array): Array<[number, number]> {
   return out;
 }
 
-// ---------------------------------------------------------------- contributions with chosen secrets
-/** ffjavascript's bn128 curve, which the snarkjs typings leave out. */
 type Curve = Record<string, any> & { terminate(): Promise<void> };
 const { curves } = snarkjs as unknown as {
   curves: { getCurveFromName(name: string): Promise<Curve> };
@@ -96,22 +93,11 @@ let curve: Curve;
 let hashToG2: (c: unknown, h: Uint8Array) => Uint8Array;
 
 interface Tweak {
-  /** Added to δ2 in the header (a point outside the prime-order subgroup, …). */
   delta2Add?: Uint8Array;
-  /** Added to the new entry's g2_spx. */
   g2spxAdd?: Uint8Array;
-  /**
-   * The new entry's g1_s moved off the curve (its y limb nudged, still canonical), g1_sx = -g1_s
-   * and g2_spx = -g2_sp: the proof of knowledge of secret -1 for any G1 "point".
-   */
   g1sOffCurve?: boolean;
 }
 
-/**
- * `input` extended by one entry per secret, exactly as `zkey contribute` would (transcript over the
- * csHash and every earlier public key, g2_sp = hashToG2(transcript)), with L and H rescaled once by
- * the inverse product. Returns the bytes and the last entry's h_k (core's recomputation).
- */
 async function extend(
   input: Uint8Array,
   layout: ReturnType<typeof genesisLayoutOf>,
@@ -135,7 +121,6 @@ async function extend(
     return b;
   };
   const prev = entryRanges(mpc).map(([a, b]) => mpc.slice(a, b));
-  /** What hashPubKey feeds the transcript for an entry, cached per entry. */
   const pubs = new WeakMap<Uint8Array, Uint8Array>();
   const pubOf = (e: Uint8Array) => {
     let p = pubs.get(e);
@@ -160,7 +145,7 @@ async function extend(
     const s = Fr.e(0x1234567n + BigInt(i) * 7919n + BigInt(prev.length));
     const last = i === secrets.length - 1;
     const g1s = G1.toAffine(G1.timesFr(G1.g, s));
-    if (tweak.g1sOffCurve && last) g1s[32] = (g1s[32]! ^ 1) as number; // y ± 1, still < q
+    if (tweak.g1sOffCurve && last) g1s[32] = (g1s[32]! ^ 1) as number;
     const g1sx = tweak.g1sOffCurve && last ? G1.neg(g1s) : G1.toAffine(G1.timesFr(g1s, xe));
     const t = createBlake2b512();
     t.update(csHash);
@@ -204,7 +189,6 @@ async function extend(
   sec({ sections: out }, 8).data = await scaled(8);
   sec({ sections: out }, 9).data = await scaled(9);
   sec({ sections: out }, 10).data = newMpc;
-  // `zkey contribute` writes sections 1..10 in order (the genesis has another order).
   const bytes = join2(
     f.version,
     out.toSorted((x, y) => x.type - y.type),
@@ -212,10 +196,6 @@ async function extend(
   return { bytes, hash: lastHash(bytes) };
 }
 
-/**
- * h_k of the last MPC entry as snarkjs computes it (uncompressed points, no validation): the hash a
- * client claims, even for an entry whose points core now refuses to decode.
- */
 function lastHash(bytes: Uint8Array): string {
   const { G1, G2 } = curve;
   const mpc = sec(split(bytes), 10).data;
@@ -232,7 +212,6 @@ function lastHash(bytes: Uint8Array): string {
   return t.digestHex();
 }
 
-/** A G2 point of order 10069 on the twist: outside the prime-order subgroup snarkjs assumes. */
 function torsionG2(): Uint8Array {
   const { G2 } = curve;
   const F2 = G2.F;
@@ -248,7 +227,6 @@ function torsionG2(): Uint8Array {
   throw new Error("no torsion point");
 }
 
-// ---------------------------------------------------------------- the suite
 const ready = !!PTAU_PATH && existsSync(DIR);
 const CIRCUITS = ["shield", "unshield", "transfer"];
 
@@ -257,7 +235,6 @@ const keyPath = (c: string, k: number) =>
   k === 0 ? genesisPath(c) : join(DIR, "contributions", c, `${k}.zkey`);
 const bytesOf = async (p: string) => new Uint8Array(await readFile(p));
 
-/** The head after `bytes` (the file the next upload extends). */
 function headOf(bytes: Uint8Array): CurrentHead {
   const p = readMpcParams(bytes);
   return {
@@ -352,12 +329,12 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       });
     });
 
-    it("accepts secret −1 (KL-4)", async () => {
+    it("accepts secret −1", async () => {
       const { bytes, hash } = await extend(three, layout("shield"), [R - 1n], ["minus-one"]);
       expect(await verdictOf("shield", head3, bytes, hash)).toMatchObject({ result: "valid" });
     });
 
-    it("accepts a beacon entry retyped as a contribution, a public secret (KL-4)", async () => {
+    it("accepts a beacon entry retyped as a contribution, a public secret", async () => {
       const src = join(work, "beacon-src.zkey");
       await writeFile(src, three);
       const out = join(work, "beacon-out.zkey");
@@ -365,7 +342,6 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       const f = split(await bytesOf(out));
       const mpc = sec(f, 10).data;
       const [a, b] = entryRanges(mpc).at(-1)!;
-      // type 1 → 0 and parameters → a plain name (tags 2/3 dropped).
       const e = mpc.slice(a, a + 392 + 3);
       setU32(e, 384, 0);
       setU32(e, 388, 3);
@@ -406,7 +382,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       });
       expect(await verdictOf("shield", head3, bytes, hash)).toMatchObject({
         result: "rejected",
-        reason: "malformed", // refused by core's point checks, before zkvi,
+        reason: "malformed",
       });
     });
 
@@ -416,7 +392,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       });
       expect(await verdictOf("shield", head3, bytes, hash)).toMatchObject({
         result: "rejected",
-        reason: "malformed", // refused by core's point checks, before zkvi,
+        reason: "malformed",
       });
     });
 
@@ -427,7 +403,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       const mpc = sec(f, 10).data;
       const [a] = entryRanges(mpc).at(-1)!;
       const y = g16.subarray(layout("shield").deltaFrom + 32, layout("shield").deltaFrom + 64);
-      y[0] = (y[0]! ^ 1) as number; // y ± 1 in Montgomery form: still < q, now off the curve
+      y[0] = (y[0]! ^ 1) as number;
       mpc.set(g16.subarray(layout("shield").deltaFrom, layout("shield").deltaFrom + 64), a);
       const m = join2(f.version, f.sections);
       expect(await verdictOf("shield", head3, m, lastHash(m))).toMatchObject({
@@ -453,7 +429,7 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       const m = join2(f.version, f.sections);
       expect(await verdictOf("shield", head3, m, hash)).toMatchObject({
         result: "rejected",
-        reason: "malformed", // refused by core's point checks, before zkvi,
+        reason: "malformed",
       });
     });
 
@@ -468,8 +444,6 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       });
     });
 
-    // Beacon parameters lie outside h_k and zkvi ignores them on a contribution entry: the parser
-    // must refuse them, or a non-canonical file would pass.
     it("rejects beacon parameters added to recorded entry #1 as malformed", async () => {
       const f = split(three);
       const mpc = sec(f, 10).data;
@@ -485,7 +459,6 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       expect(() => readMpcParams(bytes)).toThrow(
         /contribution entry with the wrong beacon parameters/,
       );
-      // Upload as #3 on head #2: entry #1 now carries tag 2 (numIterationsExp = 10).
       const two = await bytesOf(keyPath("shield", 2));
       const hash = readMpcParams(three).entries.at(-1)!.hash;
       expect(await verdictOf("shield", headOf(two), bytes, hash)).toMatchObject({
@@ -510,7 +483,6 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
     const two = await bytesOf(keyPath("shield", 2));
     const head = headOf(prev);
     const f = split(two);
-    // Ranges zkvi alone judges: δ2, sections 3–9, the new entry's g1_s..transcript.
     const offsets: Array<[number, number]> = [];
     let pos = 12;
     for (const s of f.sections) {
@@ -538,7 +510,6 @@ describe.skipIf(!ready)("hostile uploads through the pipeline", { timeout: 900_0
       } catch {
         continue;
       }
-      // oxlint-disable-next-line no-await-in-loop -- one zkvi child at a time
       const res = await upload("shield", head, m, hash);
       results.push(`${at}:${res.verdict.result}`);
     }

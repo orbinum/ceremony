@@ -59,6 +59,7 @@ CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `typecheck` and eve
 These rules apply to every `.ts`/`.tsx` file under `packages/*/src` and `packages/*/tests`.
 
 - **One thing per file, named after it in kebab-case.** For example, `canonicalJson` lives in `canonical-json.ts` and `CoordinatorRefusal` in `coordinator-refusal.ts`. Each folder's shared types go in its `types.ts` and its constants in its `constants.ts`. Each error gets its own file. Lint enforces kebab-case (`unicorn/filename-case`).
+- **Small folders.** A directory holds about eight files of its own at most; beyond that its files are grouped into subfolders by responsibility.
 - **Barrels only re-export.** Every directory has an `index.ts`, and imports from another directory go through it. Oxlint enforces the layer order of each package (`.oxlintrc.json`).
 - **One comment per file.** It is the `/** … */` header above the imports, which says what the file holds and why. Nothing else is commented except lint directives and `///` references. The `ceremony/header-only-comments` rule in [`scripts/oxlint-ceremony-plugin.mjs`](scripts/oxlint-ceremony-plugin.mjs) enforces this.
 - **Tests live in `tests/`**, mirroring the `src` folders. Attack and fuzz suites end in `.attacks.test.ts` and `.fuzz.test.ts`.
@@ -73,7 +74,7 @@ pnpm --filter @orbinum-ceremony/e2e stack        # prints the coordinator's URL
 ORBINUM_DEV_COORDINATOR=<url> ORBINUM_DEV_GITHUB_ID=4242 pnpm --filter @orbinum-ceremony/client dev
 ```
 
-A turn runs in the page: each circuit's head is downloaded and checked (hash, csHash), snarkjs contributes in a fresh Web Worker (`contribution/worker.ts`, entropy drawn there), the output passes the verifier's own pre-checks before it is uploaded, and the linked wallet signs the attestation at the end. `pnpm --filter @orbinum-ceremony/client test` runs the unit tests (core's fixture keys, a fake coordinator).
+A turn runs in the page: each circuit's head is downloaded and checked (hash, csHash), snarkjs contributes in a fresh Web Worker (`contribution/compute/worker.ts`, entropy drawn there), the output passes the verifier's own pre-checks before it is uploaded, and the linked wallet signs the attestation at the end. `pnpm --filter @orbinum-ceremony/client test` runs the unit tests (core's fixture keys, a fake coordinator).
 
 Without a GitHub OAuth app, `ORBINUM_DEV_GITHUB_ID` (and `ORBINUM_DEV_GITHUB_LOGIN`) signs every request in as that identity; the coordinator honours it only in a local run on a loopback host. Wallets are picked in a dialog with three families, as in the Orbinum app: Substrate extensions (`window.injectedWeb3`: Talisman, SubWallet, polkadot-js; sr25519 or ed25519 accounts), Solana wallets (Wallet Standard: Phantom, Solflare…; ed25519) and EVM wallets (EIP-6963, falling back to `window.ethereum`). Every signature goes through the picked wallet, and the attestation is signed by the wallet the account was linked with.
 

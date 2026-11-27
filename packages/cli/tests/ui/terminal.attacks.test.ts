@@ -1,7 +1,4 @@
-/**
- * Attacks on the terminal: nothing from outside reaches it unsanitised (SPEC §9 "Verify (third
- * parties)").
- */
+/** Attacks on the terminal: nothing from outside reaches it unsanitised. */
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

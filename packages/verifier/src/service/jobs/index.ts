@@ -1,5 +1,7 @@
-// verifier/service/jobs: a dispatched job, its attempt record, and the serial queue of them.
-export { createQueue, type JobQueue, MAX_PENDING, SEEN_KEYS } from "./queue";
+/** A dispatched job, its attempt record, and the serial queue of them. */
+export { JOB_DEADLINE_MS, MAX_PENDING, SEEN_KEYS } from "./constants";
+export { createQueue } from "./create-queue";
+export { jobSinkOf } from "./job-sink-of";
 export { probeLogDir } from "./records";
-export { JOB_DEADLINE_MS, runJob } from "./run-job";
-export { jobSinkOf } from "./sink";
+export { runJob } from "./run-job";
+export type { JobQueue } from "./types";

@@ -1,21 +1,9 @@
-// coordinator/storage: R2 calls as the ceremony relies on them (exact, guarded, never blind).
-export {
-  archivedBucket,
-  archivedCeremonies,
-  type Bucket,
-  privateBucket,
-  publicBucket,
-  scoped,
-} from "./buckets";
-export {
-  BytesMismatch,
-  deleteQuietly,
-  getObject,
-  getObjectIfChanged,
-  headObject,
-  holds,
-  putObject,
-  replaceObject,
-  StorageError,
-  streamExact,
-} from "./r2";
+/** R2 calls as the ceremony relies on them: exact, guarded, never blind. */
+export { archivedBucket, archivedCeremonies, privateBucket, publicBucket } from "./buckets";
+export { BytesMismatch } from "./bytes-mismatch";
+export { holds } from "./holds";
+export { getObject, getObjectIfChanged, headObject } from "./reads";
+export { scoped } from "./scoped";
+export { StorageError } from "./storage-error";
+export type { Bucket } from "./types";
+export { deleteQuietly, putObject, replaceObject, streamExact } from "./writes";

@@ -1,3 +1,7 @@
+/**
+ * The routes: the ceremony at the root, the archive at `/archive`, not-found everywhere else, and
+ * an error element above every page.
+ */
 import { matchRoutes } from "react-router";
 import { describe, expect, it } from "vitest";
 import { routes } from "../../src/router/routes";

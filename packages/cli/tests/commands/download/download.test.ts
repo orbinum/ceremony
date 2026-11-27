@@ -1,7 +1,4 @@
-/**
- * `download` on a synthetic ceremony: pins, transcript checks, the lock and rollback (SPEC
- * §6.1–6.3).
- */
+/** `download` on a synthetic ceremony: pins, transcript checks, the lock and rollback. */
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -25,7 +22,6 @@ afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((f) => f()));
 });
 
-/** Serves `dir` and returns a download into `out` (a fresh directory unless given). */
 async function mirror(source: Synthetic, dir = source.dir, out?: string) {
   const server = await serveDir(dir);
   const into = out ?? (await mkdtemp(join(tmpdir(), "orbinum-download-")));
@@ -48,7 +44,6 @@ describe("download", () => {
   it("mirrors every pinned file of a finalized ceremony", async () => {
     const c = await syntheticCeremony();
     const { out, run } = await mirror(c);
-    // 3 documents + r1cs + genesis + 2 × (zkey, log) + final zkey + vk.
     expect(await run()).toBe(11);
     expect(await readFile(layout(out).transcript, "utf8")).toBe(
       await readFile(layout(c.dir).transcript, "utf8"),
@@ -80,7 +75,6 @@ describe("download", () => {
     await run();
     const sealed = await readFile(layout(out).transcript, "utf8");
 
-    // The mirror serves the transcript as it was before the beacon and the finals.
     const older = await tamperedCopy(c.dir, (d) =>
       editJson<Transcript>(layout(d).transcript, (t) => {
         t.records.pop();

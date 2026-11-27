@@ -1,7 +1,10 @@
 /**
- * The SPEC §2.5 pipeline when something fails, hermetic: who is at fault (our side is `infra`,
- * never the contributor's), what snarkjs' verdicts become, the cross-check from r1cs, and what
- * stays on the host (stderr, private copies).
+ * The upload pipeline when something fails, hermetic: who is at fault (our side is `infra`, never
+ * the contributor's), what snarkjs' verdicts become, the cross-check from r1cs, and what stays on
+ * the host (stderr, private copies). Our own inputs are re-checked before snarkjs opens them: its
+ * ENOENT would otherwise read as the upload's fault. A file a user named (the cli) that cannot be
+ * read is that file's problem. TMPDIR is stubbed, not assigned, so an unset one (Linux CI) is
+ * unset again afterwards.
  */
 import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -49,10 +52,8 @@ const verify = (
     head,
   );
 
-/** The cross-check on: zkvi and the full verify from r1cs must agree. */
 const withR1cs = (up: Upload) => verify(up, u.atGenesis, { files: { r1cs: MULTIPLIER_R1CS } });
 
-/** The next stage's copy fails with `error`, as the host's filesystem would make it. */
 const nextCopyFails = (error: Error) =>
   stage.mockImplementationOnce(async (...args) => {
     const real = await (
@@ -94,7 +95,6 @@ describe("our own side failing is infra, never the contributor's fault", () => {
   });
 
   it("a ptau or r1cs gone at the snarkjs step (checked before snarkjs reopens them)", async () => {
-    // Were snarkjs to open the missing file itself, its ENOENT would read as the upload's fault.
     const enoent = Object.assign(new Error("ENOENT: no such file or directory"), {
       code: "ENOENT",
     });
@@ -107,7 +107,6 @@ describe("our own side failing is infra, never the contributor's fault", () => {
       [{ ptau: ptauDir }, /^ptau-dir: not a regular file$/],
       [{ r1cs: join(u.dir, "nope.r1cs") }, /^ENOENT: .*nope\.r1cs'$/],
     ] as const) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const res = await verify(u.c1, u.atGenesis, { files });
       expect(res.verdict).toEqual({ result: "infra", detail: expect.stringMatching(detail) });
       expect(res.ms.precheck).toBeGreaterThanOrEqual(0);
@@ -144,11 +143,9 @@ describe("our own side failing is infra, never the contributor's fault", () => {
   it("any failure copying our own download (the service's upload), whatever its code", async () => {
     for (const code of ["EACCES", "ENOENT", "EPERM"]) {
       nextCopyFails(errno(code));
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const res = await verify(u.c1, u.atGenesis, { files: { zkeyIsOurs: true } });
       expect(res.verdict).toEqual({ result: "infra", detail: `${code}: failed, copyfile` });
     }
-    // A file a user named (the cli) that cannot be read is that file's problem.
     nextCopyFails(errno("EACCES"));
     expect((await verify(u.c1)).verdict).toMatchObject({ result: "rejected", reason: "malformed" });
     expect(zkvi).not.toHaveBeenCalled();
@@ -195,8 +192,6 @@ describe("our own side failing is infra, never the contributor's fault", () => {
 
   it("leaves no private copy behind, whatever the verdict", async () => {
     const own = await mkdtemp(join(tmpdir(), "orbinum-verify-upload-tmp-"));
-    // stubEnv, not an assignment: restoring an unset TMPDIR (Linux CI) must unset it again,
-    // not set it to "undefined".
     vi.stubEnv("TMPDIR", own);
     try {
       await verify(u.c1);

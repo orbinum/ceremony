@@ -1,8 +1,17 @@
-// coordinator/durable/db: the Durable Object's SQLite tables.
+/** The Durable Object's SQLite tables, one module per table read or write. */
 export { anyHoldLive, holdLive, releaseHold, releaseHoldsOn, takeHold } from "./holds";
 export { consumeNonce, insertNonce, readIdentity, walletTaken, writeIdentity } from "./identities";
 export { latestJob, pendingJobs, readJob, writeJob } from "./jobs";
-export { publishedVersion, readRecords, setPublishedVersion, writeRecord } from "./records";
+export { publishedVersion, setPublishedVersion } from "./published-version";
 export { SCHEMA } from "./schema";
-export { spendOnce } from "./spent";
-export { readFinals, readQueue, readSetup, writeFinals, writeQueue, writeSetup } from "./state";
+export { spendOnce } from "./spend-once";
+export {
+  readFinals,
+  readQueue,
+  readRecords,
+  readSetup,
+  writeFinals,
+  writeQueue,
+  writeRecord,
+  writeSetup,
+} from "./state";

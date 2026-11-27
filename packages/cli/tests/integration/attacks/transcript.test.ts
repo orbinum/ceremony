@@ -1,6 +1,7 @@
 /**
  * Attacks on the transcript: dropped, re-rolled, out-of-window or spliced records, and the Rust
- * verifier.
+ * verifier. A coordinator that skips every contributor yields a key snarkjs accepts, but whose δ is
+ * public.
  */
 import {
   type Chained,
@@ -53,7 +54,6 @@ describe.skipIf(!PTAU_PATH)("attacks on the transcript", { timeout: 180_000 }, (
   }, 180_000);
 
   it("rejects a ceremony with zero contributions (beacon straight onto the genesis)", async () => {
-    // A coordinator skips every contributor: snarkjs accepts the key, but its δ is public.
     const forged = await shieldOnlyCeremony(ptau);
     const paths = layout(forged.dir);
     await sealRound(forged.dir, ROUND_1000);
@@ -199,7 +199,6 @@ describe.skipIf(!PTAU_PATH || !RUST_VERIFIER)(
     });
 
     it("independently rejects a final key with the beacon missing", async () => {
-      // The head passed off as the final key, its record updated so the Rust check does run.
       const copy = await tamperedCopy(ceremony.dir, async (d) => {
         await cp(layout(d).zkey("shield", 2), layout(d).finalZkey("shield"));
         const sha = await hashFile(layout(d).finalZkey("shield"), createSha256());

@@ -1,4 +1,7 @@
-// The page's own headers (public/_headers): what the contribution and Turnstile need, nothing more.
+/**
+ * The page's own headers (`public/_headers`): what the contribution and Turnstile need, nothing
+ * more. Wallet logos load as announced: inline, or from a wallet's own https URL.
+ */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +22,6 @@ describe("_headers", () => {
     ]);
     expect(csp.get("worker-src")).toEqual(["'self'", "blob:"]);
     expect(csp.get("frame-src")).toEqual(["https://challenges.cloudflare.com"]);
-    // Wallet logos as announced: inline, or a wallet's own https URL.
     expect(csp.get("img-src")).toEqual(["'self'", "data:", "blob:", "https:"]);
   });
 

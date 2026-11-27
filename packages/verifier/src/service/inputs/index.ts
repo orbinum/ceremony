@@ -1,3 +1,6 @@
-// verifier/service/inputs: the staged, pinned ptau and genesis keys.
-export { checkPins, ensurePinned, type Inputs, loadInputs } from "./inputs";
-export { mirrorInputs } from "./mirror";
+/** The staged, pinned ptau and genesis keys every verification runs against. */
+export { checkPins } from "./check-pins";
+export { ensurePinned } from "./ensure-pinned";
+export { loadInputs } from "./load-inputs";
+export { mirrorInputs } from "./mirror-inputs";
+export type { Inputs } from "./types";

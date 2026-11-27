@@ -1,22 +1,11 @@
-// coordinator/durable/operations: what each of the object's methods does (over durable/store).
-export { attest } from "./attestation";
+/** What each of the object's methods does, over durable/store. */
 export { tick } from "./clock";
-export { finalize, holdFinalWrite, releaseFinalWrite } from "./finalize";
-export { changeRefusal, issueNonce, link } from "./identity";
-export { spendOAuthState, spendRequestMac } from "./once";
-export { done, type Outcome, refuse } from "./outcome";
-export { apply } from "./queue";
-export {
-  finals,
-  head,
-  latestJob,
-  linked,
-  pendingJob,
-  receipt,
-  setupOf,
-  snapshot,
-  transcript,
-} from "./reads";
-export { configure } from "./setup";
-export { prepareUpload, releaseUpload, uploaded } from "./uploads";
+export { finalize, finals, holdFinalWrite, releaseFinalWrite } from "./finalize";
+export { changeRefusal, issueNonce, link, linked } from "./link";
+export { done, refuse } from "./outcome";
+export { apply, attest, configure, setupOf, snapshot } from "./queue";
+export { spendOAuthState, spendRequestMac } from "./single-use";
+export { head, receipt, transcript } from "./transcript";
+export type { Outcome } from "./types";
+export { latestJob, pendingJob, prepareUpload, releaseUpload, uploaded } from "./uploads";
 export { report } from "./verification";

@@ -1,5 +1,5 @@
 # The verifier service as a Cloudflare Container (packages/coordinator/wrangler.jsonc,
-# `containers`; COORDINATOR §5). Built from the repository root. Its disk starts empty: at startup
+# `containers`). Built from the repository root. Its disk starts empty: at startup
 # it mirrors the published inputs from COORDINATOR_URL, checked against INIT_SHA256 and the pins.
 # The coordinator's VerifierContainer passes COORDINATOR_URL, VERIFIER_HMAC_KEY and INIT_SHA256.
 # The base image is pinned by digest (the multi-arch index of node:22.15.0-bookworm-slim).

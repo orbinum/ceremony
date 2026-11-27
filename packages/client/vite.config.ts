@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
           req.setHeader("origin", COORDINATOR);
         }
         // The browser never chooses the identity, and only this machine gets one: a dev server
-        // started with `--host` would otherwise sign any LAN client in (KL-29). A tunnel or
+        // started with `--host` would otherwise sign any LAN client in. A tunnel or
         // reverse proxy in front of this server makes remote visitors look like loopback.
         for (const k of Object.keys(dev)) req.removeHeader(k);
         if (!LOOPBACK.has(incoming.socket.remoteAddress ?? "")) return;
@@ -59,7 +59,7 @@ export default defineConfig(({ mode }) => {
   return {
     define: clientDefines(),
     plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
-    // snarkjs runs in a module worker (`contribution/worker.ts`).
+    // snarkjs runs in a module worker (`contribution/compute/worker.ts`).
     worker: { format: "es" },
     // No CORS: a page on another local port must not read what the proxy answers.
     server: {

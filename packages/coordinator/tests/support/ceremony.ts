@@ -1,4 +1,9 @@
-/** The ceremony's object as tests drive it: links, state edits, the transcript and its buckets. */
+/**
+ * The ceremony's object as tests drive it: wallets linked straight in the object (signed as wallets
+ * sign, since the Worker verifies signatures before it calls `link`) for tests about the queue rather
+ * than the link route, state edits as if time had passed, the transcript, and its buckets wrapped so
+ * a hook can fail a call or change state meanwhile.
+ */
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import type { Chained, LinkPayload, QueueState } from "@orbinum-ceremony/core";
@@ -6,17 +11,10 @@ import { type BaseWallet, Wallet } from "ethers";
 import { inFolder } from "./buckets";
 import { signLinkEvm } from "./wallets";
 
-/** The stub of a ceremony object. */
 export type Ceremony = ReturnType<typeof env.CEREMONY.getByName>;
 
-/** The object of ceremony `id`. */
 export const stubOf = (id: string): Ceremony => env.CEREMONY.getByName(id);
 
-/**
- * Links a wallet straight in the Durable Object, signed as a wallet signs its link (the Worker
- * verifies signatures before it ever calls `link`), for tests about the queue rather than the
- * link route. Returns the wallet.
- */
 export async function linkDirect(
   stub: Ceremony,
   githubId: number,
@@ -46,11 +44,9 @@ export async function linkDirect(
   return wallet;
 }
 
-/** The object's transcript (RPC types the attestation payload as `never`, so cast). */
 export const readTranscript = async (stub: Ceremony) =>
   (await stub.transcript()) as unknown as { chainGenesis: string; records: Chained[] };
 
-/** Edits the persisted queue state, as if time had passed or a deadline were reached. */
 export const setQueue = (stub: Ceremony, edit: (s: QueueState) => void) =>
   runInDurableObject(stub, (_, state) => {
     const row = state.storage.sql.exec<{ json: string }>("SELECT json FROM queue_state").one();
@@ -59,7 +55,6 @@ export const setQueue = (stub: Ceremony, edit: (s: QueueState) => void) =>
     state.storage.sql.exec("UPDATE queue_state SET json = ?", JSON.stringify(s));
   });
 
-/** Moves the slot's clock fields back, as if `ms` had passed. */
 export const rewind = (stub: Ceremony, ms: number) =>
   setQueue(stub, (s) => {
     if (!s.slot) return;
@@ -68,7 +63,6 @@ export const rewind = (stub: Ceremony, ms: number) =>
     if (s.slot.runningSince !== null) s.slot.runningSince -= ms;
   });
 
-/** Expires every link nonce. */
 export const expireNonces = (stub: Ceremony) =>
   runInDurableObject(stub, (_, state) => {
     state.storage.sql.exec("UPDATE nonces SET expires_at = 0");
@@ -82,15 +76,9 @@ type BucketHook = (
   instance: { apply: Ceremony["apply"] },
 ) => void | Promise<void>;
 
-/** Each wrapped store's real bindings. */
 const realEnv = new WeakMap<object, Env>();
 const storeOf = (instance: unknown) => (instance as { store: { env: Env } }).store;
 
-/**
- * Wraps one of the object's buckets: `hook` runs before every call (it may throw, to fail it, or
- * edit the object's SQLite or call the object itself, as if something happened meanwhile).
- * `unwrapBuckets` restores them.
- */
 export const wrapBucket = (stub: Ceremony, name: Bucket, hook: BucketHook) =>
   runInDurableObject(stub, (instance, state) => {
     const store = storeOf(instance);
@@ -109,7 +97,6 @@ export const wrapBucket = (stub: Ceremony, name: Bucket, hook: BucketHook) =>
     store.env = { ...store.env, [name]: wrapped };
   });
 
-/** Restores the object's real buckets. */
 export const unwrapBuckets = (stub: Ceremony) =>
   runInDurableObject(stub, (instance) => {
     const store = storeOf(instance);
@@ -118,7 +105,6 @@ export const unwrapBuckets = (stub: Ceremony) =>
     realEnv.delete(store);
   });
 
-/** Edits a queue state through the object's own SQLite (from inside a bucket hook). */
 export function editQueueSql(sql: SqlStorage, edit: (s: QueueState) => void): void {
   const row = sql.exec<{ json: string }>("SELECT json FROM queue_state").one();
   const s = JSON.parse(row.json) as QueueState;
@@ -126,14 +112,11 @@ export function editQueueSql(sql: SqlStorage, edit: (s: QueueState) => void): vo
   sql.exec("UPDATE queue_state SET json = ?", JSON.stringify(s));
 }
 
-/** Empties both buckets (they are shared by every object of a test file). */
 export async function clearBuckets(): Promise<void> {
   for (const bucket of [env.PRIVATE, env.PUBLIC]) {
     for (;;) {
-      // oxlint-disable-next-line no-await-in-loop -- a few listings
       const { objects } = await bucket.list();
       if (objects.length === 0) break;
-      // oxlint-disable-next-line no-await-in-loop -- a few deletes
       await bucket.delete(objects.map((o) => o.key));
     }
   }

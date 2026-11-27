@@ -37,24 +37,17 @@ const CLIENT = { name: "orbinum-ceremony-cli", version: "0.0.0", commit: "0e2e0e
 const tokenFor = (life: number) =>
   `${Buffer.from(JSON.stringify({ gid: ID, login: "user-501", exp: Date.now() + life })).toString("base64url")}.${"0".repeat(64)}`;
 const quiet = () => undefined;
-/** A refusal as the Worker answers it: core's code and its status. */
 const refuse = (res: Parameters<typeof json>[0], code: string) =>
   json(res, apiErrorStatus(code as never), { error: { code } });
 
-/** The verifier's verdicts, in order, one per upload (then `valid`). */
 type Outcome = "valid" | "rejected" | "infra" | "stale" | "ambiguous";
 
 interface Script {
   verdicts?: Outcome[];
-  /** The operator pauses as the first upload arrives, and resumes a moment later. */
   pauseAtUpload?: boolean;
-  /** The first upload lands but its answer is lost. */
   dropUploadAnswer?: boolean;
-  /** This identity's jobs of an earlier session (seq 1) for shield. */
   earlierSession?: boolean;
-  /** Another upload of this identity (its browser) is already in verification. */
   foreignUpload?: boolean;
-  /** Never grants the slot (keeps the identity waiting in line). */
   neverGrant?: boolean;
 }
 
@@ -73,7 +66,6 @@ afterEach(async () => {
   servers = [];
 });
 
-/** A coordinator holding one identity in line behind nobody, contributing to shield only. */
 async function coordinator(script: Script = {}) {
   const file = (key: string) => readFile(join(ceremony.dir, key));
   const verdicts = [...(script.verdicts ?? [])];
@@ -82,7 +74,6 @@ async function coordinator(script: Script = {}) {
     { type: "tick" },
     Date.now(),
   ).state;
-  // Only shield is left for this identity (the ceremony has no other circuit).
   state.identities[String(ID)] = {
     noShows: 0,
     cooldownUntil: 0,
@@ -92,7 +83,6 @@ async function coordinator(script: Script = {}) {
     held: false,
     accepted: ["unshield", "transfer"],
   };
-  // An earlier session took seq 1..3: this one's first job is attempt 1 again.
   if (script.earlierSession) state.nextSeq = 4;
   const jobs: Job[] = script.earlierSession
     ? [
@@ -130,7 +120,6 @@ async function coordinator(script: Script = {}) {
   };
   if (!script.neverGrant) apply({ type: "join", githubId: ID });
   else {
-    // A queued identity behind another that holds the slot.
     apply({ type: "join", githubId: 999 });
     apply({ type: "join", githubId: ID });
   }
@@ -152,7 +141,6 @@ async function coordinator(script: Script = {}) {
     "/artifacts/genesis/init.json": (_q, res) =>
       void file(CEREMONY_LAYOUT.init).then((b) => res.end(b)),
     "/artifacts/genesis/shield.genesis.zkey": (_q, res) => res.end(genesis),
-    // No contribution recorded yet: the genesis is the head.
     "/artifacts/transcript.json": (_q, res) =>
       json(res, 200, transcriptOf(ceremony.init.ceremony_id, ceremony.announcementSha256, [])),
     "/api/queue/me": (_q, res) => json(res, 200, slotView(state, ID)),
@@ -193,7 +181,6 @@ async function coordinator(script: Script = {}) {
           outcome: null,
           report: null,
         });
-        // The browser's upload settles a moment later.
         const seq = state.slot?.seq ?? 0;
         setTimeout(() => {
           apply({ type: "verified", seq, circuit: "shield", attempt: 1, outcome: "valid" });
@@ -229,7 +216,6 @@ async function coordinator(script: Script = {}) {
       if (job.status === "pending" && job.claim.client.name !== "browser") {
         const outcome = verdicts.shift() ?? "valid";
         if (outcome === "stale") {
-          // The verify deadline passed: the queue takes it as infra, the job goes stale.
           apply({
             type: "verified",
             seq: job.seq,
@@ -290,9 +276,7 @@ describe.skipIf(!PTAU_PATH)(
 
     it("waits out infra and stale (paused, then resumed) and is accepted", async () => {
       for (const first of ["infra", "stale"] as const) {
-        // oxlint-disable-next-line no-await-in-loop -- one script at a time
         const c = await coordinator({ verdicts: [first, "valid"] });
-        // oxlint-disable-next-line no-await-in-loop -- one script at a time
         const s = await runContribute(c.options, quiet);
         expect([first, s.contributions.length]).toEqual([first, 1]);
       }

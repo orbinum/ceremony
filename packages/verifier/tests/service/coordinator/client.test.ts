@@ -1,4 +1,9 @@
-/** The coordinator client (COORDINATOR §5), against a stubbed `fetch` and fake timers. */
+/**
+ * The coordinator client against a stubbed `fetch` and fake timers: MACs bound to the pinned
+ * ceremony, no redirects (`redirect: "error"` makes fetch reject a 302), capped error bodies, and
+ * jittered backoff, checked at its lower bound. A coordinator down for longer than `MAX_ATTEMPTS`
+ * tries must still get the result once the job has a deadline.
+ */
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,19 +31,16 @@ const ok =
     Promise.resolve(new Response(body, { status, headers }));
 const fail = () => () =>
   Promise.reject(new TypeError("fetch failed", { cause: new Error("ECONNREFUSED") }));
-/** Pending until the request's signal aborts, then rejected with its reason. */
 const hang = () => (init: RequestInit) =>
   new Promise<Response>((_, reject) =>
     init.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
   );
 
-/** A 302: `redirect: "error"` makes fetch reject it; anything else would follow it. */
 const redirect = (init: RequestInit) =>
   init.redirect === "error"
     ? Promise.reject(new TypeError("fetch failed", { cause: new Error("unexpected redirect") }))
     : Promise.resolve(Response.redirect("https://elsewhere.example/", 302));
 
-/** Whether `init` carries a MAC that verifies for this exact request of `ceremonyId`. */
 const signedFor = (ceremonyId: string, method: string, url: URL, init: RequestInit) => {
   const headers = init.headers as Record<string, string>;
   return verifyRequest(
@@ -66,7 +68,6 @@ describe("coordinator client", () => {
         return next(init);
       }),
     );
-    // Backoff at its lower bound: 250, 500, 1000, 2000 ms.
     vi.spyOn(Math, "random").mockReturnValue(0);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   });
@@ -87,7 +88,6 @@ describe("coordinator client", () => {
       expect(init).toMatchObject({ method: "GET", redirect: "error" });
       expect(init.headers).toMatchObject({ "accept-encoding": "identity" });
       expect(signedFor(CEREMONY_ID, "GET", url, init)).toBe(true);
-      // Bound to the pinned ceremony: the same request does not verify for another one.
       expect(signedFor("another-ceremony", "GET", url, init)).toBe(false);
       expect(init.signal).toBeInstanceOf(AbortSignal);
     });
@@ -100,7 +100,6 @@ describe("coordinator client", () => {
     });
 
     it("refuses another status reading only the start of its body, not retried when < 500", async () => {
-      // A 1 MiB error body: a capped read stops early and cancels the rest.
       let cancelled = false;
       let chunks = 0;
       const body = new ReadableStream<Uint8Array>({
@@ -199,7 +198,6 @@ describe("coordinator client", () => {
     });
 
     it("retries 5xx and network errors until the job's deadline, not a fixed count", async () => {
-      // A coordinator down for longer than MAX_ATTEMPTS tries: the result must still get through.
       const down = 3 * MAX_ATTEMPTS;
       answers.push(
         ...Array.from({ length: down }, (_, i) => (i % 2 ? ok("", {}, 503) : fail())),
@@ -215,7 +213,6 @@ describe("coordinator client", () => {
     it("waits at most 10 s between tries", async () => {
       answers.push(...Array.from({ length: 8 }, fail), ok("{}"));
       const done = postReport(EP, REPORT, new AbortController().signal);
-      // 250 + 500 + 1000 + 2000 + 4000 + 5000 + 5000 + 5000 at the lower jitter bound.
       await vi.advanceTimersByTimeAsync(22_749);
       expect(calls).toHaveLength(8);
       await vi.advanceTimersByTimeAsync(1);
@@ -228,10 +225,8 @@ describe("coordinator client", () => {
       const done = postReport(EP, REPORT);
       const at: number[] = [];
       for (const step of [250, 500, 1000, 2000]) {
-        // oxlint-disable-next-line no-await-in-loop -- steps the fake clock
         await vi.advanceTimersByTimeAsync(step - 1);
         at.push(calls.length);
-        // oxlint-disable-next-line no-await-in-loop -- steps the fake clock
         await vi.advanceTimersByTimeAsync(1);
       }
       await done;

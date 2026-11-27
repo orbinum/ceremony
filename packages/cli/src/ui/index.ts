@@ -1,2 +1,3 @@
-// cli/ui: what the commands print.
-export { type Check, type CheckStatus, Report } from "./report";
+/** What the commands print: the verification report. */
+export { Report } from "./report";
+export type { Check, CheckStatus } from "./types";

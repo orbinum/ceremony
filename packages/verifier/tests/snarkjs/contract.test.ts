@@ -1,6 +1,7 @@
 /**
- * A7 regression: the contract of snarkjs 0.7.6 that the verifier and the public runbook rely on.
- * Re-run on any snarkjs upgrade.
+ * Regression of the contract of snarkjs 0.7.6 that the verifier and the public runbook rely on.
+ * Re-run on any snarkjs upgrade. The in-process calls cache a curve whose worker threads are
+ * released at the end, or they would keep the run alive.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -9,8 +10,8 @@ import { join } from "node:path";
 import { readSections } from "@orbinum-ceremony/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { exportVerificationKey, IsolationError, verifyFromInit, verifyFromR1cs } from "../../src";
-import * as inProcess from "../../src/snarkjs/snarkjs";
-import { releaseSnarkjs } from "../../src/snarkjs/snarkjs";
+import * as inProcess from "../../src/snarkjs/in-process";
+import { releaseSnarkjs } from "../../src/snarkjs/in-process";
 import { PTAU_PATH } from "../support";
 
 const FX = join(import.meta.dirname, "..", "fixtures");
@@ -24,7 +25,7 @@ const cli = (...args: string[]) => {
   return { status: res.status, ok: /ZKey Ok!/.test(res.stdout + res.stderr) };
 };
 
-describe.skipIf(!PTAU_PATH)("snarkjs 0.7.6 verification contract (A7)", { timeout: 60_000 }, () => {
+describe.skipIf(!PTAU_PATH)("snarkjs 0.7.6 verification contract", { timeout: 60_000 }, () => {
   const ptau = PTAU_PATH as string;
   let corrupted: string;
   let truncated: string;
@@ -65,7 +66,6 @@ describe.skipIf(!PTAU_PATH)("snarkjs 0.7.6 verification contract (A7)", { timeou
   });
 });
 
-// The in-process calls below cache a curve whose worker threads would keep the run alive.
 afterAll(releaseSnarkjs);
 
 describe("snarkjs in a child process", { timeout: 60_000 }, () => {

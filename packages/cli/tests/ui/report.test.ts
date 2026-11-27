@@ -1,4 +1,4 @@
-/** The verification report: statuses, counts, terminal safety and the summary (SPEC §9). */
+/** The verification report: statuses, counts, terminal safety and the summary. */
 import { describe, expect, it } from "vitest";
 import { Report } from "../../src/ui";
 

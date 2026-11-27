@@ -1,6 +1,8 @@
 /**
- * Isolated tasks (SPEC §7, KL-33): one child per task, bounded in time and memory, killed on every
- * exit path; a crash's stderr is kept apart from the message that may leave the host.
+ * Isolated tasks: one child per task, bounded in time and memory, killed on every exit path; a
+ * crash's stderr is kept apart from the message that may leave the host. A non-string error code
+ * is dropped by the child, not forwarded. Time bounds leave room for a child to start and write
+ * its pid under load; macOS adds __CF_USER_TEXT_ENCODING to every process itself.
  */
 import { execFile, fork } from "node:child_process";
 import { mkdtemp, readFile } from "node:fs/promises";
@@ -39,13 +41,10 @@ const alive = (pid: number) => {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** The pid a worker wrote to `pidFile`, once it has. */
 async function pidIn(pidFile: string): Promise<number> {
   for (let i = 0; i < 200; i++) {
-    // oxlint-disable-next-line no-await-in-loop -- polls until the child has started
     const pid = Number(await readFile(pidFile, "utf8").catch(() => ""));
     if (pid > 0) return pid;
-    // oxlint-disable-next-line no-await-in-loop -- polls until the child has started
     await sleep(50);
   }
   throw new Error("the worker never wrote its pid");
@@ -53,7 +52,6 @@ async function pidIn(pidFile: string): Promise<number> {
 
 const pidFile = async () => join(await mkdtemp(join(tmpdir(), "orbinum-isolate-")), "pid");
 
-/** Resolves once `pid` is gone; fails after 5 s. */
 const gone = (pid: number) => until(5_000, `process ${pid} gone`, () => !alive(pid));
 
 const TSX = join(import.meta.dirname, "..", "..", "..", "..", "node_modules", ".bin", "tsx");
@@ -85,7 +83,6 @@ describe("isolated tasks", { timeout: 30_000 }, () => {
 
   it("kills a task that outlives its time bound, and the process is gone", async () => {
     const file = await pidFile();
-    // 5 s: room for the child to start and write its pid under load before the bound hits.
     const error = await failure(
       runIsolated(
         worker("hang"),
@@ -182,7 +179,6 @@ describe("isolated tasks", { timeout: 30_000 }, () => {
       message: "EMFILE: too many open files, open '~/x.zkey'",
     });
 
-    // A non-string code is dropped by the child, not forwarded.
     const numeric = await failure(
       runIsolated(worker("fails"), { message: "odd", code: 7 }, LIMITS_10S),
     );
@@ -219,7 +215,6 @@ describe("isolated tasks", { timeout: 30_000 }, () => {
     try {
       const keys = await runIsolated<unknown, string[]>(worker("env"), {}, LIMITS_10S);
       expect(keys).not.toContain("VERIFIER_HMAC_KEY");
-      // macOS adds __CF_USER_TEXT_ENCODING to every process itself.
       const inherited = ["NODE_ENV", "PATH", "TMPDIR"].filter((k) => process.env[k] !== undefined);
       expect(keys.filter((k) => !k.startsWith("__CF_"))).toEqual(inherited);
     } finally {

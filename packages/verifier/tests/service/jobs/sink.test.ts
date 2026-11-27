@@ -1,6 +1,6 @@
 /**
- * The server with the job queue as its sink (COORDINATOR §5): jobs run in arrival order, each
- * attempt once, and `/healthz` reports failed pins or a wedged job.
+ * The server with the job queue as its sink: jobs run in arrival order, each attempt once, and
+ * `/healthz` reports failed pins or a wedged job.
  */
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -73,7 +73,6 @@ describe("server and queue on a host whose pins fail", () => {
 
   it("reports each job as infra in arrival order, runs them all, and never fetches", async () => {
     for (const attempt of [11, 12, 13]) {
-      // oxlint-disable-next-line no-await-in-loop -- dispatch order is the point
       expect((await post(url, JSON.stringify(jobSpec(attempt, genesis)))).status).toBe(202);
     }
     const reports = await coordinator.reportsAt(3);
@@ -89,7 +88,6 @@ describe("server and queue on a host whose pins fail", () => {
     });
     expect(coordinator.fetches()).toEqual([]);
     await until(5_000, "queue drained", () => queue.pending() === 0);
-    // The pins failed: the service says so.
     expect(await health(url)).toEqual([503, { ok: false }]);
   });
 
@@ -97,9 +95,7 @@ describe("server and queue on a host whose pins fail", () => {
     const before = coordinator.reports.length;
     const body = JSON.stringify(jobSpec(21, genesis));
     for (let i = 0; i < 3; i++) {
-      // oxlint-disable-next-line no-await-in-loop -- the same dispatch, repeated
       const response = await post(url, body);
-      // oxlint-disable-next-line no-await-in-loop -- the same dispatch, repeated
       expect([response.status, await response.json()]).toEqual([202, { accepted: "1/shield/21" }]);
     }
     expect((await post(url, JSON.stringify(jobSpec(22, genesis)))).status).toBe(202);

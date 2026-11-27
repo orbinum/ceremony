@@ -1,7 +1,8 @@
 /**
  * Cloudflare Turnstile's widget, its script loaded on first use (explicit rendering). Each solve
  * hands its token to `onToken`, `null` once it expires or fails. A token is spent by one request:
- * remount the widget (a new `key`) for another.
+ * remount the widget (a new `key`) for another. The script loads once per page; a failed load is
+ * tried again by the next widget.
  */
 import { useEffect, useRef } from "react";
 import { showsLight } from "./theme";
@@ -32,7 +33,6 @@ const SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=exp
 
 let loading: Promise<TurnstileApi> | undefined;
 
-/** The script, once per page; a failed load is tried again by the next widget. */
 function loadTurnstile(): Promise<TurnstileApi> {
   loading ??= new Promise<TurnstileApi>((resolve, reject) => {
     const script = document.createElement("script");

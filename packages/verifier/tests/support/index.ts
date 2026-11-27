@@ -1,4 +1,4 @@
-// verifier/tests/support: fixtures, a stand-in coordinator, bounded waits, the service process.
+/** Test support: fixtures, a stand-in coordinator, bounded waits, the service process. */
 export { until, within } from "./bounded";
 export {
   CEREMONY_ID,

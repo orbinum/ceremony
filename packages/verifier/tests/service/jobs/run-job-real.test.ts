@@ -1,6 +1,6 @@
 /**
- * One job end to end with the real ptau and snarkjs (COORDINATOR §5, SPEC §2.5): an honest
- * contribution accepted, a bound hit as `infra`, and inputs staged again after a temp-dir cleaner.
+ * One job end to end with the real ptau and snarkjs: an honest contribution accepted, a bound hit
+ * as `infra`, and inputs staged again after a temp-dir cleaner.
  */
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -26,7 +26,6 @@ describe.skipIf(!PTAU_PATH)("run job with the real ptau", { timeout: 300_000 }, 
   let honest = "";
   let honestHash = "";
 
-  /** Serves `zkey` as the next attempt and runs it; returns its report. */
   async function verify(zkey: string, cfg = config) {
     attempt += 1;
     const g = init.circuits[0] as InitRecord["circuits"][number];

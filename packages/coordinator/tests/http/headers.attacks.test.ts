@@ -1,6 +1,6 @@
 /**
- * Attacks response headers and error answers (COORDINATOR §3): security headers on every answer,
- * no caching of identified reads, no internal message or stack in an error.
+ * Attacks response headers and error answers: security headers on every answer, no caching of
+ * identified reads, no internal message or stack in an error.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appWith, call, json } from "../support";
@@ -12,7 +12,6 @@ const SECURITY = {
   "referrer-policy": /^no-referrer$/,
   "cross-origin-resource-policy": /^same-origin$/,
 };
-/** The security headers an answer lacks or sets wrongly. */
 const missingSecurityHeaders = (r: Response) =>
   Object.entries(SECURITY)
     .filter(([name, re]) => !re.test(r.headers.get(name) ?? ""))
@@ -50,7 +49,6 @@ describe("security headers", () => {
 describe("caching of identified answers", () => {
   it("marks identified reads no-store", async () => {
     for (const path of ["/api/link", "/api/queue/me", "/api/session/result/shield"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one path at a time
       const r = await call("GET", path, 9302);
       expect([path, r.headers.get("cache-control")]).toEqual([path, "no-store"]);
     }

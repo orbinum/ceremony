@@ -1,6 +1,4 @@
-/**
- * The audited circuits release in the verifier's clone: tag, commit, manifest, export (SPEC §2.1).
- */
+/** The audited circuits release in the verifier's clone: tag, commit, manifest, export. */
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";

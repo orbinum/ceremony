@@ -1,4 +1,6 @@
-/** Hostile values for the verifier service's environment (COORDINATOR §5): each one refused, the key never echoed. */
+/**
+ * Hostile values for the verifier service's environment: each one refused, the key never echoed.
+ */
 import { VERIFIER_TIMEOUT_MS } from "@orbinum-ceremony/core";
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../../../src/service";

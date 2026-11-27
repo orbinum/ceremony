@@ -1,13 +1,15 @@
-/** A button as in the Hub: primary (filled with the accent) or secondary (outlined); square. */
+/**
+ * A button as in the Hub: primary (filled with the accent) or secondary (outlined); square. `wide`:
+ * full width on a phone (a step's main action), its own width from sm up; `compact`: the 32 px
+ * height of the header's controls.
+ */
 import type { ReactNode } from "react";
 
 export function Button(props: {
   onClick: () => void;
   disabled?: boolean;
   variant?: "primary" | "secondary";
-  /** Full width on a phone (a step's main action), its own width from sm up. */
   wide?: boolean;
-  /** `compact`: the 32 px height of the header's controls. */
   size?: "regular" | "compact";
   children: ReactNode;
 }) {

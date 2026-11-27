@@ -1,6 +1,8 @@
 /**
- * Hostile uploads against the real pipeline (SPEC §2.5): real snarkjs and the pinned ptau, on top
- * of an accepted contribution #1. The pre-check refusals are hermetic in `verify-upload.test.ts`.
+ * Hostile uploads against the real pipeline: real snarkjs and the pinned ptau, on top of an
+ * accepted contribution #1, the head every attack builds on. The pre-check refusals are hermetic in
+ * `verify-upload.test.ts`. A non-canonical δ2 limb, accepted, would make every honest contribution
+ * on that head fail zkvi.
  */
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -29,7 +31,6 @@ describe.skipIf(!PTAU_PATH)("attacks on the upload verifier", { timeout: 180_000
     const genesis = init.circuits[0] as InitRecord["circuits"][number];
     genesisZkey = join(dir, "genesis", "shield.genesis.zkey");
     work = await mkdtemp(join(tmpdir(), "orbinum-upload-attacks-"));
-    // Contribution #1, accepted against the genesis: the head every attack builds on.
     headZkey = join(work, "1.zkey");
     const h1 = await contribute(genesisZkey, headZkey, "local-1", "entropy-1");
     const first = await verifyUpload(
@@ -49,7 +50,6 @@ describe.skipIf(!PTAU_PATH)("attacks on the upload verifier", { timeout: 180_000
     };
   }, 180_000);
 
-  /** An honest next contribution, written to `name`. */
   async function honest(name: string) {
     const path = join(work, name);
     const hash = await contribute(headZkey, path, "honest-2", "entropy");
@@ -74,7 +74,6 @@ describe.skipIf(!PTAU_PATH)("attacks on the upload verifier", { timeout: 180_000
   it.each([0, 1, 2, 3] as const)(
     "rejects δ2 limb %i spelled as limb + q as malformed: snarkjs' pairing would accept it",
     async (limb) => {
-      // Accepted, limbs 1–3 would make every honest contribution on this head fail zkvi.
       const { bytes, hash } = await honest(`delta2-${limb}-src.zkey`);
       const mutated = delta2LimbPlusQ(bytes, limb);
       const path = join(work, `delta2-${limb}.zkey`);

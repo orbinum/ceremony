@@ -1,44 +1,29 @@
-/** One upload through SPEC §2.5: private copy, core's pre-checks, then snarkjs, bounded. */
+/**
+ * One upload through the verification pipeline: one private copy of the upload, core's pure
+ * pre-checks on its bytes (including the genesis' header and section sizes), then `zkvi` against
+ * the pinned genesis on that same copy. `zkvi` is equivalent to verifying from r1cs because the
+ * genesis was built and verified from r1cs + ptau at init and is reproducible. snarkjs runs in a
+ * child process, its time bound grown by the upload's MPC entries (every earlier one and its own)
+ * and lowered by `limits` (e.g. to what is left of the service's deadline).
+ *
+ * Our own inputs are re-checked right before snarkjs reopens them, and with them our staged copy:
+ * losing one (a tmp cleaner, a permission change) is `infra`, never the contributor's fault. A
+ * snarkjs throw is `infra` when it is a resource error or our inputs went missing meanwhile, the
+ * file's otherwise. A dead child's stderr goes to the log (kept on the host), never the detail.
+ */
 import {
   type CurrentHead,
   genesisLayoutOf,
   precheckUpload,
   PTAU,
   type UploadClaim,
-  type VerificationResult,
 } from "@orbinum-ceremony/core";
 import { assertRegularFile, createStage, readBytes } from "../files";
 import { IsolationError } from "../isolate";
 import { type LimitsOverride, verifyFromInit, verifyFromR1cs } from "../snarkjs";
 import { errorMessage } from "../text";
-import { classifyVerifierError } from "./classify";
-
-/** The upload and the pinned inputs it is verified against. */
-export interface UploadFiles {
-  zkey: string;
-  /**
-   * The upload is a file this host wrote itself (the service's download): failing to copy it is
-   * then the host's fault (`infra`), never the contributor's.
-   */
-  zkeyIsOurs?: boolean;
-  /**
-   * Our own inputs, pinned by the caller (SPEC §2.5). The pipeline only checks they are present
-   * and readable: missing or unreadable is the host's fault (`infra`), never the contributor's.
-   */
-  genesis: string;
-  ptau: string;
-  /** When set, also runs the full verify from r1cs and requires the same verdict (cross-check). */
-  r1cs?: string;
-}
-
-/** The verdict, the accepted entry's fields, the snarkjs log and timings. */
-export interface UploadVerification {
-  verdict: VerificationResult;
-  /** Fields the transcript records for an accepted upload (SPEC §6.3). */
-  accepted?: { deltaAfter: string; name: string };
-  log: string;
-  ms: { precheck: number; verify: number; verifyFromR1cs?: number };
-}
+import { classifyVerifierError } from "./classify-verifier-error";
+import type { UploadFiles, UploadVerification } from "./types";
 
 type Ms = UploadVerification["ms"];
 
@@ -50,7 +35,6 @@ const timed = async <T>(fn: () => Promise<T>): Promise<[T, number]> => {
 
 const NO_TIME: Ms = { precheck: 0, verify: 0 };
 
-/** `infra`; a dead child's stderr goes to the log (kept on the host), never into the detail. */
 const infra = (error: unknown, ms: Ms = NO_TIME, log = ""): UploadVerification => ({
   verdict: { result: "infra", detail: errorMessage(error) },
   log: error instanceof IsolationError && error.stderr ? error.stderr : log,
@@ -63,10 +47,6 @@ const malformed = (detail: string, ms: Ms = NO_TIME): UploadVerification => ({
   ms,
 });
 
-/**
- * A snarkjs throw: ours when it is a resource error or our own inputs went missing meanwhile
- * (never blamed on the upload), the file's otherwise.
- */
 async function snarkjsFailure(
   error: unknown,
   what: string,
@@ -83,11 +63,6 @@ async function snarkjsFailure(
   return malformed(`${what}: ${errorMessage(error)}`, ms);
 }
 
-/**
- * Our own inputs are still there and readable, right before snarkjs reopens them, and so is our
- * staged copy of the upload once it exists: losing it (a tmp cleaner, a permission change) is the
- * host's fault, never the contributor's.
- */
 async function assertOwnInputs(files: UploadFiles, copy?: string): Promise<void> {
   if (copy !== undefined) await assertRegularFile(copy);
   await assertRegularFile(files.genesis);
@@ -95,13 +70,6 @@ async function assertOwnInputs(files: UploadFiles, copy?: string): Promise<void>
   if (files.r1cs !== undefined) await assertRegularFile(files.r1cs);
 }
 
-/**
- * SPEC §2.5: one private copy of the upload, pure pre-checks from `core` on its bytes (including
- * the genesis' header and section sizes), then `zkvi` against the pinned genesis on that same
- * copy. `zkvi` is equivalent to verifying from r1cs because the genesis was built and verified
- * from r1cs + ptau at init and is reproducible (A1). snarkjs runs in a child process; `limits`
- * lowers its class bounds (e.g. to what is left of the service's deadline).
- */
 export async function verifyUpload(
   files: UploadFiles,
   claim: UploadClaim,
@@ -112,7 +80,6 @@ export async function verifyUpload(
   let genesis;
   try {
     stage = await createStage("orbinum-upload-");
-    // Our own pinned file: unreadable or unparseable is the host's fault, never the contributor's.
     genesis = genesisLayoutOf(await readBytes(files.genesis));
   } catch (error) {
     await stage?.cleanup();
@@ -146,7 +113,6 @@ export async function verifyUpload(
     let check;
     try {
       [check, ms.verify] = await timed(() =>
-        // The upload's entries: every earlier one and its own (`pre.index`).
         verifyFromInit(files.genesis, files.ptau, copy, limits, pre.index),
       );
     } catch (error) {

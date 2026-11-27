@@ -2,7 +2,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-/** A local HTTP server for one test: routes by path, records every request it received. */
 export async function localServer(
   routes: Record<string, (req: IncomingMessage, res: ServerResponse, body: Buffer) => void>,
 ) {
@@ -33,11 +32,9 @@ export async function localServer(
   };
 }
 
-/** A JSON answer. */
 export const json = (res: ServerResponse, status: number, body: unknown) =>
   res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
 
-/** Serves `dir` read-only, as the public bucket would. */
 export const serveDir = (dir: string) =>
   localServer({
     "*": (req, res) => {

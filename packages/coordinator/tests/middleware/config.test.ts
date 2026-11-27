@@ -1,6 +1,6 @@
 /**
- * The deployment's configuration (COORDINATOR §3): a weak key, a plaintext or unparsable verifier
- * URL, an unbounded cache lifetime or a malformed ceremony id answers nothing but `internal`.
+ * The deployment's configuration: a weak key, a plaintext or unparsable verifier URL, an unbounded
+ * cache lifetime or a malformed ceremony id answers nothing but `internal`.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appWith, json, refusal } from "../support";
@@ -22,9 +22,7 @@ describe("configuration checked before any request", () => {
       { PUBLIC_CACHE_SECONDS: "-1" },
       { CEREMONY_ID: "Not_An_Id" },
     ] as Partial<Env>[]) {
-      // oxlint-disable-next-line no-await-in-loop -- one setting at a time
       const r = await status(patch);
-      // oxlint-disable-next-line no-await-in-loop -- one setting at a time
       expect([r.status, await json(r)]).toEqual([
         500,
         { error: { code: "internal", message: "internal error" } },
@@ -37,7 +35,6 @@ describe("configuration checked before any request", () => {
 
   it("serves with https or a loopback verifier, and with no verifier at all", async () => {
     for (const VERIFIER_URL of ["", "https://verifier.example", "http://127.0.0.1:8788"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one setting at a time
       expect(await refusal(await status({ VERIFIER_URL }))).toEqual([503, "not-configured"]);
     }
   });

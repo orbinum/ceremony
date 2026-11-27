@@ -11,15 +11,12 @@ import { multiplierCeremony } from "./ceremony";
 import { FakeCoordinator, HMAC_KEY, jobSpec } from "./coordinator";
 import { FAKE_PTAU_TEXT } from "./fake-ptau";
 
-/** The harness of one suite. */
 export interface JobHarness {
   coordinator: FakeCoordinator;
   dir: string;
   config: ServiceConfig;
   inputs: Inputs;
-  /** The staged genesis' pin and cs hash, as a job carries them. */
   genesis: { sha256: string; csHash: string };
-  /** Serves `zkey` (none: a stale job) as the next attempt and runs its job on `inputs`. */
   run(
     zkey: string | undefined,
     over?: Parameters<typeof jobSpec>[2],

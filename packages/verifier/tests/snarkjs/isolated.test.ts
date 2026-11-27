@@ -1,6 +1,7 @@
 /**
- * snarkjs operations in a child process (KL-33), hermetic (no ptau): their answers, the shape
- * every answer must have, and the bounds a call runs under.
+ * snarkjs operations in a child process, hermetic (no ptau): their answers, the shape every answer
+ * must have, and the bounds a call runs under (a tighter override, such as what is left of a
+ * deadline, still wins).
  */
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,7 +10,7 @@ import { readMpcParams } from "@orbinum-ceremony/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { IsolationError, LIMITS } from "../../src/isolate";
 import { applyBeacon, contribute, exportVerificationKey } from "../../src/snarkjs";
-import { limitsFor, PER_ENTRY_MS, REPLY_CHECKS } from "../../src/snarkjs/isolated";
+import { limitsFor, PER_ENTRY_MS, REPLY_CHECKS } from "../../src/snarkjs/worker";
 
 const FX = join(import.meta.dirname, "..", "fixtures");
 const GENESIS = join(FX, "multiplier_0.zkey");
@@ -116,7 +117,7 @@ describe("bounds of a call", () => {
     });
   });
 
-  it("grow a verification's time with the MPC entries it re-walks, and nothing else's (KL-47)", () => {
+  it("grow a verification's time with the MPC entries it re-walks, and nothing else's", () => {
     expect(limitsFor("verifyFromInit", undefined, 4_500)).toEqual({
       ...LIMITS.medium,
       timeoutMs: LIMITS.medium.timeoutMs + 4_500 * PER_ENTRY_MS,
@@ -126,7 +127,6 @@ describe("bounds of a call", () => {
     );
     expect(limitsFor("exportVerificationKey", undefined, 4_500)).toEqual(LIMITS.light);
     expect(limitsFor("verifyFromInit", undefined, -5)).toEqual(LIMITS.medium);
-    // A tighter override (what is left of a deadline) still wins.
     expect(limitsFor("verifyFromInit", { timeoutMs: 5_000 }, 4_500).timeoutMs).toBe(5_000);
   });
 

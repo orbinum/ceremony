@@ -1,4 +1,7 @@
-/** The job queue (COORDINATOR §5): serial, deduped (bounded), failures contained, stop bounded. */
+/**
+ * The job queue: serial, deduped (bounded: drained in batches, so the dedupe window rather than the
+ * pending bound is exercised), failures contained, stop bounded.
+ */
 import type { JobSpec } from "@orbinum-ceremony/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueue, MAX_PENDING, SEEN_KEYS } from "../../../src/service";
@@ -7,7 +10,6 @@ import { jobSpec } from "../../support";
 const spec = (attempt: number) =>
   jobSpec(attempt, { sha256: "11".repeat(32), csHash: "00".repeat(64) });
 
-/** Resolvers for jobs that run until the test releases them. */
 function gate() {
   const order: number[] = [];
   const release = new Map<number, () => void>();
@@ -60,16 +62,13 @@ describe("job queue", () => {
     expect(queue.submit(spec(1))).toBe("queued");
     expect(queue.submit(spec(1))).toBe("duplicate");
     for (let a = 2; a <= SEEN_KEYS + 1; a++) {
-      // Drained in batches, so the window, not the pending bound, is what is exercised.
       if (queue.pending() >= MAX_PENDING - 1) {
-        // oxlint-disable-next-line no-await-in-loop -- keep the queue short
         await vi.waitFor(() => queue.pending() === 0 || Promise.reject(new Error("busy")), {
           interval: 1,
         });
       }
       queue.submit(spec(a));
     }
-    // Attempt 1 has left the window; the most recent one has not.
     expect(queue.submit(spec(SEEN_KEYS + 1))).toBe("duplicate");
     expect(queue.submit(spec(1))).toBe("queued");
     await vi.waitFor(() => expect(queue.pending()).toBe(0));

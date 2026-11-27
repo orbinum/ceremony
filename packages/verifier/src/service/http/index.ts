@@ -1,2 +1,3 @@
-// verifier/service/http: the authenticated, bounded HTTP server jobs arrive through.
-export { createVerifierServer, type JobSink, type Submission } from "./server";
+/** The authenticated, bounded HTTP server jobs arrive through. */
+export { createVerifierServer } from "./create-verifier-server";
+export type { JobSink, Submission } from "./types";

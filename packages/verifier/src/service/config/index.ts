@@ -1,2 +1,3 @@
-// verifier/service/config: the service's environment, validated at startup.
-export { loadConfig, type ServiceConfig } from "./config";
+/** The service's environment, validated at startup. */
+export { loadConfig } from "./load-config";
+export type { ServiceConfig } from "./types";

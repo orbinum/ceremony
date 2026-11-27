@@ -1,5 +1,6 @@
 /**
- * Attacks on drand round selection, the relay quorum and the beacon seal (SPEC §2.6, §5, KL-42).
+ * Attacks on drand round selection, the relay quorum and the beacon seal. One relay echoing another
+ * counts twice: the quorum is for availability only, the value is fixed by the BLS signature.
  */
 import { existsSync } from "node:fs";
 import { chmod, readFile, rm, writeFile } from "node:fs/promises";
@@ -90,8 +91,8 @@ describe("drand round verification and relay quorum", () => {
 
   it("needs two relays agreeing on a valid round; hostile answers neither change nor block it", () => {
     const hostile = [
-      { ...ROUND_1001 }, // another valid round
-      { ...ROUND_1000, round: "1000" }, // wrong type
+      { ...ROUND_1001 },
+      { ...ROUND_1000, round: "1000" },
       { ...ROUND_1000, signature: flip(ROUND_1000.signature) },
       "x".repeat(100),
       null,
@@ -102,7 +103,6 @@ describe("drand round verification and relay quorum", () => {
       expect(r.ok && r.value.signature).toBe(ROUND_1000.signature);
       expect(relayQuorum(1000, relays([ROUND_1000, bad, bad, bad])).ok).toBe(false);
     }
-    // Upper-case hex from a relay is the same value.
     const upper = {
       ...ROUND_1000,
       signature: ROUND_1000.signature.toUpperCase(),
@@ -113,8 +113,6 @@ describe("drand round verification and relay quorum", () => {
   });
 
   it("counts relays by the name asked, not by an independent source", () => {
-    // One relay echoing another counts twice: the quorum is for availability only, the value is
-    // fixed by the BLS signature.
     const r = relayQuorum(1000, [
       { relay: DRAND.relays[0] as string, body: ROUND_1000 },
       { relay: DRAND.relays[1] as string, body: structuredClone(ROUND_1000) },
@@ -155,7 +153,6 @@ describe.skipIf(!PTAU_PATH)(
       );
       const before = await readFile(layout(c.dir).transcript, "utf8");
 
-      // 1. No vk packer on testnet: refused before sealing; drand never asked.
       const noPacker = await rejection(
         runFinalize({ dir: c.dir, ptau: PTAU_PATH as string }, CLOCK.finalize),
       );
@@ -163,7 +160,6 @@ describe.skipIf(!PTAU_PATH)(
       expect(calls).toEqual([]);
       expect(await readFile(layout(c.dir).transcript, "utf8")).toBe(before);
 
-      // 2. Before the round is emitted: refused, drand never asked.
       const packer = join(c.dir, "packer.sh");
       await writeFile(packer, "#!/bin/sh\nexit 1\n");
       await chmod(packer, 0o755);
@@ -173,7 +169,6 @@ describe.skipIf(!PTAU_PATH)(
       expect(early.message).toMatch(/not finalizable|emitted at/);
       expect(calls).toEqual([]);
 
-      // 3. Seals, then fails applying the beacon to the fake key: sealed, final/ untouched.
       await expect(
         runFinalize({ dir: c.dir, ptau: PTAU_PATH as string, vkPacker: packer }, CLOCK.finalize),
       ).rejects.toThrow(/Invalid File format/);
@@ -182,7 +177,6 @@ describe.skipIf(!PTAU_PATH)(
       expect(sealed.records.at(-1)).toMatchObject({ type: "beacon", round: 1000 });
       expect(existsSync(layout(c.dir).final)).toBe(false);
 
-      // 4. Relays now lie (another valid round): the re-run reuses the sealed value, asks nobody.
       answer = { ...ROUND_1001, round: 1000 };
       calls.length = 0;
       await expect(
@@ -193,7 +187,6 @@ describe.skipIf(!PTAU_PATH)(
       expect(again.records.filter((r) => r.type === "beacon")).toHaveLength(1);
       expect(again.records.at(-1)).toMatchObject({ randomness: ROUND_1000.randomness });
 
-      // 5. A sealed beacon swapped for another valid round (chain recomputed) is refused, no fetch.
       await rewriteHistory(c.dir, (records) =>
         records.map((r) => (r.type === "beacon" ? { ...r, ...ROUND_1001 } : r)),
       );

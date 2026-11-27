@@ -1,7 +1,13 @@
 /**
- * One dispatched job (COORDINATOR §5): pins → object → SPEC §2.5 pipeline → attempt record →
- * report, within one deadline. Every failure of ours ends as an `infra` report; a 404 on the object
- * (a stale job) ends without one.
+ * One dispatched job, to its report, within one deadline; never throws: pins → object → upload
+ * pipeline → attempt record → report. Every failure of ours ends as an `infra` report; a 404 on
+ * the object (a stale job) ends without one. The deadline runs from when the job was dispatched
+ * (`receivedAt`), as the coordinator's does from the upload: a job that waited out its time behind
+ * another is skipped, its turn long judged by the coordinator. The download stops early enough to
+ * leave the report its time to reach the coordinator. The genesis path is read after the pin
+ * check, since staging again moves the copies, and the upload is our own download, so failing to
+ * copy it is never the contributor's fault. Operator paths are redacted from text that leaves the
+ * host, longest first.
  */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,26 +18,17 @@ import {
   REPORT_RESERVE_MS,
   reportOf,
   type VerificationResult,
-  VERIFY_DEADLINE_MS,
   type VerifierReport,
 } from "@orbinum-ceremony/core";
 import { verifyUpload } from "../../pipeline";
 import { redact } from "../../text";
 import type { ServiceConfig } from "../config";
 import { fetchObject, postReport } from "../coordinator";
-import { ensurePinned, type Inputs } from "../inputs";
+import { ensurePinned } from "../inputs";
+import { JOB_DEADLINE_MS } from "./constants";
 import { appendReportOutcome, writeRecord } from "./records";
+import type { JobContext } from "./types";
 
-/** A job's whole run, report included: the coordinator stops waiting after this. */
-export const JOB_DEADLINE_MS = VERIFY_DEADLINE_MS;
-
-/** What a job runs against. */
-interface JobContext {
-  config: ServiceConfig;
-  inputs: Inputs;
-}
-
-/** The operator's paths in text that leaves the host, longest first. */
 const privatePaths = (config: ServiceConfig) =>
   (
     [
@@ -45,11 +42,6 @@ const tag = (spec: JobSpec) => `job ${spec.job.seq}/${spec.job.circuit}/${spec.j
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/**
- * Runs one job to its report; never throws. Its deadline runs from when it was dispatched
- * (`receivedAt`), as the coordinator's does from the upload: a job that waited out its time
- * behind another is skipped, its turn long judged by the coordinator.
- */
 export async function runJob(
   ctx: JobContext,
   spec: JobSpec,
@@ -73,11 +65,9 @@ export async function runJob(
       throw new Error(`no pinned genesis ${spec.genesisSha256} for ${spec.job.circuit}`);
     }
     await ensurePinned(inputs);
-    // Read after the pin check: staging again moves the copies.
     const genesis = inputs.genesis[spec.job.circuit]?.path as string;
     work = await mkdtemp(join(tmpdir(), "orbinum-verifier-"));
     const zkey = join(work, "upload.zkey");
-    // The download stops early enough to leave the report its time to reach the coordinator.
     const fetchBy = AbortSignal.timeout(Math.max(1, end - Date.now() - REPORT_RESERVE_MS));
     if (!(await fetchObject(endpoint, spec.job, spec.size, zkey, fetchBy))) {
       console.warn(`${tag(spec)}: the coordinator has no object (stale job, or a wrong URL)`);
@@ -85,7 +75,6 @@ export async function runJob(
     }
     const timeoutMs = Math.max(1, Math.min(config.timeoutMs, end - Date.now() - REPORT_RESERVE_MS));
     const run = await verifyUpload(
-      // Our own download: failing to copy it is never the contributor's fault.
       { zkey, zkeyIsOurs: true, genesis, ptau: inputs.ptau },
       spec.claim,
       spec.head,

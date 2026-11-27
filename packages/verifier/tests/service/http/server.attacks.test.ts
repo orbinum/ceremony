@@ -1,6 +1,8 @@
 /**
- * The verifier's HTTP face (COORDINATOR §5) under raw, malformed and hostile requests: exact-path
- * routing, Content-Length anomalies, smuggling shapes, slow sockets, the connection cap, a throwing sink.
+ * The verifier's HTTP face under raw, malformed and hostile requests: exact-path routing,
+ * Content-Length anomalies, smuggling shapes, slow sockets, the connection cap, a throwing sink.
+ * Idle sockets can hold the 32 slots only until the header bound (5 s, checked each second) drops
+ * them.
  */
 import type { Server } from "node:http";
 import { connect, type Socket } from "node:net";
@@ -19,7 +21,6 @@ const open = () =>
     s.on("error", reject);
   });
 
-/** Writes `text` on a fresh socket and collects everything until it closes (bounded). */
 const exchange = (text: string, ms = 8_000) =>
   within(
     ms,
@@ -87,12 +88,10 @@ describe("verifier http under hostile requests", () => {
       "/x/../verify",
       "http://evil/verify",
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one socket at a time
       const out = await exchange(signedRaw(path));
       expect([path, statusOf(out)]).toEqual([path, 404]);
     }
     expect(submitted).toEqual([]);
-    // The exact path, same raw form, is taken.
     expect(statusOf(await exchange(signedRaw("/verify")))).toBe(202);
     expect(submitted).toHaveLength(1);
   });
@@ -145,7 +144,6 @@ describe("verifier http under hostile requests", () => {
     expect(r.headers.get("server")).toBeNull();
     expect(r.headers.get("x-powered-by")).toBeNull();
     for (const path of ["/healthz/", "/healthz?verbose=1"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one request at a time
       expect((await fetch(`${url}${path}`)).status).toBe(404);
     }
     expect((await fetch(`${url}/healthz`, { method: "HEAD" })).status).toBe(404);
@@ -162,7 +160,7 @@ describe("verifier http under hostile requests", () => {
     expect(took).toBeLessThan(8_000);
   }, 15_000);
 
-  it("drops a socket that dribbles a body past the 10 s request bound (KL-45)", async () => {
+  it("drops a socket that dribbles a body past the 10 s request bound", async () => {
     const s = await open();
     s.write(
       `POST /verify HTTP/1.1\r\nHost: x\r\nx-ceremony-timestamp: 1\r\n` +
@@ -175,11 +173,10 @@ describe("verifier http under hostile requests", () => {
     expect(Date.now() - start).toBeLessThan(13_000);
   }, 20_000);
 
-  it("lets 32 idle unauthenticated sockets lock a dispatch out only until they are dropped (KL-45)", async () => {
+  it("lets 32 idle unauthenticated sockets lock a dispatch out only until they are dropped", async () => {
     const sockets = await Promise.all(Array.from({ length: 32 }, () => open()));
     for (const s of sockets) s.write("POST /verify HTTP/1.1\r\nHost: x\r\n");
     await new Promise((r) => setTimeout(r, 200));
-    // The 33rd connection is refused by the cap while the slots are held.
     const locked = await fetch(`${url}/verify`, {
       method: "POST",
       headers: signedDispatch(body),
@@ -189,7 +186,6 @@ describe("verifier http under hostile requests", () => {
       () => "refused",
     );
     expect(locked).toBe("refused");
-    // Within the header bound (5 s, checked each second) the slots free up again.
     await within(
       10_000,
       "slots freed",

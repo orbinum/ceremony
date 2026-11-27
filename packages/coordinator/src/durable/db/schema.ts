@@ -1,6 +1,7 @@
-/** The Durable Object's SQLite tables. Every table is written only by CeremonyDO. */
-
-/** The schema, created idempotently when the object starts. */
+/**
+ * The Durable Object's SQLite schema, created idempotently when the object starts. Every table is
+ * written only by CeremonyDO.
+ */
 export const SCHEMA = `
   CREATE TABLE IF NOT EXISTS setup (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS queue_state (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL);
@@ -35,7 +36,3 @@ export const SCHEMA = `
   CREATE TABLE IF NOT EXISTS published (key TEXT PRIMARY KEY, version TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS finals (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL);
 `;
-
-/** Rows of a `json` column, parsed (the object wrote them itself). */
-export const rowsOf = <T>(cursor: SqlStorageCursor<{ json: string }>): T[] =>
-  cursor.toArray().map((r) => JSON.parse(r.json) as T);

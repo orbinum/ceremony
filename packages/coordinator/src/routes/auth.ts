@@ -1,6 +1,6 @@
 /**
- * `/auth`: sign-in with GitHub, its callback, and sign-out (SPEC §3.2), limited per client network
- * (each callback costs a GitHub token request). The outcome goes back as `/?auth=…`.
+ * `/auth`: sign-in with GitHub, its callback, and sign-out, limited per client network (each
+ * callback costs a GitHub token request). The outcome goes back as `/?auth=…`.
  */
 import { signInQuery } from "@orbinum-ceremony/core";
 import { Hono } from "hono";
@@ -11,7 +11,6 @@ import { endSession, recallOAuth, rememberOAuth, startSession } from "../session
 
 const originOf = (url: string) => new URL(url).origin;
 
-/** The `/auth` router. */
 export const auth = new Hono<AppEnv>()
   .use(rateLimit("AUTH_LIMIT", byNetwork))
   .get("/github", (c) => {

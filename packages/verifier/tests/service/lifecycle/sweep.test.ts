@@ -1,4 +1,7 @@
-/** A killed run's private directories are swept at the next start (COORDINATOR §5). */
+/**
+ * A killed run's private directories are swept at the next start; other tools' directories (the
+ * CLI's) are left alone.
+ */
 import { mkdir, mkdtemp, readdir, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,12 +18,10 @@ describe("sweepStaleTmp", () => {
       "orbinum-verifier-old",
       "orbinum-upload-old",
       "orbinum-verifier-inputs-old",
-      "orbinum-verify-old", // the CLI's, not ours
+      "orbinum-verify-old",
       "other-old",
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- a few fixtures
       await mkdir(join(root, name));
-      // oxlint-disable-next-line no-await-in-loop -- a few fixtures
       await utimes(join(root, name), old, old);
     }
     await mkdir(join(root, "orbinum-upload-fresh"));

@@ -1,4 +1,7 @@
-/** The service's environment (COORDINATOR §5): every variable validated, none echoed. */
+/**
+ * The service's environment: every variable validated, none echoed (a value may carry
+ * credentials).
+ */
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { VERIFIER_TIMEOUT_MS } from "@orbinum-ceremony/core";
@@ -71,7 +74,6 @@ describe("service config", () => {
     ["https://coordinator.example/#h", "must be an origin"],
   ])("refuses COORDINATOR_URL %s", (url, message) => {
     expect(load({ COORDINATOR_URL: url })).toThrow(message);
-    // The value itself (which may carry credentials) is never echoed.
     expect(load({ COORDINATOR_URL: url })).not.toThrow(url);
   });
 

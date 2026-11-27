@@ -1,6 +1,7 @@
 /**
- * Attacks on the GitHub sign-in (SPEC §3.2): foreign, tampered and replayed OAuth state, open
- * redirects, and GitHub answers of the wrong shape, not JSON, or very large.
+ * Attacks on the GitHub sign-in: foreign, tampered and replayed OAuth state, open redirects, and
+ * GitHub answers of the wrong shape, not JSON, or very large. Nothing outside GitHub's stubs is
+ * reachable from these tests.
  */
 import { env } from "cloudflare:workers";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -20,7 +21,6 @@ const OCTOCAT = {
   following: 5,
 };
 
-/** Every token request GitHub receives. */
 const exchanges: Record<string, unknown>[] = [];
 function mockGithub(user: unknown | (() => Response)) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -32,7 +32,6 @@ function mockGithub(user: unknown | (() => Response)) {
     if (url === "https://api.github.com/user") {
       return typeof user === "function" ? (user as () => Response)() : Response.json(user);
     }
-    // Nothing else may be reached from a test.
     throw new Error(`unexpected fetch ${url}`);
   });
 }
@@ -62,30 +61,23 @@ describe("OAuth state", () => {
     const a = await start();
     const b = await start();
     const cases: [string, string][] = [
-      // b's state, a's cookie.
       [`code=c&state=${b.state}`, a.cookie],
-      // A state cookie signed for another ceremony.
       [
         `code=c&state=${a.state}`,
         stateCookie({ state: a.state, verifier: "v" }, "oauth-state:other"),
       ],
-      // A session token presented as the state cookie.
       [
         `code=c&state=${a.state}`,
         stateCookie({ state: a.state, verifier: "v" }, `session:${env.CEREMONY_ID}`),
       ],
-      // Missing / empty state.
       ["code=c", a.cookie],
       ["code=c&state=", a.cookie],
-      // A state that differs only in case or length.
       [`code=c&state=${a.state.toUpperCase()}`, a.cookie],
       [`code=c&state=${a.state}0`, a.cookie],
-      // Cookie payload fields of the wrong type.
       [`code=c&state=1`, stateCookie({ state: 1, verifier: "v" })],
       [`code=c&state=${a.state}`, stateCookie({ state: a.state, verifier: 5 })],
     ];
     for (const [query, cookie] of cases) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const r = await back(query, cookie);
       expect([r.headers.get("location"), sessionSet(r)]).toEqual([
         "/?auth=error&reason=state",
@@ -163,9 +155,7 @@ describe("no open redirect", () => {
       "return_to=https%3A%2F%2Fevil.example",
       "state=%0d%0aLocation:%20https://evil.example",
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const { cookie, state } = await start();
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       const r = await back(`code=c&state=${state}&${extra}`, cookie);
       expect(r.headers.get("location")).toMatch(/^\/\?auth=[a-z]+(&reason=[a-z-]+)?$/);
     }
@@ -217,7 +207,6 @@ describe("GitHub answers of the wrong shape never sign anyone in", () => {
     exchanges.length = 0;
   });
 
-  // GitHub is the only source of this answer, so its size is not bounded.
   it("reads a very large /user answer in full", async () => {
     mockGithub({ ...OCTOCAT, bio: "x".repeat(8 * 1024 * 1024) });
     const { cookie, state } = await start();
@@ -227,7 +216,6 @@ describe("GitHub answers of the wrong shape never sign anyone in", () => {
   });
 
   it("refuses an account created exactly at the admission cutoff", async () => {
-    // The fixture's init.json created_at, the admission cutoff, is 2026-01-01T00:00:00.000Z.
     mockGithub({ ...OCTOCAT, created_at: "2026-01-01T00:00:00Z" });
     const { cookie, state } = await start();
     const r = await back(`code=c&state=${state}`, cookie);

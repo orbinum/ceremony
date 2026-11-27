@@ -1,6 +1,7 @@
 /**
- * The ceremony's object (SPEC §4.1–4.3): configured once, opened and closed by its alarm, the
- * slot's deadlines, links and nonces, and events no caller may send directly.
+ * The ceremony's object: configured once, opened and closed by its alarm, the slot's deadlines,
+ * links and nonces, and events no caller may send directly. Each test gets a fresh object, since
+ * Durable Object storage is shared within a test file.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -23,10 +24,8 @@ import {
 
 const DAY = 24 * 60 * 60_000;
 let n = 0;
-/** A fresh object per test: Durable Object storage is shared within a test file. */
 const fresh = () => env.CEREMONY.getByName(`ceremony-test-${++n}`);
 
-/** An object whose ceremony is already open (its opening alarm has run). */
 async function opened() {
   const stub = fresh();
   await stub.configure(setupInput(Date.now() - 1000, Date.now() + DAY));
@@ -73,7 +72,6 @@ describe("CeremonyDO", () => {
       [4, true],
       [3, false],
     ] as const) {
-      // oxlint-disable-next-line no-await-in-loop -- joins in order
       expect((await stub.apply({ type: "join", githubId, invited })).ok).toBe(true);
     }
     const state = await stub.snapshot();

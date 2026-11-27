@@ -1,9 +1,8 @@
 /** A transcript identity: login and account under the rules of its scheme, and its link fields. */
 import { asOneOf, asPositiveInt, asRecord } from "../../primitives/schema";
-import { asAccount } from "./as-account";
+import { asAccount } from "./wallets";
 import { asGithubLogin } from "./as-github-login";
-import { asIssuedAt } from "./as-issued-at";
-import { asLinkNonce } from "./as-link-nonce";
+import { asIssuedAt, asLinkNonce } from "./link";
 import { SCHEMES } from "./constants";
 import type { Identity } from "./types";
 

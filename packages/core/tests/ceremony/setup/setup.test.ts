@@ -5,8 +5,7 @@ import { describe, expect, it } from "vitest";
 import { genesisOf, parseSetup, sameSetup, scheduleOf } from "../../../src/ceremony/setup";
 import { chainGenesis } from "../../../src/ceremony/transcript";
 import { sha256Hex } from "../../../src/primitives/hashing";
-import { utf8 } from "../../../src/primitives/encoding";
-import { serializeJson } from "../../../src/primitives/encoding";
+import { serializeJson, utf8 } from "../../../src/primitives/encoding";
 import { ANNOUNCEMENT, FULL_INIT, ID, INIT_TEXT, SETUP_INPUT } from "../../support";
 
 const input = SETUP_INPUT;

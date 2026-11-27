@@ -1,6 +1,7 @@
 /**
- * One folder per ceremony in each network's buckets (SPEC §6.1): every key the Worker uses lands in
- * its ceremony's folder, no key reaches another folder, and only announced folders are listed.
+ * One folder per ceremony in each network's buckets: every key the Worker uses lands in its
+ * ceremony's folder, no key reaches another folder, only announced folders are listed, and no
+ * module but `storage/buckets.ts` names the bucket bindings.
  */
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -38,7 +39,6 @@ describe("scoped", () => {
       "/ceremony-b/ceremony.json",
       "ceremony-b/ceremony.json",
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one key at a time
       expect([key, await a.head(key)]).toEqual([key, null]);
     }
     await a.put("../ceremony-b/ceremony.json", "mine");
@@ -67,9 +67,7 @@ describe("archivedCeremonies", () => {
   it("lists the announced folders only, in name order", async () => {
     await env.PUBLIC.put("orbinum-testnet-b/ceremony.json", "{}");
     await env.PUBLIC.put("orbinum-testnet-a/ceremony.json", "{}");
-    // Set up but never announced (publish-init writes ceremony.json last).
     await env.PUBLIC.put("orbinum-testnet-c/genesis/init.json", "{}");
-    // Not a ceremony folder.
     await env.PUBLIC.put("Not_A_Ceremony/ceremony.json", "{}");
     await env.PUBLIC.put("ceremony.json", "{}");
     expect(await archivedCeremonies(env)).toEqual(["orbinum-testnet-a", "orbinum-testnet-b"]);
@@ -81,7 +79,6 @@ describe("archivedCeremonies", () => {
 });
 
 describe("the Worker's sources", () => {
-  // Every bucket call goes through storage/buckets.ts: no other module may name the bindings.
   const sources = import.meta.glob<string>("../../src/**/*.ts", {
     query: "?raw",
     import: "default",

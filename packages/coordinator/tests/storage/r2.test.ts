@@ -1,6 +1,6 @@
 /**
- * R2 calls (SPEC §2.5, §6.1): every bucket failure is a `StorageError`; exact streamed writes
- * that never land over another object; replacing a leftover only as it was read.
+ * R2 calls: every bucket failure is a `StorageError`; exact streamed writes that never land over
+ * another object; replacing a leftover only as it was read.
  */
 import { env } from "cloudflare:workers";
 import { sha256Hex } from "@orbinum-ceremony/core";
@@ -30,7 +30,6 @@ const exact = (b: Uint8Array) => ({
   contentType: "application/octet-stream",
   ifAbsent: true,
 });
-/** A bucket whose every call fails. */
 const down = new Proxy({} as R2Bucket, {
   get: () => () => Promise.reject(new Error("R2 down")),
 });
@@ -47,7 +46,6 @@ describe("bucket calls", () => {
       () => replaceObject(down, "k", "v", sha256Hex(bytes("v")), "text/plain"),
       () => streamExact(down, "k", stream(bytes("v")), exact(bytes("v"))),
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one call at a time
       await expect(call()).rejects.toBeInstanceOf(StorageError);
     }
   });
@@ -88,7 +86,6 @@ describe("replaceObject", () => {
 
   it("never lands over a write that happened after it read the key", async () => {
     await env.PUBLIC.put("k", "leftover");
-    // Another writer lands between the read and the conditional write.
     const racing = new Proxy(env.PUBLIC, {
       get(target, prop) {
         const value = (target as unknown as Record<PropertyKey, unknown>)[prop];

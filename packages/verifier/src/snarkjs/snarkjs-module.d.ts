@@ -1,4 +1,7 @@
-/** The subset of snarkjs 0.7.6 this package calls (it ships no types). */
+/**
+ * The subset of snarkjs 0.7.6 this package calls (it ships no types). Every file that imports
+ * snarkjs references it, so the types reach every package that compiles those files.
+ */
 declare module "snarkjs" {
   interface Logger {
     debug(msg: string): void;

@@ -1,4 +1,7 @@
-/** Strict (non-local) verification: every external binding is required, vk_hash included (SPEC §9). */
+/**
+ * Strict (non-local) verification: every external binding is required, vk_hash included. A testnet
+ * ceremony must be verified in full, so a skipped security check is a failure.
+ */
 import { beforeAll, describe, expect, it } from "vitest";
 import { layout } from "../../../src/artifacts";
 import type { VerifyOptions } from "../../../src/commands/verify";
@@ -15,7 +18,6 @@ import {
   VK_PACKER,
 } from "../../support";
 
-// A testnet ceremony must be verified in full: skipped security checks are failures.
 describe.skipIf(!PTAU_PATH || !VK_PACKER)(
   "strict verification (non-local)",
   { timeout: 300_000 },
@@ -62,7 +64,6 @@ describe.skipIf(!PTAU_PATH || !VK_PACKER)(
           (t.finals[0] as { vk_hash: string | null }).vk_hash = null;
         }),
       );
-      // Core's final-record check: only a local ceremony may leave vk_hash null.
       const failed = await failures(verify(copy, { vkPacker: VK_PACKER as string }));
       expect(failed).toContainEqual({
         id: "shield: final zkey matches the final record",

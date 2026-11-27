@@ -1,24 +1,10 @@
-// client/api: the coordinator, on this origin (COORDINATOR §3).
-export { type ArchivedCeremony, type ArchivedStatus, archivedFile, getArchive } from "./archive";
-export {
-  download,
-  getAnnouncementSha256,
-  getCsHashes,
-  getSchedule,
-  type Schedule,
-} from "./artifacts";
-export { type Config, getConfig } from "./config";
+/** client/api: the coordinator, on this origin. */
+export { archivedFile, getArchive } from "./archive";
+export { getConfig } from "./get-config";
 export { ApiError, isTransient } from "./http";
-export {
-  cliToken,
-  getMe,
-  linkNonce,
-  linkWallet,
-  type Me,
-  signInOutcomeOf,
-  signOut,
-} from "./identity";
-export { getSlot, getStatus, joinQueue, leaveQueue, type Slot, type Status } from "./queue";
+export { cliToken, getMe, linkNonce, linkWallet, signInOutcomeOf, signOut } from "./identity";
+export { download, getAnnouncementSha256, getCsHashes, getSchedule } from "./published";
+export { getSlot, getStatus, joinQueue, leaveQueue } from "./queue";
 export {
   attest,
   claimTurn,
@@ -26,9 +12,18 @@ export {
   getHead,
   getReceipt,
   getResult,
-  type Head,
   heartbeat,
-  type JobResult,
-  type UploadClaim,
   uploadContribution,
 } from "./session";
+export type {
+  ArchivedCeremony,
+  ArchivedStatus,
+  Config,
+  Head,
+  JobResult,
+  Me,
+  Schedule,
+  Slot,
+  Status,
+  UploadClaim,
+} from "./types";

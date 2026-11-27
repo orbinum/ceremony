@@ -1,4 +1,8 @@
-/** The pinned inputs (SPEC §2.5, §7): canonical init.json, staged copies pinned on the copies. */
+/**
+ * The pinned inputs: canonical init.json, staged copies pinned on the copies (once staged, the
+ * originals no longer matter, a changed copy does), restaged when a copy is gone, and no stage
+ * directory left behind by a failed load.
+ */
 import { chmod, readdir, rm, stat, symlink, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,7 +25,6 @@ const configOf = (dir: string, ptau: string): ServiceConfig =>
     PTAU: ptau,
   });
 
-/** Stage directories of this suite still on disk (a failed load must leave none). */
 const stages = async () =>
   (await readdir(tmpdir())).filter((n) => n.startsWith("orbinum-verifier-inputs-"));
 
@@ -49,9 +52,7 @@ describe("service inputs", () => {
       `${serializeJson(init)}\n`,
       `﻿${serializeJson(init)}`,
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one spelling at a time
       await writeFile(initPath(dir), text);
-      // oxlint-disable-next-line no-await-in-loop -- one spelling at a time
       await expect(loadInputs(configOf(dir, ptau))).rejects.toThrow(/^init\.json: /);
     }
     await writeFile(initPath(dir), new Uint8Array([0x7b, 0xe9, 0x7d]));
@@ -126,7 +127,6 @@ describe("service inputs", () => {
     try {
       const first = inputs.stage.dir;
       await rm(inputs.genesis.shield?.path as string);
-      // The stand-in ptau cannot pass its pin, so the run ends there, after a new stage.
       await expect(ensurePinned(inputs)).rejects.toThrow("ptau size 12");
       expect(inputs.stage.dir).not.toBe(first);
       await expect(stat(first)).rejects.toThrow("ENOENT");
@@ -162,7 +162,6 @@ describe("service inputs", () => {
         expect((await stat(inputs.ptau)).mode & 0o777).toBe(0o400);
         expect((await stat(inputs.genesis.shield?.path as string)).mode & 0o777).toBe(0o400);
 
-        // The originals no longer matter; a changed copy does.
         await writeFile(join(dir, "genesis", "shield.genesis.zkey"), "changed after startup");
         await checkPins(inputs);
         expect(inputs.pinned).toBe(true);

@@ -1,33 +1,25 @@
 /**
  * The contributor's page: what the ceremony is and where it stands, then how to contribute as
- * guided steps, beside how it works.
+ * guided steps, beside how it works. Whether there is a ceremony at all is unknown until the
+ * status answers; before the announcement the sign-in step already says why nobody can sign in,
+ * so no sign-in notice is shown. While the session loads the steps show placeholders; a failed
+ * load shows only its notice.
  */
-import { useState } from "react";
-import { ApiError, getConfig, getMe, getStatus, signInOutcomeOf, signOut } from "../../api";
+import { ApiError, getConfig, getMe, getStatus, signOut } from "../../api";
 import { usePoll } from "../../hooks";
 import { Notice } from "../../ui";
 import { SiteHeader } from "../layout";
 import { About } from "./about";
-import { Journey } from "./journey";
 import { CeremonyStatus } from "./status";
-import { errorText, signInText } from "./text";
-
-/** The callback's outcome, read once; the query is then dropped so a reload does not repeat it. */
-function useSignInOutcome() {
-  const [outcome] = useState(() => {
-    const o = signInOutcomeOf(window.location.search);
-    if (o) window.history.replaceState(null, "", window.location.pathname);
-    return o && signInText(o);
-  });
-  return outcome;
-}
+import { Journey } from "./journey";
+import { errorText } from "./text";
+import { useSignInOutcome } from "./sign-in";
 
 export function Home() {
   const outcome = useSignInOutcome();
   const { data: me, error, reload } = usePoll(getMe, 60_000);
   const { data: config } = usePoll(getConfig, 3_600_000);
   const { data: status, error: statusError } = usePoll(getStatus, 15_000);
-  // Undefined until the status answers: the page then knows whether there is a ceremony at all.
   const announced =
     status !== undefined
       ? true
@@ -57,7 +49,6 @@ export function Home() {
 
         <CeremonyStatus status={status} announced={announced !== false} />
 
-        {/* Before the announcement, the sign-in step already says why. */}
         {outcome && announced && <Notice tone="error">{outcome}</Notice>}
         {error !== undefined && <Notice tone="error">{errorText(error)}</Notice>}
 
@@ -66,7 +57,6 @@ export function Home() {
             <h2 className="mb-6 text-[10px] font-medium uppercase tracking-widest text-muted">
               How to contribute
             </h2>
-            {/* Loading (no answer yet) shows placeholders; a failed load shows only its notice. */}
             {(me !== undefined || error === undefined) && (
               <Journey me={me} config={config} announced={announced} reloadMe={reload} />
             )}

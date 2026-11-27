@@ -7,7 +7,5 @@ import { serveOnce } from "../../../src/isolate";
 
 serveOnce(async (task: { pidFile: string }) => {
   writeFileSync(task.pidFile, String(process.pid));
-  for (;;) {
-    // never answers
-  }
+  for (;;) {}
 });

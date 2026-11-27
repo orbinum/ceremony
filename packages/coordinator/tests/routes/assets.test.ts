@@ -1,7 +1,8 @@
 /**
  * The client is served as static assets, and any unknown path gets its page (a single-page app):
  * every route group the Worker mounts must be listed in `run_worker_first`, or its requests would
- * get the page instead of the Worker.
+ * get the page instead of the Worker. `/archive` itself is the client's page; only the files below it
+ * are the Worker's.
  */
 import { describe, expect, it } from "vitest";
 
@@ -13,7 +14,7 @@ const [config] = Object.values(
   }),
 );
 const [routes] = Object.values(
-  import.meta.glob<string>("../../src/routes/index.ts", {
+  import.meta.glob<string>("../../src/routes/routes.ts", {
     query: "?raw",
     import: "default",
     eager: true,
@@ -31,7 +32,6 @@ describe("run_worker_first", () => {
     expect(mounted).toContain("/archive");
     const first = workerFirst();
     for (const prefix of mounted) expect(first).toContain(`${prefix}/*`);
-    // `/archive` itself is the client's page; only the files below it are the Worker's.
     expect(first).not.toContain("/archive");
   });
 });

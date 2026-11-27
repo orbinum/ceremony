@@ -1,6 +1,7 @@
 /**
- * Request validators (COORDINATOR §3): route parameters, artifact keys, upload claims and
- * lengths, operator files and JSON bodies are refused as `malformed` before a handler runs.
+ * Request validators: route parameters, artifact keys, upload claims (bounded before they are
+ * parsed) and lengths, operator files and JSON bodies are refused as `malformed` before a handler
+ * runs.
  */
 import { MAX_CLAIM_BYTES, MAX_FILE_BYTES } from "@orbinum-ceremony/core";
 import { Hono } from "hono";
@@ -17,7 +18,6 @@ import {
   uploadInput,
 } from "../../src/http";
 
-/** Each validator in front of an echo of what it validated. */
 const app = new Hono<AppEnv>()
   .get("/circuit/:circuit", circuitParam, (c) => c.json(c.req.valid("param")))
   .get("/seq/:seq", seqParam, (c) => c.json(c.req.valid("param")))
@@ -57,7 +57,6 @@ describe("request validators", () => {
       circuit: "private_sweep",
     });
     for (const bad of ["Nope", "constructor", "a-b"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one name at a time
       expect(await error(await get(`/circuit/${bad}`))).toEqual([
         400,
         { code: "malformed", message: "not a circuit name" },
@@ -65,7 +64,6 @@ describe("request validators", () => {
     }
     expect(await (await get("/seq/12")).json()).toEqual({ seq: 12 });
     for (const seq of ["01", "-1", "abc"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       expect((await get(`/seq/${seq}`)).status).toBe(400);
     }
     expect(await (await get("/job/1/shield/2")).json()).toEqual({
@@ -81,7 +79,6 @@ describe("request validators", () => {
       key: "r1cs/shield.r1cs",
     });
     for (const path of ["/artifacts/", "/artifacts/%E0%A4%A"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one case at a time
       expect((await error(await get(path)))[0]).toBe(404);
     }
   });
@@ -103,7 +100,6 @@ describe("request validators", () => {
       400,
       { code: "malformed", message: "missing or malformed x-ceremony-claim" },
     ]);
-    // A claim one byte over the bound is refused before it is parsed, even if it is valid JSON.
     const padded = `{${" ".repeat(MAX_CLAIM_BYTES + 1 - claim.length)}${claim.slice(1)}`;
     expect(
       await error(await putUpload({ "x-ceremony-claim": padded, "content-length": "3" })),
@@ -126,7 +122,6 @@ describe("request validators", () => {
 
   it("read a setup or final file's key and hash, in that order", async () => {
     for (const key of ["transcript.json", "contributions/shield/1.zkey", "final/Nope.vk.json"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one key at a time
       expect(await error(await putSetupFile(key, { "x-content-sha256": "ab".repeat(32) }))).toEqual(
         [400, { code: "malformed", message: `not a setup or final file: ${key}` }],
       );

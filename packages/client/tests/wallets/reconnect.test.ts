@@ -1,3 +1,7 @@
+/**
+ * Reconnecting the linked wallet for the attestation: the only one of its kind, else the one
+ * remembered at link time, else the user picks; never another account than the linked one.
+ */
 import { describe, expect, it } from "vitest";
 import { ChooseWallet, reconnect, rememberWallet } from "../../src/wallets";
 import { fakeBrowser, fakeProvider } from "../support";

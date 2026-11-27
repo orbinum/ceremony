@@ -2,14 +2,16 @@
  * The published ceremony directory: one set of keys, each pinned by what names it.
  */
 import { describe, expect, it } from "vitest";
-import { CEREMONY_LAYOUT, pinnedFiles, setupFiles } from "../../../src/ceremony/layout";
-import { buildFinalRecord, transcriptOf } from "../../../src/ceremony/transcript";
 import {
+  CEREMONY_LAYOUT,
   contentTypeOf,
   finalFiles,
   isFinalFileKey,
   isSetupFileKey,
+  pinnedFiles,
+  setupFiles,
 } from "../../../src/ceremony/layout";
+import { buildFinalRecord, transcriptOf } from "../../../src/ceremony/transcript";
 import { FormatError } from "../../../src/primitives/errors";
 import { asCircuitName } from "../../../src/primitives/schema";
 import { ANNOUNCEMENT_SHA256, chain, contribution, ID, INIT } from "../../support";

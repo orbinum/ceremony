@@ -1,6 +1,10 @@
 /**
- * `/admin`, behind `sameOrigin` and `operator` (COORDINATOR §3): the setup files and the frozen setup once, the
- * state actions and lifting an identity's hold, then the final files and the finalization.
+ * `/admin`, behind `sameOrigin` and `operator`: the setup files and the frozen setup once, the
+ * state actions and lifting an identity's hold, then the final files and the finalization. An
+ * operator's browser carries the Access cookie, so a foreign page is refused outright, not only
+ * through the preflight the marker header forces; the CLI sends neither header. Bodies are bounded:
+ * the setup's two documents as JSON strings (escaping at most doubles them) plus sizes, a one-field
+ * action, and a beacon with one final record per circuit (a few KB).
  */
 import { MAX_DOCUMENT_BYTES } from "@orbinum-ceremony/core";
 import { Hono } from "hono";
@@ -19,17 +23,11 @@ import {
 } from "../http";
 import { operator, sameOrigin } from "../middleware";
 
-/** `ceremony.json` and `init.json` as JSON strings (escaping at most doubles them), plus sizes. */
 const MAX_SETUP_BYTES = 2 * 2 * MAX_DOCUMENT_BYTES + 64 * 1024;
-/** One state action: `{"action":"…"}`. */
 const MAX_ACTION_BYTES = 1024;
-/** A beacon record (a few relays) and one final record per circuit: a few KB. */
 const MAX_FINALIZE_BYTES = 64 * 1024;
 
-/** The `/admin` router. */
 export const admin = new Hono<AppEnv>()
-  // An operator's browser carries the Access cookie: refuse a foreign page outright, not only
-  // through the preflight the marker header forces. The CLI sends neither header.
   .use(sameOrigin, operator)
   .put("/artifacts/*", publicFileInput, async (c) =>
     answer(c, await publishFile(c.env, c.req.valid("header"))),

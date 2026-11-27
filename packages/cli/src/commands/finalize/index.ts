@@ -1,3 +1,5 @@
-// cli/commands/finalize: the `finalize` command and its options.
-export { finalizeCommand, runFinalize } from "./finalize";
-export { type FinalizeOptions, parseFinalizeOptions } from "./options";
+/** The `finalize` command: seals the announced beacon and builds the final keys, and its options. */
+export { finalizeCommand } from "./finalize-command";
+export { runFinalize } from "./run-finalize";
+export { parseFinalizeOptions } from "./parse-finalize-options";
+export type { FinalizeOptions } from "./types";

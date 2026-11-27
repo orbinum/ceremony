@@ -1,8 +1,9 @@
 /**
- * A whole ceremony through the real stack (CEREMONY_PLAN Phase 3 M5), flow by flow (F1–F12), each
- * with its attacks: `wrangler dev` runs the coordinator, the verifier service checks every upload
- * with snarkjs, contributors act as the browser and CLI clients will, and the operator downloads,
- * finalizes, hands the finalization over and verifies from nothing but what was published.
+ * A whole ceremony through the real stack, flow by flow (F1–F12), each with its attacks: `wrangler
+ * dev` runs the coordinator, the verifier service checks every upload with snarkjs, contributors act
+ * as the browser and CLI clients do, and the operator downloads, finalizes, hands the finalization
+ * over and verifies from nothing but what was published. Finalization against a real drand round
+ * on the public relays is opt-in (`ORBINUM_E2E_LIVE_DRAND=1`).
  */
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -32,17 +33,12 @@ import { Wallet } from "ethers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Contributor, type Stack, startStack } from "./support";
 
-/** The circuits of the rehearsal vectors, in session order. */
 const CIRCUIT_NAMES = ["shield", "unshield", "transfer"];
 
-/** The real ptau and a ceremony directory with all three genesis keys (a testnet rehearsal). */
 const PTAU = process.env.ORBINUM_PTAU;
 const CEREMONY_DIR = process.env.ORBINUM_REHEARSAL_DIR;
-/** Finalization waits for a real drand round on the public relays: opt in. */
 const LIVE_DRAND = process.env.ORBINUM_E2E_LIVE_DRAND === "1";
-/** The contribution window, counted from when both services answer. */
 const OPEN_FOR_MS = Number(process.env.ORBINUM_E2E_OPEN_FOR_MS ?? 300_000);
-/** What one three-circuit session needs at most, checked before each one starts. */
 const SESSION_BUDGET_MS = 60_000;
 
 describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_000 }, () => {
@@ -50,9 +46,7 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
   let base = "";
   const ptau = PTAU as string;
   const people = new Map<number, Contributor>();
-  /** Sessions later flows refer to: the first contributor's, and the one attested late. */
   const sessions: { first?: number; late?: number } = {};
-  /** A contributor by GitHub id, created (and its wallet) once. */
   const person = (id: number, method: "browser" | "cli" = "browser") => {
     if (!people.has(id)) {
       const c = new Contributor(base, stack.ceremonyId, id, method, stack.work, () =>
@@ -122,7 +116,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
     });
     expect(put.status).toBe(409);
     expect(((await put.json()) as { error: { code: string } }).error.code).toBe("immutable");
-    // The very setup publish-init sent, again: an idempotent no-op that changes nothing.
     const genesisSizes = Object.fromEntries(
       await Promise.all(
         CIRCUIT_NAMES.map(async (c) => [
@@ -153,7 +146,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
     expect(again.status).toBe(409);
     expect((await admin(ADMIN_PATHS.state, { action: "resume" })).status).toBe(200);
     expect(await phase()).toBe("OPEN");
-    // Resuming grants the waiting contributor its slot; it ends the session unused.
     expect((await c.call("GET", "/api/queue/me")).slot).not.toBeNull();
     await c.call("POST", "/api/session/claim");
     await c.finish();
@@ -165,7 +157,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
     const payload = await c.linkPayload();
     expect((await c.sendLink(payload)).status).toBeLessThan(300);
     const linked = await c.call("GET", "/api/link");
-    // The same signed link again (a replay), a nonce never issued, another GitHub id.
     expect((await c.sendLink(payload)).status).toBeGreaterThanOrEqual(400);
     const other = person(302);
     const unissued = await other.sendLink(await other.linkPayload({ nonce: "ab".repeat(32) }));
@@ -189,7 +180,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
       expect((await b.call("GET", "/api/queue/me")).slot).toBeNull();
       expect((await b.request("POST", "/api/session/claim")).status).toBe(409);
       expect((await b.request("POST", "/api/queue/join")).body.error?.code).toBe("already-queued");
-      // b leaves before the slot frees up, so the next sessions find an empty queue.
       await b.call("POST", "/api/queue/leave");
       await a.finish();
     } finally {
@@ -202,17 +192,11 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
     let cli: (string | number)[][] = [];
     for (const [i, method] of (["browser", "browser", "cli"] as const).entries()) {
       const c = person(101 + i, method);
-      // oxlint-disable-next-line no-await-in-loop -- sessions are sequential by design
       await c.link();
       session();
       if (method === "cli") {
-        // The CLI path (SPEC §4.4): join and mint the token in the browser, then the real
-        // `contribute` command drives the whole session with that token alone.
-        // oxlint-disable-next-line no-await-in-loop -- sessions are sequential by design
         await c.call("POST", "/api/queue/join");
-        // oxlint-disable-next-line no-await-in-loop -- sessions are sequential by design
         const { token } = await c.call("POST", CONTRIBUTOR_PATHS.cliToken);
-        // oxlint-disable-next-line no-await-in-loop -- sessions are sequential by design
         const summary = await runContribute(
           {
             coordinator: base,
@@ -224,27 +208,21 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
           () => undefined,
         );
         cli = summary.contributions.map((x) => [x.circuit, x.index]);
-        // It ends unattested and attests after finalization, which must refuse it.
         sessions.late = summary.seq;
         continue;
       }
-      // oxlint-disable-next-line no-await-in-loop -- sessions are sequential by design
       const seq = await c.start();
       try {
         if (i === 0) {
-          // oxlint-disable-next-line no-await-in-loop -- the attacks happen inside the session
           await uploadAttacks(c);
         }
         for (const circuit of CIRCUIT_NAMES) {
-          // oxlint-disable-next-line no-await-in-loop -- circuits go in order (SPEC §4.1)
           expect(await c.contributeTo(circuit)).toMatchObject({ status: "valid", index: i + 1 });
         }
         if (i === 0) {
           sessions.first = seq;
-          // oxlint-disable-next-line no-await-in-loop -- the attacks happen inside the session
           await attestationAttacks(c, seq);
         }
-        // oxlint-disable-next-line no-await-in-loop -- sessions are sequential by design
         await c.attest(seq, await accepted());
       } finally {
         c.end();
@@ -260,7 +238,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
     expect(t.records.filter((r) => r.type === "attestation")).toHaveLength(2);
   });
 
-  /** F4 (upload) and F5 (verifier reports): nothing they send changes the transcript. */
   async function uploadAttacks(c: Contributor) {
     const before = (await records()).records.length;
     const outsider = person(303);
@@ -288,13 +265,11 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
       ),
       signedRequestInit(stack.hmacKey, stack.ceremonyId, "POST", url, forged, Date.now() - 600_000),
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- two forged reports
       expect((await fetch(url, init)).status).toBe(401);
     }
     expect((await records()).records).toHaveLength(before);
   }
 
-  /** F7: an attestation by another wallet, or over other records, is refused. */
   async function attestationAttacks(c: Contributor, seq: number) {
     const before = (await records()).records.length;
     const honest = c.attestation(seq, await accepted());
@@ -349,10 +324,8 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
       "attestation",
     ]);
     for (const key of ["contributions/shield/99.zkey", "..%2F..%2Fwrangler.jsonc"]) {
-      // oxlint-disable-next-line no-await-in-loop -- a few keys
       expect((await fetch(`${base}/artifacts/${key}`)).status).toBe(404);
     }
-    // Dot segments leave /artifacts in the URL itself (`/x`): that path is the page, never a file.
     const out = await fetch(`${base}/artifacts/%2e%2e/x`);
     expect([out.status, out.headers.get("content-type")]).toEqual([
       200,
@@ -363,12 +336,9 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
   it("publishes final heads that stock snarkjs verifies against the genesis", async () => {
     for (const circuit of CIRCUIT_NAMES) {
       const path = join(stack.work, `${circuit}-head.zkey`);
-      // oxlint-disable-next-line no-await-in-loop -- one 17 MB download and check at a time
       const response = await fetch(`${base}/artifacts/contributions/${circuit}/3.zkey`);
-      // oxlint-disable-next-line no-await-in-loop -- one 17 MB download and check at a time
       await writeFile(path, new Uint8Array(await response.arrayBuffer()));
       const genesis = join(CEREMONY_DIR as string, "genesis", `${circuit}.genesis.zkey`);
-      // oxlint-disable-next-line no-await-in-loop -- one check at a time
       expect((await verifyFromInit(genesis, ptau, path)).ok).toBe(true);
     }
   });
@@ -384,8 +354,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
         force: false,
       });
     await download(`${base}/artifacts`);
-    // The same ceremony from the archive (where it stays once the deployment moves on).
-    // `/archive` itself is the page that lists them; the files below it are the Worker's.
     const page = await fetch(`${base}/archive`);
     expect(page.headers.get("content-type")).toBe("text/html; charset=utf-8");
     const listed = (await (await fetch(`${base}/api/archive`)).json()) as {
@@ -406,7 +374,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
     ) as Transcript;
     expect(local.some((r) => r.type === "beacon")).toBe(false);
 
-    // A mirror in front of the coordinator that substitutes a contribution.
     const proxy = createServer((req, res) => {
       void (async () => {
         const upstream = await fetch(`${base}/artifacts${req.url ?? "/"}`);
@@ -429,7 +396,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
   it.runIf(LIVE_DRAND)(
     "F9/F10: finalizes, hands the finalization over, and verifies what was published again",
     async () => {
-      // Contributions close, then the announced drand round is emitted.
       const ready = Math.max(
         Date.parse(stack.announcement.schedule.close),
         roundTime(stack.announcement.beacon.round) * 1000,
@@ -451,10 +417,8 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
 
       const sealed = await runPublishFinal({ dir: mirror, coordinator: base });
       expect(await phase()).toBe("FINALIZED");
-      // Re-running it changes nothing.
       expect(await runPublishFinal({ dir: mirror, coordinator: base })).toBe(sealed);
 
-      // What anyone downloads now carries the beacon and the finals, and verifies.
       await download();
       const published = (await (
         await fetch(`${base}/artifacts/transcript.json`)
@@ -464,7 +428,6 @@ describe.skipIf(!PTAU || !CEREMONY_DIR)("end-to-end ceremony", { timeout: 1_800_
       const report = await runVerify(verifyOptions(mirror));
       expect(report.checks.filter((c) => c.status === "fail")).toEqual([]);
 
-      // FINALIZED is read-only: even a valid attestation of a real session is refused.
       const late = person(103, "cli");
       const before = (await records()).records.length;
       const answer = await late.sendAttestation(

@@ -1,4 +1,7 @@
-/** Mirroring the published inputs (an empty-disk host): exactly the pinned init.json, then its files. */
+/**
+ * Mirroring the published inputs (an empty-disk host): exactly the pinned init.json, then its
+ * files.
+ */
 import { mkdtemp, readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
@@ -11,7 +14,6 @@ import { fakeCeremony } from "../../support";
 let server: Server | undefined;
 afterEach(() => server?.close());
 
-/** Serves `/artifacts/<key>` from `files` (a redirect for `redirect`); returns its origin. */
 async function coordinator(files: Record<string, string>, redirect?: string): Promise<string> {
   server = createServer((req, res) => {
     const key = (req.url ?? "").replace(/^\/artifacts\//, "");

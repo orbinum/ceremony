@@ -1,7 +1,10 @@
 /**
- * The HTTP face (COORDINATOR §5): auth bound to the pinned ceremony and size checked before the
- * body, routing, answers that never quote the body, and connection slots that unauthenticated
- * sockets cannot hold.
+ * The HTTP face: auth bound to the pinned ceremony and size checked before the body (answers come
+ * from the headers alone), a stale timestamp refused before anything else, a re-signed retry
+ * acknowledged, routing, answers that never quote the body (the reason stays in this host's log),
+ * and connection slots that unauthenticated sockets cannot hold: the server closes each refused
+ * connection, so the 32 slots free up for the coordinator. Every request is bounded, so a
+ * regression fails instead of hanging.
  */
 import { Agent, request, type Server } from "node:http";
 import { connect } from "node:net";
@@ -13,7 +16,6 @@ import { CEREMONY_ID, HMAC_KEY, jobSpec, signedDispatch, within } from "../../su
 
 const GENESIS = { sha256: "11".repeat(32), csHash: "00".repeat(64) };
 
-/** The fixed bound on any one request of this suite: a regression fails, never hangs. */
 const BOUND_MS = 10_000;
 
 const listen = async (server: Server) => {
@@ -25,11 +27,9 @@ const close = (server: Server) => {
   return new Promise((r) => server.close(r));
 };
 
-/** A `POST /verify` with the given headers (signed for `CEREMONY_ID` by default). */
 const post = (url: string, body: string, headers = signedDispatch(body)) =>
   within(BOUND_MS, "POST /verify", fetch(`${url}/verify`, { method: "POST", headers, body }));
 
-/** A raw request: headers sent, then `send` decides what (if anything) follows. */
 const raw = (
   url: string,
   headers: Record<string, string | number>,
@@ -52,7 +52,6 @@ const raw = (
   );
 
 const SHAPED = {
-  // Fresh at each use: a stale timestamp is refused before anything else is looked at.
   get "x-ceremony-timestamp"() {
     return String(Date.now());
   },
@@ -117,7 +116,6 @@ describe("service http", () => {
       expect(replay.status).toBe(401);
       expect(await replay.json()).toEqual({ error: "replayed request" });
       expect(submitted).toHaveLength(1);
-      // Signed anew (as every retry is), it reaches the sink, which acknowledges a repeat.
       await new Promise((r) => setTimeout(r, 2));
       expect((await post(url, body)).status).toBe(202);
       expect(submitted).toHaveLength(2);
@@ -126,7 +124,6 @@ describe("service http", () => {
     it("refuses a timestamp too far behind, computed when sent", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       try {
-        // Signed now, received skew + 5 s later.
         const headers = signedDispatch(body);
         vi.setSystemTime(Date.now() + REQUEST_AUTH.skewMs + 5_000);
         expect((await post(url, body, headers)).status).toBe(401);
@@ -145,7 +142,6 @@ describe("service http", () => {
       ["an uppercase signature", { ...SHAPED, "x-ceremony-signature": "AB".repeat(32) }],
       ["a short signature", { ...SHAPED, "x-ceremony-signature": "ab".repeat(31) }],
     ])("refuses %s with 401 before reading the body", async (_, headers) => {
-      // The body is never sent: the answer must come from the headers alone.
       const res = await raw(url, { ...headers, "content-length": 100 }, (req) =>
         req.flushHeaders(),
       );
@@ -173,7 +169,6 @@ describe("service http", () => {
     it("refuses a stale or future timestamp with 401 before reading the body", async () => {
       for (const at of [Date.now() - 61_000, Date.now() + 61_000]) {
         const headers = { ...SHAPED, "x-ceremony-timestamp": String(at) };
-        // oxlint-disable-next-line no-await-in-loop -- one request at a time
         const res = await raw(
           url,
           { ...headers, "content-length": MAX_JOB_SPEC_BYTES + 1 },
@@ -229,7 +224,6 @@ describe("service http", () => {
         expect(await response.json()).toEqual({ error: "invalid job spec" });
         expect(response.headers.get("connection")).toBe("close");
         expect(submitted).toEqual([]);
-        // The reason stays in this host's log.
         expect(error).toHaveBeenCalledWith(expect.stringMatching(/^dispatch refused: /));
       } finally {
         error.mockRestore();
@@ -264,8 +258,6 @@ describe("service http", () => {
 
   describe("connection slots", () => {
     it("lets a signed dispatch through right after 32 keep-alive /healthz clients", async () => {
-      // Each client asks to keep its connection; the server closes it after answering, so the
-      // connection limit (32) is free again for the coordinator.
       const agent = new Agent({ keepAlive: true, maxSockets: 32 });
       try {
         const answers = await within(

@@ -1,4 +1,4 @@
-/** Files and bytes against their pins (SPEC §1.3, §6.1): size and hash, the ptau's included. */
+/** Files and bytes against their pins: size and hash, the ptau's included. */
 import { mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +11,6 @@ import {
   assertPtauBytes,
 } from "../../src/pins";
 
-/** Only the fields the pins read. */
 const init = {
   circuits: [
     { name: "shield", r1cs_sha256: sha256Hex(utf8("r1cs")), genesis_sha256: "00".repeat(32) },

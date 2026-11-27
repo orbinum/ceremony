@@ -1,4 +1,6 @@
-// cli/source: the audited circuits release, exported and compiled.
-export { compileCircuit } from "./compile";
-export { exportSource, type ExportedSource } from "./export";
-export { type CircuitRelease, repoId, resolveRelease } from "./release";
+/** The audited circuits release: resolved in the verifier's own clone, exported and compiled. */
+export { compileCircuit } from "./compile-circuit";
+export { exportSource } from "./export-source";
+export { repoId } from "./repo-id";
+export { resolveRelease } from "./resolve-release";
+export type { CircuitRelease, ExportedSource } from "./types";

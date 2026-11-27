@@ -1,5 +1,7 @@
-// @orbinum-ceremony/verifier: the upload-verification library (shared with the cli). The verifier
-// service lives in `src/service` and runs as its own process (`src/service/main.ts`).
+/**
+ * The upload-verification library, shared with the cli. The verifier service lives in
+ * `src/service` and runs as its own process (`src/service/main.ts`), so it is not exported here.
+ */
 export * from "./files";
 export { IsolationError, terminateIsolated } from "./isolate";
 export * from "./pins";

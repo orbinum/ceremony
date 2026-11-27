@@ -1,6 +1,8 @@
 /**
- * Attacks on the operator routes: artifact paths and hashes, configure, state transitions, the
- * finalize body, and final files published at the wrong moment (COORDINATOR §3, SPEC §2.6, §4.3).
+ * Attacks on the operator routes: artifact paths and hashes, configure (a frozen setup takes no
+ * other setup and no new setup file), state transitions, the finalize body, and final files
+ * published at the wrong moment, such as while an upload still in verification at the close could
+ * move the head.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -65,7 +67,6 @@ const putRefusal = async (
   headers: Record<string, string> = {},
 ) => refusal(await putFile(id, path, bytes, headers));
 
-/** An open ceremony whose contributor 1 has an upload in verification. */
 async function verifying(id: string) {
   const stub = stubOf(id);
   await stub.configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
@@ -88,7 +89,6 @@ async function verifying(id: string) {
   return { stub, job: r.spec.job };
 }
 
-/** A past one-circuit ceremony, closed at round 1000, with `contribute` accepted contributions. */
 async function closedCeremony(contribute: boolean) {
   const id = freshId("admin-attacks");
   const stub = stubOf(id);
@@ -142,7 +142,6 @@ describe("PUT /admin/artifacts/*", () => {
       "final/constructor.vk.json",
       "verify/1/shield/1-x.zkey",
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one path at a time
       const answer = await putRefusal(id, path, bytes);
       expect([path, ...answer]).toEqual([path, 400, "malformed"]);
     }
@@ -154,7 +153,6 @@ describe("PUT /admin/artifacts/*", () => {
     const bytes = new TextEncoder().encode("a ptau mirror");
     const sha = sha256Hex(bytes);
     for (const h of [sha.slice(0, 62), `0x${sha}`, `${sha} `.repeat(2), ""]) {
-      // oxlint-disable-next-line no-await-in-loop -- one header at a time
       const answer = await putRefusal(id, CEREMONY_LAYOUT.ptau, bytes, { "x-content-sha256": h });
       expect([h, ...answer]).toEqual([h, 400, "malformed"]);
     }
@@ -182,10 +180,6 @@ describe("PUT /admin/artifacts/*", () => {
     ]);
   });
 
-  /**
-   * An upload still in verification at the close can still move the head, so a final computed
-   * before its verdict could be for the wrong head.
-   */
   it("refuses final files while a verification is still in flight after the close", async () => {
     const id = freshId("admin-attacks-final-early");
     const { stub, job } = await verifying(id);
@@ -198,7 +192,6 @@ describe("PUT /admin/artifacts/*", () => {
     );
     expect(early.status).toBe(409);
     expect(await PUBLIC.head(CEREMONY_LAYOUT.finalZkey("shield"))).toBeNull();
-    // The in-flight verification then lands and moves the head.
     expect(await stub.report(validReport(job))).toEqual({ ok: true, status: "applied" });
     expect((await stub.head("shield"))?.index).toBe(1);
   });
@@ -219,7 +212,6 @@ describe("configure and state", () => {
     expect(
       await refusal(await configure({ ...setup, announcement: ` ${setup.announcement}` })),
     ).toEqual([400, "malformed-setup"]);
-    // Sizes of circuits the ceremony does not have are dropped, not stored.
     expect(
       (await configure({ ...setup, genesisSizes: { ...setup.genesisSizes, extra: 1 } })).status,
     ).toBe(200);
@@ -227,10 +219,8 @@ describe("configure and state", () => {
     expect((await configure(setup)).status).toBe(200);
     await runDurableObjectAlarm(stubOf(id));
     expect((await stubOf(id).snapshot())?.phase).toBe("OPEN");
-    // The setup is frozen: another valid one (other schedule) is refused.
     const other = setupInput(Date.now() - 500, Date.now() + 3_600_000);
     expect(await stubOf(id).configure(other)).toEqual({ ok: false, refusal: "already-configured" });
-    // So are setup files it does not have yet: nothing new joins the setup after it freezes.
     expect(await putRefusal(id, CEREMONY_LAYOUT.ptau, new Uint8Array([1, 2, 3]))).toEqual([
       409,
       "invalid-transition",
@@ -257,7 +247,6 @@ describe("configure and state", () => {
     const id = freshId("admin-attacks-network");
     const setup = await publishedSetup(Date.now() - 1000, Date.now() + 86_400_000);
     for (const ENVIRONMENT of ["testnet", "production"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one deployment at a time
       const r = await configureCeremony({ ...env, ENVIRONMENT, CEREMONY_ID: id }, setup);
       expect([ENVIRONMENT, r.ok]).toEqual([ENVIRONMENT, false]);
     }
@@ -268,7 +257,6 @@ describe("configure and state", () => {
     const later = freshId("admin-attacks-scheduled");
     await stubOf(later).configure(setupInput(Date.now() + 3_600_000, Date.now() + 86_400_000));
     for (const action of ["pause", "resume", "close"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one action at a time
       expect(await refusal(await state(later, action))).toEqual([409, "invalid-transition"]);
     }
     const id = freshId("admin-attacks-state");
@@ -277,7 +265,6 @@ describe("configure and state", () => {
     expect(await refusal(await state(id, "resume"))).toEqual([409, "invalid-transition"]);
     expect((await state(id, "close")).status).toBe(200);
     for (const action of ["close", "pause", "resume"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one action at a time
       expect(await refusal(await state(id, action))).toEqual([409, "invalid-transition"]);
     }
     expect(
@@ -326,7 +313,6 @@ describe("POST /admin/finalize", () => {
     expect((await json(r)).error.message).toContain("shield: 0 contributions");
   });
 
-  /** Nothing pins a final file before the finals arrive, so a wrong upload can be corrected. */
   it("lets a final file that no final record pins yet be corrected, then finalizes", async () => {
     const { id, stub, request } = await closedCeremony(true);
     const { zkey, vk } = finalBytes("shield");
@@ -344,7 +330,6 @@ describe("POST /admin/finalize", () => {
     const { zkey, vk } = finalBytes("shield");
     await putFile(id, CEREMONY_LAYOUT.finalZkey("shield"), zkey);
     await putFile(id, CEREMONY_LAYOUT.finalVk("shield"), vk);
-    // Two writes of the same file: the first to end does not release the other's hold.
     const first = await stub.holdFinalWrite();
     const second = await stub.holdFinalWrite();
     expect(await refusal(await finalize(id, request))).toEqual([409, "busy"]);
@@ -362,7 +347,6 @@ describe("POST /admin/unhold", () => {
     await stub.configure(setupInput(Date.now() - 1000, Date.now() + 86_400_000));
     await runDurableObjectAlarm(stub);
     await linkDirect(stub, 9);
-    // Held after repeated infra releases (the queue's own rule is tested in core).
     await runInDurableObject(stub, (_, ctx) => {
       const row = ctx.storage.sql.exec("SELECT json FROM queue_state").one();
       const q = JSON.parse(String(row.json));
@@ -390,7 +374,6 @@ describe("POST /admin/unhold", () => {
       { githubId: 9.5 },
       { githubId: 9, x: 1 },
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one body at a time
       expect(await refusal(await unhold(body))).toEqual([400, "malformed"]);
     }
     expect(await refusal(await unhold({ githubId: 10 }))).toEqual([409, "invalid-transition"]);

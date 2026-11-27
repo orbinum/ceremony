@@ -1,6 +1,6 @@
 /**
  * `announce`: the root of trust is never rewritten under a chain, and its options follow core's
- * rules (SPEC §5.2, §6.2).
+ * rules.
  */
 import { readFile } from "node:fs/promises";
 import {
@@ -31,7 +31,6 @@ const argv = (network: string, ...extra: string[]) => [
   ...extra,
 ];
 
-/** The local argv with another minimum. */
 const withMinimum = (n: number) => [
   ...argv("local").slice(0, 9),
   String(n),

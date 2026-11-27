@@ -1,7 +1,8 @@
 /**
- * The finalize handover (SPEC §2.6, §4.3): final files only once the ceremony is closed,
- * `POST /admin/finalize` seals it once every final file is published with its hash, and a sealed
- * ceremony is read-only. Runs on a ceremony of the past (drand round 1000) under a faked clock.
+ * The finalize handover: final files only once the ceremony is closed (and correctable until the
+ * handover), `POST /admin/finalize` seals it once every final file is published with its hash, and a
+ * sealed ceremony is read-only. Runs on a ceremony of the past (drand round 1000) under a faked
+ * clock.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -38,7 +39,6 @@ import {
   validReport,
 } from "../support";
 
-/** A past ceremony with one accepted shield contribution, closed, at round 1000's emission. */
 async function closedCeremony() {
   const id = freshId("finalize");
   const stub = stubOf(id);
@@ -130,7 +130,6 @@ describe("final files (cli publish-final)", () => {
       key,
       unchanged: true,
     });
-    // Nothing pins a final file before the handover: a wrong one may be corrected.
     const other = await putFile(id, key, new TextEncoder().encode("another key"));
     expect(other.status).toBe(201);
     expect(await published(key)).toBe("another key");
@@ -158,7 +157,6 @@ describe("POST /admin/finalize", () => {
     const { id, request } = await closedCeremony();
     await putFinals(id);
     expect((await finalize(id, request)).status).toBe(200);
-    // A replacement that raced the handover left other bytes behind.
     const key = CEREMONY_LAYOUT.finalZkey("shield");
     await PUBLIC.put(key, "a wrong final key");
     const other = await putFile(id, key, new TextEncoder().encode("yet another key"));
@@ -181,13 +179,10 @@ describe("POST /admin/finalize", () => {
     );
     expect(await refusal(replaced)).toEqual([409, "finalized"]);
     for (const action of ["pause", "resume", "close"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one action at a time
       const r = await call("POST", "/admin/state", undefined, { ...as, body: { action } });
-      // oxlint-disable-next-line no-await-in-loop -- one action at a time
       expect(await refusal(r)).toEqual([409, "finalized"]);
     }
     for (const path of ["/api/queue/join", "/api/session/claim", "/api/link/nonce"]) {
-      // oxlint-disable-next-line no-await-in-loop -- one route at a time
       expect(await refusal(await call("POST", path, 1, as))).toEqual([409, "finalized"]);
     }
     const bytes = new TextEncoder().encode("late");
@@ -210,7 +205,6 @@ describe("POST /admin/finalize", () => {
       ok: false,
       refusal: "finalized",
     });
-    // A new file is a write; the same final bytes again are still a no-op.
     expect(await refusal(await putFile(id, CEREMONY_LAYOUT.ptau, bytes))).toEqual([
       409,
       "finalized",

@@ -1,6 +1,7 @@
 /**
- * Attacks the Durable Object's alarm under at-least-once delivery (duplicate, early, late, during
- * a promotion), a slow promotion copy, and a publication that throws. COORDINATOR §4, SPEC §4.2.
+ * Attacks the Durable Object's alarm under at-least-once delivery (duplicate, early, late, during a
+ * promotion), a slow promotion copy that must not rewind a heartbeat sent during it, and a
+ * publication that throws, which fails neither its commit nor later ones.
  */
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { nextDeadline, QUEUE_RULES, type QueueState } from "@orbinum-ceremony/core";
@@ -57,7 +58,6 @@ describe("alarms delivered at least once", () => {
     const before = await snapshot(stub);
     const records = (await readTranscript(stub)).records.length;
     for (let i = 0; i < 3; i++) {
-      // oxlint-disable-next-line no-await-in-loop -- deliveries in order
       await runInDurableObject(stub, (instance) =>
         (instance as { alarm(): Promise<void> }).alarm(),
       );
@@ -79,7 +79,6 @@ describe("alarms delivered at least once", () => {
     expect(s.identities["1"]).toMatchObject({ noShows: 0, cooldownUntil: 0 });
     const last = (await readTranscript(stub)).records.at(-1) as { to?: string; reason?: string };
     expect(last).toMatchObject({ to: "CLOSED", reason: "schedule" });
-    // A late duplicate after that changes nothing.
     await runInDurableObject(stub, (instance) => (instance as { alarm(): Promise<void> }).alarm());
     expect(await snapshot(stub)).toEqual(s);
   });
@@ -93,7 +92,6 @@ describe("alarms delivered at least once", () => {
       ok: false,
       refusal: "not-your-slot",
     });
-    // A refusal persists nothing; the (late) alarm then applies the no-show once.
     expect((await snapshot(stub)).slot?.githubId).toBe(1);
     await runDurableObjectAlarm(stub);
     await runInDurableObject(stub, (instance) => (instance as { alarm(): Promise<void> }).alarm());
@@ -127,10 +125,6 @@ describe("a promotion copy that outlasts the clock hold", () => {
   beforeEach(() => vi.useFakeTimers({ toFake: ["Date"] }));
   afterEach(() => vi.useRealTimers());
 
-  /**
-   * The copy takes 70 s (longer than the hold) and the contributor heartbeats during it: settling
-   * the result must not rewind that heartbeat, or the next alarm would release them as a no-show.
-   */
   it("keeps a contributor who heartbeats through a slow copy", async () => {
     const stub = await granted();
     await stub.apply({ type: "claim", githubId: 1 });
@@ -149,7 +143,6 @@ describe("a promotion copy that outlasts the clock hold", () => {
     }
     const s = await snapshot(stub);
     const rewound = s.slot?.lastHeartbeat;
-    // The contributor heartbeats 30 s after its last one, at +95 s.
     vi.setSystemTime(t0 + 95_000);
     const hb = await stub.apply({ type: "heartbeat", githubId: 1 });
     expect({ rewound: rewound === t0, hb }).toEqual({
@@ -162,7 +155,6 @@ describe("a promotion copy that outlasts the clock hold", () => {
 describe("a commit whose publication throws", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  /** Publications are chained and caught: one that throws fails neither its commit nor later ones. */
   it("answers the commit, persists it, and keeps committing", async () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const stub = await granted();

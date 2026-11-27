@@ -5,14 +5,14 @@
   "description": "Operator, contributor and public-verification commands",
   "author": "Orbinum Technologies <contact@orbinum.net>",
   "bin": {
-    "orbinum-ceremony": "./src/index.ts"
+    "orbinum-ceremony": "./src/main.ts"
   },
   "type": "module",
   "exports": {
     ".": "./src/api.ts"
   },
   "scripts": {
-    "start": "tsx src/index.ts",
+    "start": "tsx src/main.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },

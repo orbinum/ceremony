@@ -1,47 +1,79 @@
-/** A connected wallet, and the wallets this browser offers to connect. */
+/**
+ * A connected wallet, the wallets this browser offers to connect, and the provider interfaces this
+ * client reads them through. A `Wallet` remembers the wallet it came from, so the attestation is
+ * signed by the same one. A `WalletOption.id` is the EIP-6963 rdns (or `injected`) for an EVM
+ * wallet, the `injectedWeb3` key for an extension, `solana:<name>` for a Wallet Standard wallet;
+ * its icon is a `data:` URI the wallet announced, or one of ours, never a remote URL. A
+ * `WalletAccount` names the Orbinum (SS58) account as the transcript does, and the wallet's own
+ * spelling of the same key when it differs (a Solana base58 address).
+ */
 import type { AttestationPayload, LinkPayload, Scheme } from "@orbinum-ceremony/core";
 
-/** How a wallet reaches the page, as the picker groups them. */
 export type Family = "substrate" | "solana" | "evm";
 
-/** One account of one wallet, and what it signs for the ceremony (SPEC §3.4–3.7). */
 export interface Wallet {
   scheme: Scheme;
   account: string;
-  /** The wallet it came from (`WalletOption.id`), so the attestation is signed by the same one. */
   walletId: string;
-  /** For the UI (`MetaMask`, `Talisman`, `Phantom`, …). */
   name: string;
   signLink(payload: LinkPayload): Promise<string>;
   signAttestation(payload: AttestationPayload): Promise<string>;
 }
 
-/** A wallet detected in this browser, as the user picks it. */
 export interface WalletOption {
-  /**
-   * EIP-6963 rdns (or `injected`) for EVM wallets, the `injectedWeb3` key for extensions,
-   * `solana:<name>` for Wallet Standard wallets.
-   */
   id: string;
   name: string;
   family: Family;
-  /** A `data:image/…` URI the wallet announced, or one of ours; never a remote URL. */
   icon?: string;
 }
 
-/** An account a wallet shares, ready to be connected as a `Wallet`. */
 export interface WalletAccount {
   walletId: string;
   walletName: string;
   scheme: Scheme;
-  /** The Orbinum (SS58) account, as the transcript names it. */
   address: string;
-  /** The wallet's own spelling of the same key, when it differs (a Solana base58 address). */
   native?: string;
   name: string | undefined;
   connect(): Wallet;
 }
 
-/** The families whose accounts sign under `scheme`. */
-export const familiesOf = (scheme: Scheme): Family[] =>
-  scheme === "eip712" ? ["evm"] : scheme === "sr25519" ? ["substrate"] : ["solana", "substrate"];
+export interface Eip1193 {
+  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+}
+
+export interface StandardAccount {
+  readonly address: string;
+  readonly publicKey: Uint8Array;
+  readonly label?: string;
+}
+
+export interface StandardWallet {
+  readonly name: string;
+  readonly icon: string;
+  readonly features: Readonly<Record<string, unknown>>;
+}
+
+export interface ConnectFeature {
+  connect(): Promise<{ accounts: readonly StandardAccount[] }>;
+}
+
+export interface SignMessageFeature {
+  signMessage(
+    ...inputs: { account: StandardAccount; message: Uint8Array }[]
+  ): Promise<readonly { signature: Uint8Array }[]>;
+}
+
+export interface InjectedAccount {
+  address: string;
+  name?: string;
+  type?: string;
+}
+
+export interface Injected {
+  accounts: { get(): Promise<InjectedAccount[]> };
+  signer: {
+    signRaw?(raw: { address: string; data: string; type: "bytes" }): Promise<{ signature: string }>;
+  };
+}
+
+export type Extensions = Record<string, { enable(dapp: string): Promise<Injected> }>;

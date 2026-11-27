@@ -1,6 +1,7 @@
 /**
  * One job end to end (hermetic harness, pairing check stubbed) against leaks and swapped inputs:
- * secrets, stderr and paths stay out of reports, descriptors do not leak, swapped staged copies are infra.
+ * secrets, stderr and paths stay out of reports, descriptors do not leak, swapped staged copies
+ * are infra.
  */
 import { readdirSync } from "node:fs";
 import { rm, symlink } from "node:fs/promises";
@@ -10,7 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { IsolationError } from "../../../src/isolate";
 import { loadInputs } from "../../../src/service";
 import { contribute, verifyFromInit } from "../../../src/snarkjs";
-import { REPLY_CHECKS } from "../../../src/snarkjs/isolated";
+import { REPLY_CHECKS } from "../../../src/snarkjs/worker";
 import { HMAC_KEY, type JobHarness, jobHarness } from "../../support";
 
 vi.mock("@orbinum-ceremony/core", async (actual) => {
@@ -80,15 +81,11 @@ describe("descriptors across many jobs", () => {
       const before = openFds();
       for (let i = 0; i < 10; i++) {
         zkvi.mockResolvedValueOnce(OK);
-        // oxlint-disable-next-line no-await-in-loop -- jobs run one at a time
         await h.run(honest, { contributionHash: honestHash });
         zkvi.mockResolvedValueOnce({ ok: false, log: "bad" });
-        // oxlint-disable-next-line no-await-in-loop -- jobs run one at a time
         await h.run(honest, { contributionHash: honestHash });
         zkvi.mockRejectedValueOnce(new IsolationError("timeout", "timed out"));
-        // oxlint-disable-next-line no-await-in-loop -- jobs run one at a time
         await h.run(honest, { contributionHash: honestHash });
-        // oxlint-disable-next-line no-await-in-loop -- jobs run one at a time
         await h.run(undefined);
       }
       expect(openFds()).toBeLessThanOrEqual(before + 2);
@@ -99,14 +96,12 @@ describe("descriptors across many jobs", () => {
   }, 120_000);
 });
 
-/** Replaces the staged shield genesis with whatever `make` creates at its path. */
 async function swapGenesis(make: (path: string) => Promise<void>) {
   const copy = h.inputs.genesis.shield?.path as string;
   await rm(copy, { force: true });
   await make(copy);
 }
 
-/** Stages the inputs afresh after a swap. */
 async function restoreInputs() {
   await h.inputs.stage.cleanup();
   h.inputs = await loadInputs(h.config);

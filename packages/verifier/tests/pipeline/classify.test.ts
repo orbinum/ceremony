@@ -1,4 +1,7 @@
-/** Who is at fault when verification throws (SPEC §2.5): host faults are infra, else the file. */
+/**
+ * Who is at fault when verification throws: host faults are infra, else the file. An errno only
+ * counts as a prefix, not quoted inside a message the file may influence.
+ */
 import { describe, expect, it } from "vitest";
 import { IsolationError } from "../../src/isolate";
 import { classifyVerifierError } from "../../src/pipeline";
@@ -70,7 +73,6 @@ describe("classifyVerifierError", () => {
     );
     expect(classifyVerifierError(withCode("ENOENT"))).toBe("rejected");
     expect(classifyVerifierError(withCode("EACCES"))).toBe("rejected");
-    // An errno only counts as a prefix, not quoted inside a message the file may influence.
     expect(classifyVerifierError(new Error("bad name 'ENOSPC: x'"))).toBe("rejected");
     expect(classifyVerifierError(new Error("EMFILEX"))).toBe("rejected");
   });

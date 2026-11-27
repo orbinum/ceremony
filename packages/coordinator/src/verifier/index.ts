@@ -1,2 +1,2 @@
-// coordinator/verifier: the verifier container, driven by its Durable Object.
-export { VerifierContainer } from "./container";
+/** The verifier container, driven by its Durable Object. */
+export { VerifierContainer } from "./verifier-container";

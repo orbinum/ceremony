@@ -1,6 +1,6 @@
 /**
- * The verifier's routes (COORDINATOR §5): bounded, then HMAC over this ceremony's id and the exact
- * request; only a pending job's object is served; a signed report applies once.
+ * The verifier's routes: bounded, then HMAC over this ceremony's id and the exact request; only a
+ * pending job's object is served; a signed report applies once.
  */
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -27,7 +27,6 @@ import {
 const BYTES = new TextEncoder().encode("internal-test upload");
 const OBJECT = "/internal/objects/1/shield/1";
 
-/** A fresh ceremony with one pending shield job; its object's name, stub and job. */
 async function pending() {
   const name = freshId("internal");
   const stub = stubOf(name);
@@ -72,10 +71,8 @@ describe("the verifier's routes", () => {
       }),
       await signed("GET", OBJECT, undefined, { now: Date.now() + 120_000 }),
       await signed("GET", OBJECT, undefined, { key: `${env.VERIFIER_HMAC_KEY}-other` }),
-      // A request signed for another ceremony under the same key.
       await signed("GET", OBJECT, undefined, { ceremonyId: "mainnet-1" }),
     ]) {
-      // oxlint-disable-next-line no-await-in-loop -- one answer at a time
       expect(await refusal(r)).toEqual([401, "unauthenticated"]);
     }
     expect(await refusal(await signed("GET", "/internal/objects/x/shield/1"))).toEqual([
@@ -94,7 +91,6 @@ describe("the verifier's routes", () => {
 
   it("binds the signature to the path, the method and the body", async () => {
     const { stub, job, signed } = await pending();
-    // Headers signed for another path, another method, and another body, sent here.
     const otherPath = await signed("GET", OBJECT, undefined, {
       signedPath: "/internal/objects/1/shield/2",
     });
