@@ -104,7 +104,7 @@ describe("patterns", () => {
 
 describe("arrays from outside are dense", () => {
   it("refuses a hole (a caller-built sparse array), naming its index", () => {
-    const sparse = [1, , 3]; // oxlint-disable-line no-sparse-arrays -- the hostile input itself
+    const sparse = [1, , 3]; // oxlint-disable-line no-sparse-arrays
     expect(() => asArray(sparse, "l", 5)).toThrow("l[1]: missing item");
   });
 });

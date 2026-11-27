@@ -1,7 +1,4 @@
-/**
- * Who may send which queue event, attestations ending sessions, and the records of effects. SPEC
- * §4.3.
- */
+/** Who may send which queue event, attestations ending sessions, and the records of effects. */
 import { describe, expect, it } from "vitest";
 import {
   attestStep,
@@ -38,7 +35,6 @@ function holding(githubId: number): QueueState {
   return s;
 }
 
-/** An announced beacon time no test reaches. */
 const NEVER = Number.MAX_SAFE_INTEGER;
 
 describe("who may send which event", () => {
@@ -120,7 +116,6 @@ describe("views", () => {
       sessions: 1,
       contributors: 0,
     });
-    // A contributor is an account with an accepted circuit, not a turn given.
     const standing = {
       noShows: 0,
       cooldownUntil: 0,

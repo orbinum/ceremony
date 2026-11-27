@@ -1,6 +1,22 @@
-// core/config: pinned constants, limits and policy (no logic).
-export { BEACON_ITERATIONS_EXP, BEACON_ITERATIONS_RANGE, DRAND } from "./beacon";
-export { CIRCUITS_REPO_URL, type CircuitName } from "./circuits";
+/** core/config: pinned constants, limits and policy, grouped by theme (no logic). */
+export {
+  LINK_RULES,
+  LOOPBACK_HOSTS,
+  MIN_KEY_BYTES,
+  REQUEST_AUTH,
+  SESSION_RULES,
+} from "./authentication";
+export {
+  BEACON_ITERATIONS_EXP,
+  BEACON_ITERATIONS_RANGE,
+  DEFAULT_BEACON_DELAY_SECONDS,
+  DRAND,
+  MAX_BEACON_DELAY_SECONDS,
+  MIN_BEACON_DELAY_SECONDS,
+  MIN_RELAYS,
+} from "./beacon";
+export { CIRCUITS_REPO_URL, MEASURED_CIRCUITS } from "./circuits";
+export { GITHUB_THRESHOLDS, MAINNET_MIN_CONTRIBUTIONS, SIMULATED_NETWORKS } from "./contributors";
 export {
   MAX_CIRCUITS,
   MAX_CLAIM_BYTES,
@@ -17,25 +33,13 @@ export {
   MAX_SECTIONS,
   MAX_TRANSCRIPT_BYTES,
 } from "./limits";
+export { PTAU } from "./ptau";
+export { QUEUE_RULES } from "./queue";
+export { TOOLING } from "./tooling";
+export { type CircuitName } from "./types";
 export {
   BYTES_PER_CONTRIBUTION,
-  DEFAULT_BEACON_DELAY_SECONDS,
-  GITHUB_THRESHOLDS,
-  LINK_RULES,
-  LOOPBACK_HOSTS,
-  MEASURED_CIRCUITS,
-  MAINNET_MIN_CONTRIBUTIONS,
-  MAX_BEACON_DELAY_SECONDS,
-  MIN_BEACON_DELAY_SECONDS,
-  MIN_KEY_BYTES,
-  MIN_RELAYS,
-  QUEUE_RULES,
   REPORT_RESERVE_MS,
-  REQUEST_AUTH,
-  SESSION_RULES,
-  SIMULATED_NETWORKS,
   VERIFIER_TIMEOUT_MS,
   VERIFY_DEADLINE_MS,
-} from "./policy";
-export { PTAU } from "./ptau";
-export { TOOLING } from "./tooling";
+} from "./verifier";

@@ -1,12 +1,14 @@
 /**
  * The alarm: schedule transitions, then whatever deadline of the session expired. Idempotent: it
- * only acts on what the state says has expired, so a repeated alarm changes nothing. SPEC §4.2–4.3.
+ * only acts on what the state says has expired, so a repeated alarm changes nothing. No answer
+ * from the verifier in time is `infra`, never the contributor's fault; closing ends the session
+ * without penalty before any timer is looked at.
  */
-import { grantNext, release, setPhase, type StepContext } from "../context";
+import { grantNext, release, setPhase } from "../moves";
 import { activeMs } from "../slot";
-import { applyResult } from "./verification";
+import type { StepContext } from "../types";
+import { applyResult } from "./apply-result";
 
-/** Advances the queue to `ctx.now`. */
 export function tick(ctx: StepContext): null {
   const { s, now, rules } = ctx;
   if (s.phase === "SCHEDULED" && now >= s.schedule.openAt) setPhase(ctx, "OPEN", "schedule");
@@ -15,7 +17,6 @@ export function tick(ctx: StepContext): null {
   }
 
   const slot = s.slot;
-  // No answer from the verifier in time: `infra`, never the contributor's fault.
   if (slot && slot.verifyDeadline !== null && now >= slot.verifyDeadline) {
     applyResult(ctx, slot, "infra");
   }
@@ -24,7 +25,6 @@ export function tick(ctx: StepContext): null {
   if (live && live.verifyDeadline === null) {
     const running = live.runningSince !== null;
     if (s.phase === "CLOSED") {
-      // Closing ends the session without penalty, before any timer is looked at.
       release(ctx, "closed");
     } else if (
       s.phase === "OPEN" &&

@@ -1,4 +1,4 @@
-/** The queue machine under random event sequences keeps its invariants. SPEC §4.1–4.3. */
+/** The queue machine under random event sequences keeps its invariants. */
 import { describe, expect, it } from "vitest";
 import {
   initialQueue,
@@ -125,7 +125,6 @@ describe("fuzz: the queue machine under random event sequences", () => {
         s = r.state;
         applied += 1;
         invariants(s);
-        // A tick at the next deadline is idempotent once applied.
         const at = nextDeadline(s);
         if (at !== null && at <= t) {
           const again = step(s, { type: "tick" }, t);

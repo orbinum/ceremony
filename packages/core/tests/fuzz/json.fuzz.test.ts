@@ -1,4 +1,8 @@
-/** Document validators on mutated documents: a FormatError naming the field, or a fixed point. */
+/**
+ * Document validators on mutated documents: each either refuses with a FormatError naming the
+ * mutated field, or returns a value that re-validates to itself. A deleted discriminant (`type`,
+ * `result`) need not be named: it is read before the record's fields are.
+ */
 import { describe, expect, it } from "vitest";
 import { validateAnnouncement } from "../../src/ceremony/announcement";
 import { validateAttestationPayload } from "../../src/ceremony/identity";
@@ -20,7 +24,6 @@ import {
   pick,
 } from "../support";
 
-/** Values that break naive validators. */
 const HOSTILE: unknown[] = [
   null,
   Number.NaN,
@@ -46,14 +49,11 @@ function paths(v: unknown, prefix: (string | number)[] = []): (string | number)[
   ];
 }
 
-/** One mutation: the mutated copy and, for a deleted or added object key, the field it names. */
 interface Mutation {
   input: unknown;
-  /** A refusal must name the field (`missing field "k"`, `….k: …`, `unexpected field "k"`). */
   names?: RegExp;
 }
 
-/** A copy of `doc` with one mutation at a random path: delete, add a key, or replace a value. */
 function mutate(doc: unknown, rand: () => number): Mutation {
   const copy = structuredClone(doc) as Record<string | number, unknown>;
   const all = paths(copy).filter((p) => p.length > 0);
@@ -69,7 +69,6 @@ function mutate(doc: unknown, rand: () => number): Mutation {
   const object = !Array.isArray(parent);
   if (kind === 0) {
     delete parent[key];
-    // A discriminant (`type`, `result`) is read before the record's fields are.
     return object && key !== "type" && key !== "result"
       ? { input: copy, names: new RegExp(`missing field "${key}"|\\.${key}: `) }
       : { input: copy };
@@ -83,7 +82,6 @@ function mutate(doc: unknown, rand: () => number): Mutation {
   return { input: copy };
 }
 
-/** A validator either refuses with FormatError, or returns a value that re-validates to itself. */
 function check(validate: (v: unknown) => unknown, doc: unknown, rounds: number, seed: number) {
   expect(validate(structuredClone(doc))).toEqual(doc);
   let refused = 0;

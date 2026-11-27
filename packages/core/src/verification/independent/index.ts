@@ -1,7 +1,5 @@
-// core/verification/independent: the Rust verifier's verdict (SPEC §8.4).
-export {
-  compareIndependent,
-  type IndependentVerdict,
-  readIndependentVerdict,
-  REQUIRED_CHECKS,
-} from "./verdict";
+/** core/verification/independent: the Rust verifier's verdict. */
+export { compareIndependent } from "./compare-independent";
+export { REQUIRED_CHECKS } from "./constants";
+export { readIndependentVerdict } from "./read-independent-verdict";
+export { type IndependentVerdict } from "./types";

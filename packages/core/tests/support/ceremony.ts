@@ -1,4 +1,8 @@
-/** A small, valid ceremony built only with core's own builders: the base every check test edits. */
+/**
+ * A small, valid ceremony built only with core's own builders: the base every check test edits.
+ * Contributor n is GitHub id 100 + n with a fixed test EVM key (never a real wallet) and a real
+ * link signature; `contribution(k)` is shield contribution k, by contributor k unless told otherwise.
+ */
 import { TypedDataEncoder, Wallet } from "ethers";
 import { buildAnnouncement, type CeremonyAnnouncement } from "../../src/ceremony/announcement";
 import {
@@ -22,13 +26,11 @@ import { serializeJson, utf8 } from "../../src/primitives/encoding";
 import { sha256Hex } from "../../src/primitives/hashing";
 
 export const ID = "unit-test-1";
-/** The test ceremonies' circuits, in session order. */
 export const CIRCUIT_NAMES = ["shield", "unshield", "transfer"];
 export const OPEN = Date.parse("2026-10-01T00:00:00.000Z");
 export const CLOSE = Date.parse("2026-10-02T00:00:00.000Z");
 const COMMIT = "efe10bf3ef1d928c9c209fee4077750334410cfe";
 
-/** n-th fake hash of `bytes` bytes (distinct per n). */
 export const h = (n: number, bytes = 32) => n.toString(16).padStart(bytes * 2, "0");
 
 export const INIT: InitRecord = buildInit({
@@ -69,16 +71,13 @@ export const ANNOUNCEMENT_TEXT = serializeJson(ANNOUNCEMENT);
 export const ANNOUNCEMENT_SHA256 = sha256Hex(utf8(ANNOUNCEMENT_TEXT));
 export const GENESIS = chainGenesis(ID, ANNOUNCEMENT);
 
-/** Contributor n's EVM wallet: a fixed test key, never a real wallet. */
 export const walletOf = (n: number): Wallet => new Wallet(`0x${n.toString(16).padStart(64, "0")}`);
 
-/** Signs typed data synchronously, as the wallet would. */
 const signTyped = (n: number, typed: ReturnType<typeof ethersTypedData>) =>
   walletOf(n).signingKey.sign(TypedDataEncoder.hash(...typed)).serialized;
 
 const contributors = new Map<string, Identity & { linkSignature: string }>();
 
-/** Contributor n (GitHub id 100 + n): a linked EVM wallet with a real link signature. */
 export function contributor(n: number, ceremonyId = ID): Identity & { linkSignature: string } {
   let c = contributors.get(`${ceremonyId}/${n}`);
   if (!c) {
@@ -97,16 +96,11 @@ export function contributor(n: number, ceremonyId = ID): Identity & { linkSignat
   return c;
 }
 
-/** Contributor n's signature of an attestation payload. */
 export const signAttestation = (n: number, payload: AttestationPayload): string =>
   signTyped(n, ethersTypedData(attestationTypedData(payload)));
 
 export const ALICE = contributor(1);
 
-/**
- * Shield contribution `index` of session `seq`, chained from the previous output; by contributor
- * `index` unless `who` says otherwise.
- */
 export const contribution = (
   index: number,
   seq = index,
@@ -137,7 +131,6 @@ export const contribution = (
     at: new Date(at).toISOString(),
   });
 
-/** Chains records from the genesis. */
 export function chain(records: readonly TranscriptRecord[], genesis = GENESIS): Chained[] {
   const out: Chained[] = [];
   for (const r of records) out.push(appendRecord(out, genesis, r));
@@ -146,7 +139,6 @@ export function chain(records: readonly TranscriptRecord[], genesis = GENESIS): 
 
 export { PTAU };
 
-/** `INIT` with every pinned circuit, as a ceremony outside `local` must have. */
 export const FULL_INIT: InitRecord = buildInit({
   ceremonyId: ID,
   createdAt: INIT.created_at,
@@ -177,7 +169,6 @@ export const FULL_INIT: InitRecord = buildInit({
   ],
 });
 
-/** The texts a coordinator is configured with for a full-coverage `ANNOUNCEMENT` twin. */
 export const SETUP_INPUT = (() => {
   const init = serializeJson(FULL_INIT);
   const announcement = serializeJson({ ...ANNOUNCEMENT, init_sha256: sha256Hex(utf8(init)) });

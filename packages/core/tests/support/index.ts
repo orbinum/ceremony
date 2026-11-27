@@ -1,4 +1,6 @@
-// core/tests/support: a small valid ceremony, real wallets, fixtures and byte surgery for tests.
+/**
+ * Test support: a small valid ceremony, real wallets, fixtures and byte surgery.
+ */
 export {
   bigToLe,
   editSection,

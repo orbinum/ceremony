@@ -1,6 +1,6 @@
 /**
- * What a transcript means beyond its schema: links, window, minimum, beacon, simulation. SPEC §5,
- * §6.3.
+ * What a transcript means beyond its schema: links, window, minimum, beacon and simulation. The
+ * announcement is re-targeted at round 1000 so the real drand vector seals it.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -44,7 +44,6 @@ import {
   R1000,
 } from "../../support";
 
-/** The announcement re-targeted at round 1000, so the real drand vector seals it. */
 const AT_1000 = { ...ANNOUNCEMENT, beacon: { ...ANNOUNCEMENT.beacon, round: 1000 } };
 const beacon = (sealedAt = roundTime(1000) * 1000 + 1000) =>
   buildBeaconRecord({
@@ -128,7 +127,7 @@ describe("window and minimum", () => {
   });
 });
 
-describe("sealed beacon (SPEC §5)", () => {
+describe("sealed beacon", () => {
   it("accepts the announced round, sealed once, after every contribution", () => {
     const records = chain([contribution(1), contribution(2), beacon()]);
     const r = checkSealedBeacon(records, AT_1000);
@@ -275,7 +274,6 @@ describe("views and builders", () => {
   });
 });
 
-/** A contribution as `contribute-local` records it. */
 const simulated = (k: number) => {
   const r = contribution(k);
   return {

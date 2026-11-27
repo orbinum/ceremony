@@ -1,7 +1,7 @@
 /**
  * Who contributed is verifiable from the transcript alone: link and attestation signatures over
  * what they signed, one GitHub account and one wallet per circuit, an identity on every
- * non-simulated contribution outside local ceremonies. SPEC §3.4–3.5, §6.3.
+ * non-simulated contribution outside local ceremonies.
  */
 import { TypedDataEncoder } from "ethers";
 import { describe, expect, it } from "vitest";
@@ -39,7 +39,6 @@ const CLIENT = { name: "web", version: "1.0.0", commit: "abc1234" };
 const LOCAL = { ...ANNOUNCEMENT, network: "local" as const };
 const MAINNET = { ...ANNOUNCEMENT, network: "mainnet" as const };
 
-/** Contribution k by contributor k, then contributor 1's attestation of session 1. */
 function attested(sign = signAttestation) {
   const records = chain([contribution(1), contribution(2)]);
   const alice = contributor(1);
@@ -64,7 +63,6 @@ function attested(sign = signAttestation) {
 const problemsOf = (records: Parameters<typeof chain>[0], a = ANNOUNCEMENT) =>
   checkIdentities(chain(records), a).problems;
 
-/** Contributor n relinked under GitHub id `githubId`, signing with the same wallet. */
 function sameWalletAs(n: number, githubId: number): Identity & { linkSignature: string } {
   const identity: Identity = { ...contributor(n), github_id: githubId, github_login: "mallory" };
   const typed = ethersTypedData(linkTypedData(linkPayloadOf(ID, identity)));

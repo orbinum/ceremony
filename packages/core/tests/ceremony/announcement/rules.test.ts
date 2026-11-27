@@ -1,6 +1,6 @@
 /**
- * Announcement field rules, the beacon delay when building, and the contribution window. SPEC §4.3,
- * §6.2.
+ * Announcement field rules, the beacon delay when building, release tag names, the verification
+ * mode and the contribution window.
  */
 import { describe, expect, it } from "vitest";
 import {

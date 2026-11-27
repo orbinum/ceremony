@@ -1,10 +1,12 @@
-/** The iden3 container: bounded section table, sections inside the file. SPEC §2.5. */
+/**
+ * The iden3 container: the section table is bounded before it is read, every section lies inside
+ * the file, and a bad magic is reported as hex.
+ */
 import { describe, expect, it } from "vitest";
 import { MAX_SECTIONS } from "../../../src/config";
 import { readBinfile, readSections } from "../../../src/formats/binfile";
 import { loadZkey } from "../../support";
 
-/** A container header followed by `count` empty sections of one type. */
 function sectionBomb(count: number): Uint8Array {
   const bytes = new Uint8Array(12 + count * 12);
   const view = new DataView(bytes.buffer);

@@ -1,4 +1,6 @@
-/** Real quicknet rounds, fetched from api.drand.sh. */
+/**
+ * Real quicknet rounds, fetched from api.drand.sh.
+ */
 import type { DrandRound } from "../../src/ceremony/beacon";
 
 export const R1000: DrandRound = {

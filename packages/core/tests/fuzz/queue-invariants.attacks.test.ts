@@ -1,6 +1,6 @@
 /**
  * Attacks the queue machine with long random sequences under adversarial clocks (duplicate times,
- * exact deadline hits, and times that run backwards), checking the SPEC §4.2–4.3 rules after
+ * exact deadline hits, and times that run backwards), checking the queue rules after
  * every step: deadlines-first equivalence, frozen clock, cooldowns, infra release, bans, close
  * never a no-show, nothing accepted after T_close, FINALIZED refusing everything, and
  * `nextDeadline` being exactly the earliest pending deadline.
@@ -35,11 +35,9 @@ function randomEvent(s: QueueState, rand: () => number, stall: boolean): Ev {
   const githubId = IDS[pick(rand, IDS.length)] as number;
   const slot = s.slot;
   const holder = slot && rand() < 0.85 ? slot.githubId : githubId;
-  // A staller keeps its slot alive with heartbeats and never uploads or finishes: the cap ends it.
   if (stall && slot && slot.claimedAt !== null && rand() < 0.97) {
     return { type: "heartbeat", githubId: slot.githubId };
   }
-  // Bias towards the session's natural next move, so long sessions and acceptances happen.
   if (slot && rand() < 0.45) {
     const v = slot.circuits.find((c) => c.status === "verifying");
     const next = slot.circuits.find((c) => c.status === "todo");
@@ -70,7 +68,6 @@ function randomEvent(s: QueueState, rand: () => number, stall: boolean): Ev {
     case 7:
     case 8: {
       const v = slot?.circuits.find((c) => c.status === "verifying");
-      // Mostly the job in flight; sometimes a late or forged one (other seq, circuit or attempt).
       const forged = rand() < 0.15;
       return {
         type: "verified",
@@ -102,7 +99,6 @@ const run = (s: QueueState, e: Ev, t: number): StepResult =>
     ? attestStep(s, e.githubId, e.seq, t, Number.MAX_SAFE_INTEGER)
     : step(s, e, t);
 
-/** The next time: duplicates, small steps, exact deadline hits and misses, jumps, and (if allowed) going back. */
 function nextTime(
   s: QueueState,
   t: number,
@@ -111,7 +107,6 @@ function nextTime(
   brisk: number,
 ): number {
   const nd = nextDeadline(s);
-  // A brisk run: events seconds apart, so heartbeats keep sessions alive up to their cap.
   if (rand() < brisk) return t + pick(rand, 20_000);
   const r = rand();
   if (r < 0.1) return t;
@@ -128,7 +123,6 @@ const isChange = (before: QueueState, r: StepResult) =>
   r.ok && (r.effects.length > 0 || snap(r.state) !== snap(before));
 
 interface Shadow {
-  /** Counted releases since the last cooldown, per identity (model of SPEC §4.2). */
   counted: Map<number, number>;
   maxActive: Map<number, number>;
 }
@@ -141,7 +135,6 @@ function checkStep(
   shadow: Shadow,
   monotonic: boolean,
 ): void {
-  // FINALIZED refuses everything; a tick there changes nothing.
   if (s.phase === "FINALIZED") {
     if (e.type === "tick") {
       ensure(
@@ -153,7 +146,6 @@ function checkStep(
     }
     return;
   }
-  // Deadlines first: the event at t is the event applied to the state ticked to t.
   const ticked = step(s, { type: "tick" }, t);
   ensure(ticked.ok, "a tick is never refused");
   if (e.type !== "tick" && e.type !== "attest" && ticked.ok) {
@@ -172,10 +164,7 @@ function checkStep(
   const pre = ticked.ok ? ticked.state : s;
   const effects: QueueEffect[] = r.effects;
 
-  // Every grant goes to an eligible identity.
   const grants = effects.filter((x) => x.type === "grant");
-  // (Two grants in one step are legitimate: a deadline releases A and grants B, then B's own event
-  // ends B's session and grants C.)
   for (const g of grants) {
     if (g.type !== "grant") continue;
     const id = after.identities[String(g.githubId)];
@@ -189,7 +178,6 @@ function checkStep(
     const inFlight = slot.circuits.filter((c) => c.status === "verifying").length;
     ensure(inFlight <= 1, "one verification in flight");
     ensure((slot.verifyDeadline !== null) === (inFlight === 1), "verify deadline iff verifying");
-    // The clock is frozen while verifying, paused or unclaimed.
     if (slot.verifyDeadline !== null || after.phase !== "OPEN" || slot.claimedAt === null) {
       ensure(slot.runningSince === null, "clock frozen while verifying, paused or unclaimed");
     }
@@ -214,14 +202,12 @@ function checkStep(
     }
   }
 
-  // The ban: 3 rejected, never granted again.
   for (const [k, id] of Object.entries(after.identities)) {
     ensure(id.banned === id.rejected >= R.maxRejected, `ban iff 3 rejected (${k})`);
     ensure(id.held === id.infraResults >= R.maxInfraResults, `held iff 6 infra results (${k})`);
     ensure(new Set(id.accepted).size === id.accepted.length, "each circuit accepted once");
   }
 
-  // Head moves only on `valid` for the circuit in flight, inside the acceptance window.
   const accepted = effects.filter((x) => x.type === "accepted");
   const flight = pre.slot?.circuits.find((c) => c.status === "verifying");
   const matches =
@@ -250,8 +236,6 @@ function checkStep(
     }
   }
 
-  // Closing never counts as a no-show; close and the release are in the same step.
-  // (T_close by schedule: before any timer; an operator close: after the deadlines that passed.)
   const scheduleClose =
     s.phase === "CLOSED" ||
     effects.some((x) => x.type === "state" && x.to === "CLOSED" && x.reason === "schedule");
@@ -265,7 +249,6 @@ function checkStep(
     }
   }
 
-  // Cooldown model: every second counted release puts the identity on cooldown at t.
   for (const x of effects) {
     if (x.type !== "release" || !COUNTED.has(x.reason)) continue;
     const n = (shadow.counted.get(x.githubId) ?? 0) + 1;
@@ -279,7 +262,6 @@ function checkStep(
       shadow.counted.set(x.githubId, n);
     }
   }
-  // nextDeadline is exactly the earliest pending deadline (monotonic clocks only).
   if (monotonic) {
     const nd = nextDeadline(after);
     if (nd === null) {
@@ -300,7 +282,6 @@ function checkStep(
   }
 }
 
-/** How often each effect (and release reason, and phase reached) occurred: the fuzz must reach them all. */
 const seen = new Map<string, number>();
 const MUST_SEE = [
   "grant",

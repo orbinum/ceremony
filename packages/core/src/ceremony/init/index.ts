@@ -1,19 +1,19 @@
-// core/ceremony/init: `genesis/init.json`, the frozen inputs (SPEC §2.1–2.3).
-export { buildInit, checkGenesis, initCircuitOf } from "./build";
-export {
-  checkInitAgainstAnnouncement,
-  checkInitAgainstConfig,
-  checkMeasuredBounds,
-  checkRelease,
-  circuitOf,
-  circuitsOf,
-  pinOf,
-} from "./checks";
-export {
-  ceremonyVersionOf,
-  lockedCircomlibOf,
-  type PublishedCircuit,
-  readReleaseManifest,
-} from "./release";
-export { INIT_SCHEMA, type InitCircuit, type InitRecord } from "./types";
-export { parseInit, sessionOrder, validateInit } from "./validate";
+/** `genesis/init.json`, the frozen inputs: how it is built, read and held against the rest. */
+export { buildInit } from "./build-init";
+export { ceremonyVersionOf } from "./ceremony-version-of";
+export { checkGenesis } from "./check-genesis";
+export { checkInitAgainstAnnouncement } from "./check-init-against-announcement";
+export { checkInitAgainstConfig } from "./check-init-against-config";
+export { checkMeasuredBounds } from "./check-measured-bounds";
+export { checkRelease } from "./check-release";
+export { circuitOf } from "./circuit-of";
+export { circuitsOf } from "./circuits-of";
+export { INIT_SCHEMA } from "./constants";
+export { initCircuitOf } from "./init-circuit-of";
+export { lockedCircomlibOf } from "./locked-circomlib-of";
+export { parseInit } from "./parse-init";
+export { pinOf } from "./pin-of";
+export { readReleaseManifest } from "./read-release-manifest";
+export { sessionOrder } from "./session-order";
+export { type InitCircuit, type InitRecord, type PublishedCircuit } from "./types";
+export { validateInit } from "./validate-init";

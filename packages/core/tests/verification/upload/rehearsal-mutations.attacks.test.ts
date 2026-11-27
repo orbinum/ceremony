@@ -1,9 +1,14 @@
 /**
- * Attacks the SPEC §2.5 pre-check (checks 0–4) with hostile layouts and bytes built from the real
- * testnet-rehearsal-2 keys. Every mutation must end as `ok` or a definitive rejection, never a
- * throw (a throw is `infra`, a ceremony pause), and `ok` only where zkvi decides.
- * The default run covers shield fully and samples unshield and transfer; set
- * `ORBINUM_EXHAUSTIVE=1` for every key and the full random-flip counts (several minutes).
+ * Attacks the upload pre-check with hostile layouts and bytes built from the real
+ * testnet-rehearsal-2 keys (the finished rehearsal from fetch-test-inputs.sh, or the local one).
+ * Every mutation must end as `ok` or a definitive rejection, never a throw (a throw is `infra`, a
+ * ceremony pause), and `ok` only where zkvi decides: δ2, sections 3–9 data and the new entry's
+ * public key, transcript and name. The attacker claims h_k recomputed from the mutated bytes when
+ * they still parse, so only what the mutation breaks can fail. Beacon parameter tags on a
+ * contribution entry are outside h_k and ignored by snarkjs, so the pre-check must refuse them. The
+ * pre-check only hashes earlier entries, so it stays cheap at 10,000 entries. The default run covers
+ * shield fully and samples unshield and transfer; set `ORBINUM_EXHAUSTIVE=1` for every key and the
+ * full random-flip counts (several minutes).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -28,7 +33,6 @@ import {
 } from "../../support";
 
 const EXHAUSTIVE = process.env.ORBINUM_EXHAUSTIVE === "1";
-/** The finished rehearsal with its whole chain (fetch-test-inputs.sh), or the local one. */
 const DIR =
   process.env.ORBINUM_REHEARSAL_DIR ??
   join(import.meta.dirname, "..", "..", "..", "..", "..", "artifacts", "testnet-rehearsal-2");
@@ -36,7 +40,6 @@ const CIRCUITS = ["shield", "unshield", "transfer"] as const;
 type Circuit = (typeof CIRCUITS)[number];
 const Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
 const ALL_KEYS = CIRCUITS.flatMap((c) => [1, 2, 3].map((k) => [c, k] as const));
-/** Every shield key plus one key of each larger circuit. */
 const SAMPLE_KEYS = [
   ["shield", 1],
   ["shield", 2],
@@ -57,7 +60,6 @@ interface Case {
 }
 
 const cache = new Map<string, Case>();
-/** Contribution k of `circuit` with the head it was accepted on. */
 function caseOf(circuit: Circuit, k: number): Case {
   const key = `${circuit}/${k}`;
   let c = cache.get(key);
@@ -87,18 +89,12 @@ function caseOf(circuit: Circuit, k: number): Case {
 
 type Outcome = { ok: true } | { ok: false; reason: string; detail?: string } | { threw: unknown };
 
-/**
- * The pre-check as the verifier runs it, with the claim an attacker would make: h_k recomputed
- * from the mutated bytes when they still parse, so only what the mutation breaks can fail.
- */
 function run(c: Case, bytes: Uint8Array, claimHash?: string): Outcome {
   let hash = claimHash ?? c.hash;
   if (claimHash === undefined) {
     try {
       hash = readMpcParams(bytes).entries.at(-1)?.hash ?? c.hash;
-    } catch {
-      // Unparseable: keep the honest claim.
-    }
+    } catch {}
   }
   try {
     const r = precheckUpload(
@@ -114,7 +110,6 @@ function run(c: Case, bytes: Uint8Array, claimHash?: string): Outcome {
 }
 
 const REJECTED = "rejected";
-/** `REJECTED` for a definitive rejection with a contract reason; otherwise what went wrong. */
 function verdict(o: Outcome, what: string): string {
   if ("threw" in o) return `${what}: threw (would be infra): ${String(o.threw)}`;
   if (o.ok) return `${what}: passed the pre-check`;
@@ -122,7 +117,6 @@ function verdict(o: Outcome, what: string): string {
     ? REJECTED
     : `${what}: unknown reason ${o.reason}`;
 }
-/** The verdicts that are not a rejection. */
 const escaped = (verdicts: string[]) => verdicts.filter((v) => v !== REJECTED);
 
 interface Placed {
@@ -131,7 +125,6 @@ interface Placed {
   start: number;
   end: number;
 }
-/** Every section with its header offset and data range. */
 function layoutOf(bytes: Uint8Array): Placed[] {
   let pos = 12;
   return splitBinfile(bytes).sections.map((s) => {
@@ -146,11 +139,10 @@ const setU32 = (b: Uint8Array, at: number, v: number) =>
   new DataView(b.buffer, b.byteOffset).setUint32(at, v, true);
 const setU64 = (b: Uint8Array, at: number, v: bigint) =>
   new DataView(b.buffer, b.byteOffset).setBigUint64(at, v, true);
-/** The 32-byte LE element at `at` replaced by itself + q (same value mod q, other spelling). */
 function plusQ(b: Uint8Array, at: number): Uint8Array {
   const out = b.slice();
   const v = leToBig(out.subarray(at, at + 32)) + Q;
-  if (v >= 1n << 256n) return out; // Does not fit: left unchanged, callers check.
+  if (v >= 1n << 256n) return out;
   bigToLe(v, out.subarray(at, at + 32));
   return out;
 }
@@ -165,7 +157,6 @@ const timed = <T>(fn: () => T): [T, number] => {
 const shield2 = () => caseOf("shield", 2);
 const deltaAt = (c: Case) => sectionOf(c, 2).start + c.layout.deltaFrom;
 
-/** The file with entry `i`'s parameters replaced by `params` (section 10 resized). */
 function withParams(c: Case, i: number, params: number[]): Uint8Array {
   return editSection(c.bytes, 10, (d) => {
     const off = mpcEntryOffsets(d, i);
@@ -180,10 +171,6 @@ function withParams(c: Case, i: number, params: number[]): Uint8Array {
 const nameParam = (name: number[]) => [1, name.length, ...name];
 const ascii = (s: string) => [...new TextEncoder().encode(s)];
 
-/**
- * Ranges where an `ok` pre-check is legitimate: δ2, sections 3–9 data, and the new entry's public
- * key, transcript and name (the attacker claims the recomputed h_k).
- */
 function zkviRanges(c: Case): Array<[number, number]> {
   const l = layoutOf(c.bytes);
   const g = l.find((s) => s.type === 2)!;
@@ -197,7 +184,6 @@ function zkviRanges(c: Case): Array<[number, number]> {
   ];
 }
 
-/** Random flips per key: [circuit, k, default count, exhaustive count, seed]. */
 const FLIPS = [
   ["shield", 2, 300, 6000, 0x5eed1],
   ["shield", 3, 150, 3000, 0x5eed2],
@@ -235,7 +221,6 @@ describe.skipIf(!existsSync(DIR))("pre-check on the rehearsal keys", { timeout: 
       const c = caseOf(circuit, k);
       const fields = Array.from({ length: 12 }, (_, i) => i);
       for (const s of layoutOf(c.bytes)) for (let i = 0; i < 12; i++) fields.push(s.header + i);
-      // Large keys: bits 0, 3 and 6 only.
       const bits = circuit === "shield" ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 3, 6];
       const verdicts = fields.flatMap((at) =>
         bits.map((bit) => {
@@ -397,7 +382,7 @@ describe.skipIf(!existsSync(DIR))("pre-check on the rehearsal keys", { timeout: 
           const n = (s.end - s.start) / 32;
           return [0, 1, n >> 1, n - 2, n - 1]
             .map((i) => [i, plusQ(c.bytes, s.start + 32 * i)] as const)
-            .filter(([, m]) => changed(m, c.bytes)) // Elements too large to add q are skipped.
+            .filter(([, m]) => changed(m, c.bytes))
             .map(([i, m]) => verdict(run(c, m), `section ${t} elem ${i}`));
         });
         expect(verdicts.length).toBeGreaterThan(0);
@@ -492,7 +477,6 @@ describe.skipIf(!existsSync(DIR))("pre-check on the rehearsal keys", { timeout: 
       ).toEqual([]);
     });
 
-    // Tags 2/3 are outside h_k and snarkjs ignores them on a contribution entry.
     it("rejects an earlier contribution entry carrying beacon parameters", () => {
       const c = caseOf("shield", 3);
       const tag2 = [...nameParam(ascii("local-1")), 2, 10];
@@ -561,7 +545,7 @@ describe.skipIf(!existsSync(DIR))("pre-check on the rehearsal keys", { timeout: 
       });
     });
 
-    it("rejects a valid contribution on another chain of the same r1cs (KL-6)", () => {
+    it("rejects a valid contribution on another chain of the same r1cs", () => {
       const c = caseOf("shield", 2);
       const forged = { ...c.head, previous: [{ ...c.head.previous[0]!, hash: "11".repeat(64) }] };
       expect(verdict(run({ ...c, head: forged }, c.bytes), "other chain")).toBe(REJECTED);
@@ -604,7 +588,6 @@ describe.skipIf(!existsSync(DIR))("pre-check on the rehearsal keys", { timeout: 
       const rand = mulberry32(seed);
       const reasons = new Map<string, number>();
       const bad: string[] = [];
-      // Two thirds of the flips aim at the first 1 KiB and the MPC section, where the structure is.
       const mpc = sectionOf(c, 10);
       for (let i = 0; i < n; i++) {
         const m = c.bytes.slice();
@@ -627,12 +610,10 @@ describe.skipIf(!existsSync(DIR))("pre-check on the rehearsal keys", { timeout: 
         }
       }
       expect(bad).toEqual([]);
-      // A small sample may miss the structure; a large one must hit it.
       expect(n < 50 || (reasons.get("malformed") ?? 0) > 0).toBe(true);
     },
   );
 
-  // KL-17/KL-33: the pre-check only hashes earlier entries, so it stays cheap at the maximum.
   it("pre-checks a transfer key carrying 10,000 entries in bounded time", () => {
     const c = caseOf("transfer", 1);
     const mpc = sectionOf(c, 10);

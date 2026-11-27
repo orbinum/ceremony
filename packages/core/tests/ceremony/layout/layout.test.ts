@@ -1,4 +1,6 @@
-/** The published ceremony directory: one set of keys, each pinned by what names it. SPEC §6.1. */
+/**
+ * The published ceremony directory: one set of keys, each pinned by what names it.
+ */
 import { describe, expect, it } from "vitest";
 import { CEREMONY_LAYOUT, pinnedFiles, setupFiles } from "../../../src/ceremony/layout";
 import { buildFinalRecord, transcriptOf } from "../../../src/ceremony/transcript";
@@ -12,7 +14,7 @@ import { FormatError } from "../../../src/primitives/errors";
 import { asCircuitName } from "../../../src/primitives/schema";
 import { ANNOUNCEMENT_SHA256, chain, contribution, ID, INIT } from "../../support";
 
-describe("published layout (SPEC §6.1)", () => {
+describe("published layout", () => {
   it("places the genesis at index 0 and contributions after it", () => {
     expect(CEREMONY_LAYOUT.zkey("shield", 0)).toBe("genesis/shield.genesis.zkey");
     expect(CEREMONY_LAYOUT.zkey("shield", 3)).toBe("contributions/shield/3.zkey");

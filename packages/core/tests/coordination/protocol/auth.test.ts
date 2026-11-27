@@ -1,6 +1,6 @@
 /**
  * Coordinator ↔ verifier request authentication: the MAC binds the ceremony, the timestamp, the
- * method, the path and the body, unambiguously. COORDINATOR §5.
+ * method, the path and the body, unambiguously.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -138,7 +138,6 @@ describe("request authentication binds what it signs", () => {
     for (const bodySha256 of [undefined, "", "AB".repeat(32), "ab".repeat(31)]) {
       expect(authHeadersWellFormed({ ...headers, bodySha256 })).toBe(false);
     }
-    // A 16-digit timestamp is well formed; one this far from now is then refused as stale.
     expect(shape("1".repeat(16), sig)).toBe(true);
     const upper = { ...headers, signature: sig.toUpperCase() };
     expect(verifyRequest(KEY, CID, "POST", "/verify", "{}", upper, NOW)).toBe(false);

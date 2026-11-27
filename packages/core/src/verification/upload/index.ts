@@ -1,12 +1,18 @@
-// core/verification/upload: acceptance of one upload before pairings (SPEC §2.5).
-export { checkContinuity, CONTINUITY_FAILURES, type HeadExpectation } from "./continuity";
+/** core/verification/upload: acceptance of one upload before pairings. */
+export { checkAgainstGenesis } from "./check-against-genesis";
+export { checkContinuity } from "./check-continuity";
+export { CONTINUITY_FAILURES, REJECT_REASONS } from "./constants";
+export { genesisLayoutOf } from "./genesis-layout-of";
+export { isStaleHead } from "./is-stale-head";
+export { logLine } from "./log-line";
+export { maxUploadSize } from "./max-upload-size";
+export { precheckUpload } from "./precheck-upload";
 export {
-  logLine,
-  REJECT_REASONS,
+  type CurrentHead,
+  type GenesisLayout,
+  type HeadExpectation,
   type RejectReason,
+  type UploadClaim,
   type VerificationResult,
-  zkeyVerifyPassed,
-} from "./contract";
-export { checkAgainstGenesis, type GenesisLayout, genesisLayoutOf } from "./genesis";
-export { isStaleHead, maxUploadSize } from "./limits";
-export { type CurrentHead, precheckUpload, type UploadClaim } from "./precheck";
+} from "./types";
+export { zkeyVerifyPassed } from "./zkey-verify-passed";

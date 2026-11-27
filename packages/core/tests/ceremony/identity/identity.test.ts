@@ -1,6 +1,6 @@
 /**
- * Accounts, signatures, client builds and identities as the transcript records them. SPEC §3.4,
- * §6.3.
+ * Accounts (EIP-55 vectors from the EIP itself), signatures, client builds and identities as the
+ * transcript records them.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -14,7 +14,6 @@ import {
   validateAttestationPayload,
 } from "../../../src/ceremony/identity";
 
-/** EIP-55 vectors from the EIP itself. */
 const CHECKSUMMED = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed";
 const SS58 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
 
@@ -34,7 +33,7 @@ const payload = (contributions: unknown[]) => ({
   client: { name: "web", version: "1.0.0", commit: "abc1234" },
 });
 
-describe("accounts (SPEC §3.4)", () => {
+describe("accounts", () => {
   it("accepts an EVM address in lowercase, uppercase or valid EIP-55 form", () => {
     expect(asAccount(CHECKSUMMED, "a", "eip712")).toBe(CHECKSUMMED);
     expect(asAccount(CHECKSUMMED.toLowerCase(), "a", "eip712")).toBe(CHECKSUMMED.toLowerCase());
@@ -55,7 +54,7 @@ describe("accounts (SPEC §3.4)", () => {
   });
 });
 
-describe("signatures (SPEC §3.6–3.7)", () => {
+describe("signatures", () => {
   it("stores exactly 65 or 64 bytes for EVM and 64 for sr25519", () => {
     expect(asStoredSignature("ab".repeat(65), "s", "eip712")).toHaveLength(130);
     expect(asStoredSignature("ab".repeat(64), "s", "eip712")).toHaveLength(128);
@@ -111,7 +110,7 @@ describe("client builds and identities", () => {
   });
 });
 
-describe("attestation payloads have one signable form (SPEC §3.5)", () => {
+describe("attestation payloads have one signable form", () => {
   it("accepts circuits in session order", () => {
     const p = validateAttestationPayload(
       payload([contribution("shield"), contribution("transfer")]),

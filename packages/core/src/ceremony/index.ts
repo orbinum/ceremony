@@ -1,4 +1,7 @@
-// core/ceremony: the ceremony's documents and their rules (announcement, init, transcript, beacon).
+/**
+ * The ceremony's documents and their rules: the announcement, init, transcript, beacon, identities,
+ * the published layout, the lifecycle and the coordinator's frozen setup.
+ */
 export * from "./announcement";
 export * from "./beacon";
 export * from "./identity";

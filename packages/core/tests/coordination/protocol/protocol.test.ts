@@ -1,7 +1,4 @@
-/**
- * Wire validators and the report reconciliation, both sides of the verifier contract. COORDINATOR
- * §5.
- */
+/** Wire validators and the report reconciliation, both sides of the verifier contract. */
 import { describe, expect, it } from "vitest";
 import { buildContributionRecord } from "../../../src/ceremony/transcript";
 import {

@@ -1,4 +1,7 @@
-/** Hex, base64url, strict UTF-8 and JSON text read from outside. */
+/**
+ * Hex round-trips in lowercase, UTF-8 decodes strictly (a lone surrogate or a stray byte is an
+ * error), JSON errors never echo their input, and terminal controls are stripped.
+ */
 import { describe, expect, it } from "vitest";
 import {
   fromHex,
@@ -35,7 +38,7 @@ describe("encoding", () => {
   it("decodes UTF-8 strictly", () => {
     expect(fromUtf8(utf8("ñ€😀"))).toBe("ñ€😀");
     expect(() => fromUtf8(Uint8Array.from([0xff, 0xfe]))).toThrow(TypeError);
-    expect(() => fromUtf8(Uint8Array.from([0xed, 0xa0, 0x80]))).toThrow(TypeError); // a lone surrogate
+    expect(() => fromUtf8(Uint8Array.from([0xed, 0xa0, 0x80]))).toThrow(TypeError);
   });
 
   it("keeps a byte-order mark, so a pinned document with one is not canonical", () => {

@@ -1,4 +1,7 @@
-/** drand rounds: timing and BLS verification against the pinned key. SPEC §5. */
+/**
+ * drand round timing, and BLS verification against the pinned key on real quicknet rounds fetched
+ * from api.drand.sh.
+ */
 import { describe, expect, it } from "vitest";
 import {
   type DrandRound,
@@ -8,7 +11,6 @@ import {
 } from "../../../src/ceremony/beacon";
 import { DRAND } from "../../../src/config";
 
-/** Real quicknet rounds, fetched from api.drand.sh. */
 const R1000: DrandRound = {
   round: 1000,
   randomness: "fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff3cd603d930e54fdd",

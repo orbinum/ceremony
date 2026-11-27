@@ -1,4 +1,6 @@
-/** Strict record and document schemas: nothing malformed is ever chained. SPEC §6.3–6.4. */
+/**
+ * Strict record and document schemas: nothing malformed is ever chained.
+ */
 import { describe, expect, it } from "vitest";
 import {
   buildAttestationRecord,

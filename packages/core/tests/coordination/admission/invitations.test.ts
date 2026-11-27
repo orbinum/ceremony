@@ -1,7 +1,6 @@
 /**
  * Admission with announced invitations: invited accounts skip the thresholds and go first; a
  * closed ceremony admits nobody else; the queue takes the invitation from the announcement only.
- * SPEC §3.2.
  */
 import { describe, expect, it } from "vitest";
 import { buildAnnouncement } from "../../../src/ceremony/announcement";

@@ -1,6 +1,9 @@
 /**
  * Attacks on the queue's own rules: how far one contributor can stall the slot or pause the
- * ceremony (SPEC §4.2, KL-30), plus clock edge cases.
+ * ceremony, plus clock edge cases. The infra counter spans the session, not one circuit; across
+ * sessions cooldowns space the pauses and repeated infra releases hold the identity until the
+ * operator lifts it; an infra after the close releases the session as closed, never as a no-show.
+ * A valid result settled late, at its receipt time, never rewinds a heartbeat applied meanwhile.
  */
 import { describe, expect, it } from "vitest";
 import { QUEUE_RULES } from "../../../src/config";
@@ -46,9 +49,7 @@ const pauses = (fx: QueueEffect[]) =>
   fx.filter((x) => x.type === "state" && x.to === "PAUSED" && x.reason === "verifier unavailable")
     .length;
 
-describe("contributor-driven pauses (SPEC §4.2, KL-30)", () => {
-  // The infra counter spans the session, not one circuit: rejections or accepted circuits in
-  // between must not reset it.
+describe("contributor-driven pauses", () => {
   it("bounds verifier pauses to two per session, across circuits", () => {
     let t = OPEN;
     let { s, fx } = apply(
@@ -72,7 +73,6 @@ describe("contributor-driven pauses (SPEC §4.2, KL-30)", () => {
         }
       }
     };
-    // shield: infra (pause 1), rejected, rejected → skipped; unshield: infra (pause 2) → released.
     run("infra", "rejected", "rejected", "infra");
     const released = all.filter((x) => x.type === "release");
     expect(released).toEqual([{ type: "release", githubId: EVE, seq: 1, reason: "infra" }]);
@@ -80,15 +80,12 @@ describe("contributor-driven pauses (SPEC §4.2, KL-30)", () => {
     expect(pauses(all)).toBeLessThanOrEqual(2);
   });
 
-  // KL-30: across sessions, cooldowns space the pauses, and repeated infra releases hold the
-  // identity until the operator lifts it.
   it("holds an identity after repeated infra releases until the operator lifts it", () => {
     let t = OPEN;
     let s = opened();
     let total = 0;
     let sessions = 0;
     const refusals: string[] = [];
-    // Every session uploads twice and both end as infra, until the queue refuses for good.
     while (sessions < 10) {
       const joined = step(s, { type: "join", githubId: EVE }, t);
       if (!joined.ok) {
@@ -113,7 +110,6 @@ describe("contributor-driven pauses (SPEC §4.2, KL-30)", () => {
     expect(refusals.at(-1)).toBe("held");
     expect(s.identities[String(EVE)]).toMatchObject({ held: true, banned: false, rejected: 0 });
 
-    // Lifting needs a hold; afterwards the identity may queue again once its cooldown is over.
     expect(step(s, { type: "unhold", githubId: EVE + 1 }, t)).toMatchObject({
       ok: false,
       refusal: "invalid-transition",
@@ -124,7 +120,6 @@ describe("contributor-driven pauses (SPEC §4.2, KL-30)", () => {
     expect(step(s, { type: "join", githubId: EVE }, t).ok).toBe(true);
   });
 
-  // Ending the session itself after each infra (finish) instead of waiting for the release.
   it("holds an identity that finishes its session after every infra", () => {
     let t = OPEN;
     let s = opened();
@@ -169,8 +164,6 @@ describe("contributor-driven pauses (SPEC §4.2, KL-30)", () => {
 });
 
 describe("clock edge cases", () => {
-  // A second infra (the verify deadline) after T_close releases the session as closed: closing
-  // never counts as a no-show.
   it("releases a session whose verify deadline passes after T_close as closed", () => {
     const close = OPEN + MIN;
     let s = step(
@@ -192,9 +185,6 @@ describe("clock edge cases", () => {
     expect(late.state.identities[String(EVE)]?.noShows ?? 0).toBe(0);
   });
 
-  // The Durable Object settles a valid result at its receipt time, after the promotion copy. If
-  // the copy outlasts the 60 s clock hold, events in between were applied at real time; the late
-  // settle must not rewind the heartbeat window.
   it("never penalizes a contributor for a slow promotion copy", () => {
     let s = apply(
       opened(),
@@ -203,10 +193,9 @@ describe("clock edge cases", () => {
       { type: "claim", githubId: EVE },
     ).s;
     s = apply(s, OPEN, { type: "uploaded", githubId: EVE, circuit: "shield" }).s;
-    const at = OPEN + 30_000; // the valid result is received; its copy then takes 70 s
-    s = apply(s, at + 65_000, { type: "heartbeat", githubId: EVE }).s; // after the hold ended
-    s = apply(s, at, result(s, "valid")).s; // settled at receipt, once the copy is done
-    // The heartbeat applied during the copy is kept: the late settle never rewinds it.
+    const at = OPEN + 30_000;
+    s = apply(s, at + 65_000, { type: "heartbeat", githubId: EVE }).s;
+    s = apply(s, at, result(s, "valid")).s;
     expect(s.slot?.lastHeartbeat).toBe(at + 65_000);
     const r = step(s, { type: "heartbeat", githubId: EVE }, at + 95_000);
     expect(r.ok ? "kept" : r.refusal).toBe("kept");

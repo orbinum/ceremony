@@ -1,11 +1,14 @@
-/** Agreement among drand relays on the announced round. SPEC §5.4. */
+/**
+ * Agreement among drand relays on the announced round: only verified answers count, and too few
+ * agreeing relays is a refusal.
+ */
 import { describe, expect, it } from "vitest";
 import { relayQuorum } from "../../../src/ceremony/beacon";
 import { R1000, R1001 } from "../../support";
 
 const answer = (relay: string, body: unknown) => ({ relay, body });
 
-describe("relay quorum (SPEC §5.4)", () => {
+describe("relay quorum", () => {
   it("takes the verified value at least two relays agree on, whatever its hex case", () => {
     const upper = { ...R1000, signature: R1000.signature.toUpperCase() };
     const r = relayQuorum(1000, [answer("a", R1000), answer("b", upper), answer("c", null)]);

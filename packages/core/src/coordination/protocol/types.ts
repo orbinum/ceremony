@@ -1,55 +1,45 @@
 /**
- * The coordinator ↔ verifier wire contract, and the operator's finalization.
- * COORDINATOR §3, §5, SPEC §2.5–2.6.
+ * Types of the wire contracts: coordinator ↔ verifier jobs and reports, the operator's
+ * finalization, request authentication headers and every error code a client may read. A job's
+ * report is kept without its log: the log is published with an accepted contribution, and a
+ * retried callback carries it again.
  */
 import type { CircuitName } from "../../config";
 import type { BeaconRecord, Chained, ContributionClaimed, FinalRecord } from "../../ceremony";
 import type { CurrentHead, RejectReason, VerificationResult } from "../../verification";
+import type { QueueRefusal } from "../queue";
 
-/** What the contributor declares with an upload; the verifier checks every hash. */
 export type ContributionClaim = ContributionClaimed;
 
-/** One verification: upload `attempt` of one circuit in one session. */
 export interface JobId {
   seq: number;
   circuit: CircuitName;
   attempt: number;
 }
 
-/** Coordinator → verifier (`POST /verify`): everything SPEC §2.5 needs besides the bytes. */
 export interface JobSpec {
-  /** `index`: the contribution index the upload must take (head index + 1). */
   job: JobId & { index: number };
   claim: ContributionClaim;
-  /** Exact byte length of the upload. */
   size: number;
   head: CurrentHead;
   genesisSha256: string;
 }
 
-/**
- * One upload under `PRIVATE/<key>` and what became of it. The report is kept without its log:
- * the log is published with an accepted contribution, and a retried callback carries it again.
- */
 export interface Job extends JobId {
   githubId: number;
-  /** The contribution index this upload would take (1-based). `attempt`: the upload id. */
   index: number;
   key: string;
   size: number;
   claim: ContributionClaim;
-  /** `stale`: the turn moved on (timeout, pause, release) before a result arrived. */
   status: "pending" | "done" | "stale";
   outcome: VerificationResult["result"] | null;
   report: StoredReport | null;
 }
 
-/** A report as a job keeps it. */
 export type StoredReport = DistributiveOmit<VerifierReport, "log">;
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-/** Verifier → coordinator (`POST /internal/verifications`): the SPEC §2.5 result contract. */
 export type VerifierReport = { job: JobId & { index: number } } & (
   | {
       result: "valid";
@@ -57,7 +47,6 @@ export type VerifierReport = { job: JobId & { index: number } } & (
       zkeyName: string;
       deltaAfter: string;
       logSha256: string;
-      /** The `zkey verify` log itself, published next to the contribution. */
       log: string;
       verifierVersion: string;
       snarkjsVersion: string;
@@ -67,11 +56,45 @@ export type VerifierReport = { job: JobId & { index: number } } & (
   | { result: "infra"; detail: string }
 );
 
-/**
- * Operator → coordinator (`POST /admin/finalize`): the beacon `finalize` sealed, chained after the
- * transcript it downloaded, and one final record per circuit, bound to that beacon.
- */
 export interface FinalizeRequest {
   beacon: Chained<BeaconRecord>;
   finals: FinalRecord[];
 }
+
+export interface RequestAuthHeaders {
+  timestamp: string | null | undefined;
+  signature: string | null | undefined;
+  bodySha256: string | null | undefined;
+}
+
+export type CeremonyRefusal =
+  | QueueRefusal
+  | "not-configured"
+  | "already-configured"
+  | "malformed-setup"
+  | "not-linked"
+  | "not-invited"
+  | "nonce-invalid"
+  | "already-linked"
+  | "wallet-taken"
+  | "stale-head"
+  | "too-large"
+  | "unknown-job"
+  | "attestation-mismatch"
+  | "already-attested"
+  | "not-finalizable"
+  | "storage";
+
+export type ApiErrorCode =
+  | CeremonyRefusal
+  | "malformed"
+  | "wrong-identity"
+  | "stale-signature"
+  | "invalid-signature"
+  | "immutable"
+  | "unauthenticated"
+  | "forbidden"
+  | "turnstile"
+  | "rate-limited"
+  | "not-found"
+  | "internal";

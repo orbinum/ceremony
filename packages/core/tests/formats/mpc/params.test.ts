@@ -1,4 +1,4 @@
-/** The MPC section: csHash and h_k recomputed as snarkjs does. SPEC §2.5 #3. */
+/** The MPC section: csHash and every h_k recomputed match snarkjs' own log, beacon included. */
 import { describe, expect, it } from "vitest";
 import { FormatError } from "../../../src/primitives/errors";
 import { readMpcParams } from "../../../src/formats/mpc";

@@ -2,7 +2,8 @@
  * ed25519 wallet signatures follow one strict rule wherever they are checked (Worker, Node CLI,
  * browser): canonical encodings, a prime-order public key, a prime-order R. Without it, one secret
  * stands behind several account keys, a keyless "wallet" verifies anything, and two backends of the
- * same library disagree on a published record. SPEC §3.4.
+ * same library disagree on a published record. The crafted cases are ones a lenient (ZIP-215,
+ * cofactored) verifier accepts.
  */
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { bytesToNumberLE, concatBytes, numberToBytesLE } from "@noble/curves/utils.js";
@@ -21,9 +22,7 @@ import { utf8 } from "../../../src/primitives/encoding";
 
 const { Point } = ed25519;
 const L = Point.Fn.ORDER;
-/** A point of order 8 (the torsion subgroup's generator). */
 const T8 = Point.fromHex("c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a");
-/** The identity point, and a non-canonical spelling of it (x = 0 with the sign bit set). */
 const IDENTITY = Uint8Array.from([1, ...Array<number>(31).fill(0)]);
 const IDENTITY_SIGNED = Uint8Array.from([1, ...Array<number>(30).fill(0), 0x80]);
 
@@ -42,7 +41,6 @@ const messageOf = (pk: Uint8Array) => utf8(sr25519Message("link", link(ss58Addre
 const hashScalar = (...parts: Uint8Array[]) => bytesToNumberLE(sha512(concatBytes(...parts))) % L;
 const hex = (b: Uint8Array) => Buffer.from(b).toString("hex");
 
-/** Signs `msg` for the public key `pk` with secret scalar `a`, R = rB (+ an optional torsion). */
 function sign(msg: Uint8Array, pk: Uint8Array, rTorsion?: InstanceType<typeof Point>): Uint8Array {
   const r = hashScalar(key.prefix, msg);
   const R = rTorsion ? Point.BASE.multiply(r).add(rTorsion) : Point.BASE.multiply(r);
@@ -50,12 +48,10 @@ function sign(msg: Uint8Array, pk: Uint8Array, rTorsion?: InstanceType<typeof Po
   return Uint8Array.from([...R.toBytes(), ...numberToBytesLE((r + k * key.scalar) % L, 32)]);
 }
 
-/** The crafted cases a lenient (ZIP-215, cofactored) verifier accepts. */
 function cases() {
   const torsionPk = key.point.add(T8).toBytes();
   const honestPk = key.pointBytes;
   const mHonest = messageOf(honestPk);
-  // R spelled non-canonically: k is computed over the canonical re-encoding a lenient verifier hashes.
   const k = hashScalar(IDENTITY, honestPk, mHonest);
   const crafted = Uint8Array.from([
     ...IDENTITY_SIGNED,

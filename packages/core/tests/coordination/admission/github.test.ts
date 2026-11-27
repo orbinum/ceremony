@@ -1,6 +1,4 @@
-/**
- * GitHub admission: thresholds, the init.json cutoff, and strict reading of the profile. SPEC §3.2.
- */
+/** GitHub admission: thresholds, the init.json cutoff, and strict reading of the profile. */
 import { describe, expect, it } from "vitest";
 import {
   admissionCutoff,
@@ -13,7 +11,6 @@ const DAY = 24 * 60 * 60_000;
 const NOW = Date.parse("2026-11-20T00:00:00.000Z");
 const ANNOUNCED = Date.parse("2026-11-01T00:00:00.000Z");
 
-/** A `GET /user` answer as GitHub sends it (timestamps without milliseconds, extra fields). */
 const user = (patch: Record<string, unknown> = {}) => ({
   id: 583231,
   login: "octocat",
@@ -28,7 +25,7 @@ const user = (patch: Record<string, unknown> = {}) => ({
 const check = (patch: Record<string, unknown> = {}) =>
   githubIneligibility(validateGithubProfile(user(patch)), { cutoff: ANNOUNCED, now: NOW });
 
-describe("GitHub admission (SPEC §3.2)", () => {
+describe("GitHub admission", () => {
   it("admits an established account", () => {
     expect(check()).toEqual([]);
   });

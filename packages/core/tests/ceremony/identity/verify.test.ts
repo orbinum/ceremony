@@ -1,5 +1,6 @@
 /**
- * Wallet signatures verify over the exact signed bytes, under their own scheme only. SPEC §3.4–3.7.
+ * Wallet signatures verify over the exact signed bytes, under their own scheme only (fixed test
+ * keys, never real wallets).
  */
 import { Keyring } from "@polkadot/keyring";
 import { u8aToHex, u8aWrapBytes } from "@polkadot/util";
@@ -19,7 +20,6 @@ import {
   verifyLink,
 } from "../../../src/ceremony/identity";
 
-/** Fixed keys: never real wallets. */
 const evm = new Wallet(`0x${"02".repeat(32)}`);
 const other = new Wallet(`0x${"03".repeat(32)}`);
 const signTyped = (w: Wallet, typed: ReturnType<typeof ethersTypedData>) =>

@@ -2,7 +2,8 @@
  * A whole ceremony through core alone, on real zkeys (the multiplier fixture: alice, bob, then a
  * beacon): setup → each upload pre-checked against the head the transcript implies → records
  * built and chained → attestation → close → sealed beacon → the transcript checks pass, and each
- * tampering breaks exactly the check meant to catch it.
+ * tampering breaks exactly the check meant to catch it. The fixture's beacon is fixed, not the
+ * drand round, so only the chain part of the final is compared.
  */
 import { describe, expect, it } from "vitest";
 import { buildAnnouncement } from "../../src/ceremony/announcement";
@@ -171,8 +172,6 @@ describe("a ceremony through core alone", () => {
   it("passes every transcript check, and the final key embeds the recorded chain", () => {
     const { s, records } = run();
     expect(problems(s, records)).toEqual([]);
-    // The fixture's beacon is fixed (0x0102…1f), not this drand round: the chain part is what is
-    // compared.
     const final = readMpcParams(loadZkey("final"));
     const expected = finalExpectationOf(
       records,

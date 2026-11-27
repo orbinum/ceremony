@@ -1,4 +1,7 @@
-/** Malformed MPC sections are refused as FormatError, never a crash. SPEC §2.5 #3. */
+/**
+ * Malformed MPC sections and non-canonical zkey layouts are refused as `FormatError`, never a
+ * crash; each case edits an honest fixture in place.
+ */
 import { describe, expect, it } from "vitest";
 import { BN254_FQ } from "../../../src/formats/bn254";
 import { checkZkeyStructure, readMpcParams, ZKEY_SECTION } from "../../../src/formats/mpc";
@@ -15,7 +18,6 @@ import {
 
 const MPC = ZKEY_SECTION.mpcParams;
 
-/** `multiplier_1` (one contribution, "alice") with entry 0 of its MPC section edited in place. */
 const editEntry = (
   edit: (s: Uint8Array, at: ReturnType<typeof mpcEntryOffsets>) => void,
   file = "1",
@@ -36,7 +38,7 @@ describe("MPC section, hostile bytes", () => {
   it("refuses δ written as a non-canonical field element (same point, another spelling)", () => {
     const zkey = editEntry((s, at) => {
       const x = s.subarray(at.deltaAfter, at.deltaAfter + 32);
-      bigToLe(leToBig(x) + BN254_FQ, x); // < 2^256 for this fixture
+      bigToLe(leToBig(x) + BN254_FQ, x);
     });
     expect(read(zkey)).toThrow(/field element out of range/);
   });
@@ -64,7 +66,7 @@ describe("MPC section, hostile bytes", () => {
     const zkey = editEntry(
       (s, at) => {
         const nameLength = s[at.params + 1] as number;
-        s[at.params + 2 + nameLength] = 1; // second tag (2) rewritten as 1
+        s[at.params + 2 + nameLength] = 1;
       },
       "final",
       2,
@@ -128,7 +130,7 @@ describe("canonical upload layout", () => {
     const f = splitBinfile(loadZkey("1"));
     const [a, b, ...rest] = f.sections;
     const swapped = joinBinfile(f.magic, f.version, [b, a, ...rest] as typeof f.sections);
-    expect(readMpcParams(swapped).entries).toHaveLength(1); // snarkjs would read it the same
+    expect(readMpcParams(swapped).entries).toHaveLength(1);
     expect(() => checkZkeyStructure(swapped)).toThrow(/expected 1\.\.10 once each, in order/);
   });
 

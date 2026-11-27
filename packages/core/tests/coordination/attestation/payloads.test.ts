@@ -1,4 +1,4 @@
-/** The payloads wallets sign, built and checked against the session. SPEC §3.4–3.5. */
+/** The payloads wallets sign, built and checked against the session. */
 import { Keyring } from "@polkadot/keyring";
 import { cryptoWaitReady, signatureVerify } from "@polkadot/util-crypto";
 import { Wallet, verifyTypedData } from "ethers";
@@ -27,7 +27,7 @@ const CLIENT = { name: "web", version: "1.0.0", commit: "abc1234" };
 const NOW = Date.parse("2026-10-01T12:00:00.000Z");
 const session = { ceremonyId: ID, githubId: ALICE.github_id, githubLogin: ALICE.github_login };
 
-describe("link payloads (SPEC §3.4)", () => {
+describe("link payloads", () => {
   const link = buildLinkPayload({
     ...session,
     account: ALICE.account,
@@ -56,7 +56,7 @@ describe("link payloads (SPEC §3.4)", () => {
   });
 });
 
-describe("attestations (SPEC §3.5)", () => {
+describe("attestations", () => {
   const records = chain([contribution(1, 1), contribution(2, 2)]);
   const linked = { ceremonyId: ID, githubId: ALICE.github_id, account: ALICE.account };
   const payload = buildAttestationPayload({ ...linked, seq: 1, records, client: CLIENT });

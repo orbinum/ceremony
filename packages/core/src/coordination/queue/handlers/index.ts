@@ -1,6 +1,14 @@
-// core/coordination/queue/handlers: one function per queue event.
-export { close, finalize, pause, resume, unhold } from "./operator";
-export { join, leave } from "./membership";
-export { claim, finish, heartbeat } from "./session";
+/** One handler per queue event, each applying it to a step's context or saying why not. */
+export { claim } from "./claim";
+export { close } from "./close";
+export { finalize } from "./finalize";
+export { finish } from "./finish";
+export { heartbeat } from "./heartbeat";
+export { join } from "./join";
+export { leave } from "./leave";
+export { pause } from "./pause";
+export { resume } from "./resume";
 export { tick } from "./tick";
-export { uploaded, verified } from "./verification";
+export { unhold } from "./unhold";
+export { uploaded } from "./uploaded";
+export { verified } from "./verified";

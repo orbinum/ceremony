@@ -1,6 +1,6 @@
 /**
- * A circuit's final against the transcript, and what anchors a transcript to its ceremony. SPEC
- * §2.6, §6.2–6.4.
+ * A circuit's final against the transcript (an independent verdict that is not ok without naming
+ * a failing check still fails), and what anchors a transcript to its ceremony.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -77,7 +77,6 @@ describe("a final record against the transcript", () => {
       "final-delta: δ = γ",
       "its csHash differs from init.json",
     ]);
-    // Not ok, yet no failing check named: still a failure.
     expect(checkIndependent({ ...verdict, failures: [] }, records, circuit)).toEqual([
       "the independent verifier did not pass",
     ]);

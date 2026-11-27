@@ -1,15 +1,18 @@
-// core/ceremony/announcement: `ceremony.json`, the root of trust (SPEC §6.2).
-export { isClosed, isInvited } from "./admission";
-export { type AnnouncementInput, buildAnnouncement } from "./build";
-export { checkVerifyMode, skippedCheckStatus } from "./mode";
+/** `ceremony.json`, the root of trust: its schema, how it is built, read and checked. */
+export { acceptanceWindow } from "./acceptance-window";
+export { asTag } from "./as-tag";
+export { type AnnouncementInput, buildAnnouncement } from "./build-announcement";
+export { checkVerifyMode } from "./check-verify-mode";
+export { ADMISSION_MODES, ANNOUNCEMENT_SCHEMA, NETWORKS } from "./constants";
+export { isClosed } from "./is-closed";
+export { isInvited } from "./is-invited";
+export { parseAnnouncement } from "./parse-announcement";
+export { skippedCheckStatus } from "./skipped-check-status";
 export {
-  ADMISSION_MODES,
   type Admission,
   type AdmissionMode,
-  ANNOUNCEMENT_SCHEMA,
   type CeremonyAnnouncement,
   type Network,
-  NETWORKS,
 } from "./types";
-export { asTag, parseAnnouncement, validateAnnouncement } from "./validate";
-export { acceptanceWindow, windowState } from "./window";
+export { validateAnnouncement } from "./validate-announcement";
+export { windowState } from "./window-state";

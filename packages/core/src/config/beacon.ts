@@ -1,4 +1,13 @@
-/** drand quicknet (League of Entropy), confirmed 2026-10-06 on two relays. SPEC §5.1. */
+/**
+ * The randomness beacon: drand quicknet (League of Entropy, confirmed 2026-10-06 on two relays),
+ * how many relays must agree on a round before it is sealed, and the delay between close and the
+ * beacon round. `BEACON_ITERATIONS_EXP` is the `zkey beacon` `numIterationsExp`, the snarkjs
+ * minimum, enough for drand; `BEACON_ITERATIONS_RANGE` accepts from that minimum up to the most the
+ * independent verifier derives. The shortest delay per network lies past the last possible
+ * acceptance (close + the verify deadline), and is a full day on mainnet.
+ */
+import { VERIFY_DEADLINE_MS } from "./verifier";
+
 export const DRAND = {
   network: "quicknet",
   chainHash: "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971",
@@ -15,8 +24,18 @@ export const DRAND = {
   ],
 } as const;
 
-/** `numIterationsExp` for `zkey beacon`: the snarkjs minimum, enough for drand. SPEC §2.6. */
 export const BEACON_ITERATIONS_EXP = { drand: 10 } as const;
 
-/** Accepted `iterations_exp`: snarkjs minimum up to the most the independent verifier derives. */
 export const BEACON_ITERATIONS_RANGE = { min: 10, max: 24 } as const;
+
+export const MIN_RELAYS = 2;
+
+export const DEFAULT_BEACON_DELAY_SECONDS = 86_400;
+
+export const MAX_BEACON_DELAY_SECONDS = 365 * 86_400;
+
+export const MIN_BEACON_DELAY_SECONDS = {
+  local: 0,
+  testnet: VERIFY_DEADLINE_MS / 1000,
+  mainnet: 86_400,
+} as const;

@@ -1,7 +1,4 @@
-/**
- * The wire contracts both sides share: errors, job names, specs and sign-in outcomes. COORDINATOR
- * §3, §5.
- */
+/** The wire contracts both sides share: errors, job names, specs and sign-in outcomes. */
 import { describe, expect, it } from "vitest";
 import { MAX_CONTRIBUTIONS, MAX_JOB_SPEC_BYTES } from "../../../src/config";
 import {

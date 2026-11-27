@@ -1,4 +1,7 @@
-/** The multiplier fixtures (genesis, two contributions, beacon) and snarkjs' own log of them. */
+/**
+ * The multiplier fixtures (genesis, two contributions, beacon) and snarkjs' own log of them: the
+ * csHash and h_k by index from `snarkjs zkey verify` (fixtures/verify.log), the ground truth.
+ */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -10,7 +13,6 @@ export const loadZkey = (name: string): Uint8Array =>
 export const loadR1cs = (): Uint8Array =>
   new Uint8Array(readFileSync(join(DIR, "multiplier.r1cs")));
 
-/** Ground truth from `snarkjs zkey verify` (fixtures/verify.log): csHash and h_k by index. */
 export function snarkjsLog(): { csHash: string; hashes: Map<number, string> } {
   const lines = readFileSync(join(DIR, "verify.log"), "utf8").split("\n");
   const hexAfter = (i: number) =>

@@ -1,6 +1,6 @@
 /**
  * Attacks `checkIdentities` with transcripts a coordinator crafts itself: what `verify` proves
- * about who contributed (SPEC §3.2, §3.9, §6.3, §7).
+ * about who contributed, including one GitHub account per wallet across the whole transcript.
  */
 import { Signature, TypedDataEncoder } from "ethers";
 import { describe, expect, it } from "vitest";
@@ -31,7 +31,6 @@ import {
 
 type Who = Identity & { linkSignature: string };
 
-/** GitHub id `githubId` (login `login`) linked to contributor `n`'s wallet, with a real link. */
 function linked(n: number, githubId: number, login: string, nonce = h(5000 + githubId)): Who {
   const identity: Identity = {
     ...contributor(n),
@@ -44,7 +43,6 @@ function linked(n: number, githubId: number, login: string, nonce = h(5000 + git
   return { ...identity, linkSignature };
 }
 
-/** Contribution `index` of `circuit` in session `seq` by `who`. */
 const record = (circuit: CircuitName, index: number, seq: number, who: Who): ContributionRecord =>
   buildContributionRecord({
     ceremonyId: ID,
@@ -90,7 +88,6 @@ describe("transcript identity binding", () => {
   });
 
   it("flags one GitHub id bound to two wallets across circuits", () => {
-    // SPEC §3.2: 1 GitHub = 1 wallet, checked across the whole transcript.
     const a = linked(1, 501, "alice");
     const b = linked(2, 501, "alice");
     expect(problemsOf([record("transfer", 1, 1, a), record("shield", 1, 2, b)])).toEqual([

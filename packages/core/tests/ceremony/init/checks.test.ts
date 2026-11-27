@@ -1,5 +1,6 @@
 /**
- * init.json against the announcement, the pinned config and the audited release. SPEC §2.1, §6.2.
+ * `init.json` against the announcement, the pinned config and the audited release, and how it is
+ * built from measured circuits.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -26,7 +27,6 @@ import { FormatError } from "../../../src/primitives/errors";
 
 const shield = INIT.circuits[0] as (typeof INIT.circuits)[0];
 
-/** A release manifest with one `shield` entry. */
 const manifest = (shieldEntry: unknown) =>
   JSON.stringify({ name: "circuits", circuits: { shield: shieldEntry } });
 
@@ -91,7 +91,6 @@ describe("init.json against what pins it", () => {
     ]) {
       expect(() => readReleaseManifest(manifest(bad))("shield")).toThrow(FormatError);
     }
-    // The ceremony's next version already published: its key would be a second v2.
     const taken = { ...entry, versions: { ...entry.versions, "2": entry.versions["1"] } };
     expect(() => readReleaseManifest(manifest(taken))("shield")).toThrow(
       "manifest.circuits.shield: v2 is already published, yet v1 is active",
@@ -114,7 +113,7 @@ describe("init.json against what pins it", () => {
     expect(performance.now() - start).toBeLessThan(1_000);
   });
 
-  it("fits circuits v0.17.1 in the measured bounds, and names what exceeds them (KL-61)", () => {
+  it("fits circuits v0.17.1 in the measured bounds, and names what exceeds them", () => {
     const v0171 = [
       { name: "shield", constraints: 736 },
       { name: "unshield", constraints: 17_290 },

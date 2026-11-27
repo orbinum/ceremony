@@ -1,4 +1,7 @@
-/** The r1cs header and its pinned shape. SPEC §2.1. */
+/**
+ * The r1cs header reads exactly (hostile bytes are refused), and its shape is checked against
+ * the field, the ptau's domain and what init.json pins.
+ */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -36,7 +39,7 @@ describe("checkR1csShape", () => {
   const header = readR1csHeader(r1cs);
 
   it("computes the snarkjs domain", () => {
-    expect(domainPower(header)).toBe(2); // 1 constraint + 1 public + 1 → 4
+    expect(domainPower(header)).toBe(2);
   });
 
   it("reports every mismatch against the shape init.json pins", () => {

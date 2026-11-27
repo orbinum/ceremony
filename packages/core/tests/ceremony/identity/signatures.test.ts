@@ -1,5 +1,6 @@
 /**
- * What wallets sign: EIP-712 typed data and sr25519 messages, with fixed vectors. SPEC §3.6–3.7.
+ * What wallets sign, EIP-712 typed data and sr25519 messages, pinned by fixed vectors from a fixed
+ * test key (never a real wallet): a change to a vector changes what wallets sign.
  */
 import { Keyring } from "@polkadot/keyring";
 import { u8aWrapBytes } from "@polkadot/util";
@@ -19,7 +20,6 @@ import {
 } from "../../../src/ceremony/identity";
 import { FormatError } from "../../../src/primitives/errors";
 
-/** Fixed key, so the vectors below are stable: never a real wallet. */
 const evm = new Wallet(`0x${"01".repeat(32)}`);
 
 const link = (account: string): LinkPayload => ({
@@ -48,19 +48,17 @@ const attestation = (account: string): AttestationPayload => ({
   client: { name: "orbinum-ceremony-web", version: "0.1.0", commit: "abcdef1" },
 });
 
-/** ethers takes the types without EIP712Domain (it derives the domain type itself). */
 function forEthers<P extends "Link" | "Attestation">(t: TypedData<P>) {
   const { EIP712Domain: _domain, ...types } = t.types as Record<string, unknown>;
   return [t.domain, types as Record<string, { name: string; type: string }[]>, t.message] as const;
 }
 
-describe("EIP-712 (SPEC §3.6)", () => {
+describe("EIP-712", () => {
   it("binds the domain to the ceremony with the salt, and has no chainId", () => {
     const d = eip712Domain("orbinum-testnet-rehearsal-1");
     expect(d).toEqual({
       name: "Orbinum Trusted Setup",
       version: "1",
-      // keccak256(utf8("orbinum-testnet-rehearsal-1"))
       salt: "0xb4a3289ec0050901bbdd59b3e9fe0559118fb2f7819ddce7976505b8411ab0a9",
     });
     expect(eip712Domain("orbinum-mainnet-1").salt).not.toBe(d.salt);
@@ -93,13 +91,12 @@ describe("EIP-712 (SPEC §3.6)", () => {
     const attHash = TypedDataEncoder.hash(
       ...forEthers(attestationTypedData(attestation(evm.address))),
     );
-    // Recomputed by ethers' TypedDataEncoder; a change here changes what wallets sign.
     expect(linkHash).toBe("0x8585d9707031d29ba6b62219056665d537caecc3a122b2c5cb7513b710378d37");
     expect(attHash).toBe("0x96d137f034886742f9e9e9a294b1d7612dc3ef58f94c7d5a713577f7f3ab724f");
   });
 });
 
-describe("sr25519 (SPEC §3.7)", () => {
+describe("sr25519", () => {
   let pair: ReturnType<Keyring["addFromUri"]>;
   beforeAll(async () => {
     await cryptoWaitReady();

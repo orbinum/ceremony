@@ -1,6 +1,7 @@
 /**
- * `ceremony.json`: built with its derived round, validated strictly, read only canonical. SPEC
- * §5.2, §6.2.
+ * `ceremony.json` is built with its derived beacon round, validated strictly and read only in its
+ * canonical form. Cases that move the beacon time move its round too, so only the rule under test
+ * can fail.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -50,7 +51,6 @@ describe("buildAnnouncement", () => {
   });
 });
 
-/** Moves the beacon time, with the round it implies (so only the rule under test can fail). */
 const beaconAt = (a: CeremonyAnnouncement, iso: string) => {
   a.schedule.beacon = iso;
   a.beacon.round = roundAt(Date.parse(iso) / 1000);

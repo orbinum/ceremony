@@ -1,10 +1,8 @@
-// core/coordination/admission: who may join the queue (SPEC §3.2).
-export {
-  admissionCutoff,
-  admissionRefusals,
-  admittedJoin,
-  type GithubIneligibility,
-  githubIneligibility,
-} from "./eligibility";
-export { type GithubProfile, validateGithubProfile } from "./profile";
-export { validateSessionClaims } from "./session";
+/** Who may join the queue: GitHub account rules, invitations and the session's identity. */
+export { admissionCutoff } from "./admission-cutoff";
+export { admissionRefusals } from "./admission-refusals";
+export { admittedJoin } from "./admitted-join";
+export { githubIneligibility } from "./github-ineligibility";
+export { type GithubIneligibility, type GithubProfile } from "./types";
+export { validateGithubProfile } from "./validate-github-profile";
+export { validateSessionClaims } from "./validate-session-claims";

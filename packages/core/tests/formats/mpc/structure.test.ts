@@ -1,10 +1,12 @@
-/** The canonical upload layout: exactly what `zkey contribute` writes. SPEC §2.5 #3. */
+/**
+ * The canonical upload layout: exactly what `zkey contribute` writes is accepted; a genesis,
+ * appended bytes, unknown and duplicated sections are refused.
+ */
 import { describe, expect, it } from "vitest";
 import { FormatError } from "../../../src/primitives/errors";
 import { checkZkeyStructure } from "../../../src/formats/mpc";
 import { loadZkey } from "../../support";
 
-/** Appends one extra section (type, payload) to a zkey and bumps the section count. */
 function withExtraSection(zkey: Uint8Array, type: number, payload: Uint8Array): Uint8Array {
   const out = new Uint8Array(zkey.length + 12 + payload.length);
   out.set(zkey);

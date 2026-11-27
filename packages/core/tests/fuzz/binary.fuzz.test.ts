@@ -1,6 +1,8 @@
 /**
- * Parsers and pre-checks on mutated real files: only success or a definitive rejection, never a
- * crash. SPEC §2.5.
+ * Parsers and pre-checks on mutated real files end only in success or a definitive rejection,
+ * never a crash; a flip that passes lies only where zkvi decides. Every continuity branch is
+ * reachable by flips in the MPC section except "not-a-contribution": a retyped entry no longer
+ * reads (beacon parameters).
  */
 import { describe, expect, it } from "vitest";
 import { checkZkeyStructure, readMpcParams } from "../../src/formats/mpc";
@@ -10,7 +12,6 @@ import { sha256Hex } from "../../src/primitives/hashing";
 import { type CurrentHead, genesisLayoutOf, precheckUpload } from "../../src/verification";
 import { ensure, loadR1cs, loadZkey, mulberry32, pick, splitBinfile } from "../support";
 
-/** Runs `parse` and returns how it ended: never anything but success or a `FormatError`. */
 function outcome(parse: () => unknown): "ok" | "format" {
   try {
     parse();
@@ -21,7 +22,6 @@ function outcome(parse: () => unknown): "ok" | "format" {
   }
 }
 
-/** Byte offset of section `type`'s data in a binfile. */
 function sectionOffset(bytes: Uint8Array, type: number): { start: number; end: number } {
   let pos = 12;
   for (const s of splitBinfile(bytes).sections) {
@@ -45,7 +45,6 @@ describe("fuzz: zkey parsers only ever succeed or raise FormatError", () => {
       deltaAfter: e.deltaAfter,
     })),
   };
-  /** The honest claim: the real h_k, so only what the flip breaks can fail. */
   const contributionHash = readMpcParams(two).entries[1]?.hash as string;
   const precheck = (bytes: Uint8Array) =>
     precheckUpload(
@@ -54,7 +53,6 @@ describe("fuzz: zkey parsers only ever succeed or raise FormatError", () => {
       head,
       layout,
     );
-  /** Where an upload may differ without the pre-checks noticing: δ2 and content left to `zkvi`. */
   const groth16 = sectionOffset(two, 2).start;
   const unchecked = [
     { start: groth16 + layout.deltaFrom + 64, end: groth16 + layout.deltaTo },
@@ -83,7 +81,6 @@ describe("fuzz: zkey parsers only ever succeed or raise FormatError", () => {
             `a flip at ${at} passed outside the content zkvi checks`,
           );
         } else if (r.reason === "client-hash-mismatch") {
-          // Past continuity: the recorded prefix is intact.
           const [first] = readMpcParams(bytes).entries;
           ensure(first?.hash === head.previous[0]?.hash, "the recorded h_k is unchanged");
           ensure(first?.name === head.previous[0]?.name, "the recorded name is unchanged");
@@ -110,7 +107,6 @@ describe("fuzz: zkey parsers only ever succeed or raise FormatError", () => {
       "cs-hash-mismatch",
       "malformed",
       "name-rewritten",
-      // "not-a-contribution" is out of reach: a retyped entry no longer reads (beacon parameters).
       "ok",
       "prefix-mismatch",
     ]);

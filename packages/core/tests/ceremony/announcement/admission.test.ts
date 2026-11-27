@@ -1,6 +1,6 @@
 /**
  * Invitations in `ceremony.json`: one canonical list, a closed ceremony only as a rehearsal that
- * can still reach its minimum, and announcements without invitations keep their bytes. SPEC §3.2.
+ * can still reach its minimum, and announcements without invitations keep their bytes.
  */
 import { describe, expect, it } from "vitest";
 import {

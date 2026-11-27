@@ -1,4 +1,15 @@
-/** `transcript.json`: append-only, hash-chained records plus the finals. SPEC §6.3–6.4. */
+/**
+ * `transcript.json`: append-only, hash-chained records plus the per-circuit finals, anchored in the
+ * exact bytes of the announcement (`ceremony.json`). A contribution's MPC entry name and δ·G1 after
+ * it lie outside h_k and are recorded to pin them; its identity is null only for simulated
+ * contributions (`contribute-local`), which have no participant, and its link signature is stored
+ * lowercase without `0x`, null exactly when the identity is. Attestation signatures are lowercase
+ * hex without `0x`, of the exact size for their scheme. A final's `vk_hash` is the blake2_256 of the
+ * packed VK as the chain stores it (`0x`-hex), null only for a local ceremony. A contribution's
+ * input separates what the contributor claimed (h_k as the client computed it) from what the
+ * verifier established from the bytes; its contributor is null for simulated contributions, and
+ * `at` is when the verifier's result was accepted (ISO).
+ */
 import type { CircuitName } from "../../config";
 import type {
   AttestationPayload,
@@ -8,11 +19,8 @@ import type {
   Scheme,
 } from "../identity";
 import type { CeremonyState } from "../lifecycle";
+import type { TRANSCRIPT_SCHEMA } from "./constants";
 
-/** Schema id of the document. */
-export const TRANSCRIPT_SCHEMA = "orbinum-ceremony/transcript/v1";
-
-/** One accepted circuit contribution. */
 export interface ContributionRecord {
   type: "contribution";
   ceremony_id: string;
@@ -23,32 +31,26 @@ export interface ContributionRecord {
   output_sha256: string;
   contribution_hash: string;
   client_contribution_hash: string;
-  /** MPC entry name and δ·G1 after it: outside h_k, recorded to pin them. SPEC §2.5 #3. */
   zkey_name: string;
   delta_after: string;
   method: ContributionMethod;
   client: ClientInfo;
-  /** `null` only for simulated contributions (`contribute-local`), which have no participant. */
   identity: Identity | null;
-  /** The wallet's link signature, stored lowercase without `0x`; `null` with `identity`. */
   link_sig: string | null;
   gist_url: string | null;
   verified_by: { verifier_version: string; snarkjs_version: string; at: string };
   verifier_log_sha256: string;
 }
 
-/** The signed end of a session. SPEC §3.5. */
 export interface AttestationRecord {
   type: "attestation";
   ceremony_id: string;
   seq: number;
   payload: AttestationPayload;
   scheme: Scheme;
-  /** Lowercase hex without `0x`, of the exact size for `scheme`. */
   signature: string;
 }
 
-/** A lifecycle transition. SPEC §4.3. */
 export interface StateRecord {
   type: "state";
   ceremony_id: string;
@@ -58,7 +60,6 @@ export interface StateRecord {
   reason: string;
 }
 
-/** The beacon, sealed before it is applied. SPEC §2.6, §5. */
 export interface BeaconRecord {
   type: "beacon";
   ceremony_id: string;
@@ -72,34 +73,56 @@ export interface BeaconRecord {
   sealed_at: string;
 }
 
-/** Any record of the chain. */
 export type TranscriptRecord = ContributionRecord | AttestationRecord | StateRecord | BeaconRecord;
 
-/** A record with its place in the chain. */
 export type Chained<R extends TranscriptRecord = TranscriptRecord> = R & {
   prev_chain: string;
   chain: string;
 };
 
-/** Per-circuit result of finalization. SPEC §6.4. */
 export interface FinalRecord {
   circuit: CircuitName;
   contributions: number;
   final_zkey_sha256: string;
   vk_json_sha256: string;
-  /** blake2_256 of the packed VK, as the chain stores it (`0x`-hex); null only when local. */
   vk_hash: string | null;
   cs_hash: string;
   delta_neq_gamma: true;
   final_chain: string;
 }
 
-/** The whole document. */
 export interface Transcript {
   schema: typeof TRANSCRIPT_SCHEMA;
   ceremony_id: string;
-  /** The announcement (`ceremony.json`) the chain is rooted in, by its exact bytes. SPEC §6.2. */
   anchor: { file: string; sha256: string };
   records: Chained[];
   finals: FinalRecord[];
+}
+
+export interface ContributionClaimed {
+  inputSha256: string;
+  outputSha256: string;
+  contributionHash: string;
+  method: ContributionMethod;
+  client: ClientInfo;
+}
+
+interface ContributionVerified {
+  contributionHash: string;
+  zkeyName: string;
+  deltaAfter: string;
+  logSha256: string;
+  verifierVersion: string;
+  snarkjsVersion: string;
+}
+
+export interface ContributionInput {
+  ceremonyId: string;
+  seq: number;
+  circuit: CircuitName;
+  index: number;
+  claimed: ContributionClaimed;
+  verified: ContributionVerified;
+  contributor: (Identity & { linkSignature: string }) | null;
+  at: string;
 }

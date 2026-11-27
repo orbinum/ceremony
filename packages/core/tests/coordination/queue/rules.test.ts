@@ -1,4 +1,4 @@
-/** The queue's skip, ban, infra and view rules. SPEC §4.2. */
+/** The queue's skip, ban, infra and view rules. */
 import { describe, expect, it } from "vitest";
 import {
   initialQueue,
@@ -47,7 +47,6 @@ const result = (
   outcome,
 });
 
-/** One session whose shield upload hits `infra` twice, from state `s` at time `t`. */
 const twoInfra = (s: QueueState, t: number) => {
   s = apply(s, t, { type: "uploaded", githubId: ALICE, circuit: "shield" });
   s = apply(
@@ -95,12 +94,11 @@ describe("input guards", () => {
   });
 });
 
-describe("repeated infra (SPEC §4.2)", () => {
+describe("repeated infra", () => {
   it("pauses on the first, and releases the session on the second, counted like a no-show", () => {
     const r = twoInfra(holding(), OPEN);
     expect(r.effects).toContainEqual({ type: "release", githubId: ALICE, seq: 1, reason: "infra" });
     expect(r.state.slot).toBeNull();
-    // Not a rejection, not a ban: one no-show towards the cooldown.
     expect(r.state.identities[ALICE]).toMatchObject({
       noShows: 1,
       rejected: 0,

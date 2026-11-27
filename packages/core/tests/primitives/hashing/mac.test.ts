@@ -1,4 +1,7 @@
-/** HMAC-SHA-256 and the constant-time comparison. */
+/**
+ * HMAC-SHA-256 matches RFC 4231, the constant-time comparison equates only equal strings, and
+ * text digests hash UTF-8 bytes.
+ */
 import { describe, expect, it } from "vitest";
 import { utf8 } from "../../../src/primitives/encoding";
 import {

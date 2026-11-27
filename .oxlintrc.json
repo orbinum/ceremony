@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": ["./scripts/oxlint-ceremony-plugin.mjs"],
   "plugins": ["typescript", "unicorn", "import", "oxc", "vitest"],
   "categories": {
     "correctness": "error",
@@ -477,35 +478,35 @@
           "error",
           {
             "name": "fetch",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           },
           {
             "name": "process",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           },
           {
             "name": "caches",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           },
           {
             "name": "console",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           },
           {
             "name": "setTimeout",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           },
           {
             "name": "setInterval",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           },
           {
             "name": "Buffer",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           },
           {
             "name": "require",
-            "message": "core is pure domain: no I/O or ambient runtime (CEREMONY_PLAN §5)."
+            "message": "core is pure domain: no I/O or ambient runtime."
           }
         ],
         "no-restricted-properties": [
@@ -651,7 +652,7 @@
                   "**/queue/*",
                   "**/upload/*"
                 ],
-                "message": "core/coordination: import a sibling module only through its barrel (CEREMONY_PLAN §5)."
+                "message": "core/coordination: import a sibling module only through its barrel."
               }
             ]
           }
@@ -817,7 +818,7 @@
                   "@orbinum-ceremony/verifier",
                   "@orbinum-ceremony/e2e"
                 ],
-                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+                "message": "client depends only on core."
               },
               {
                 "group": [
@@ -854,7 +855,7 @@
                   "@orbinum-ceremony/verifier",
                   "@orbinum-ceremony/e2e"
                 ],
-                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+                "message": "client depends only on core."
               },
               {
                 "group": [
@@ -908,7 +909,7 @@
                   "@orbinum-ceremony/verifier",
                   "@orbinum-ceremony/e2e"
                 ],
-                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+                "message": "client depends only on core."
               },
               {
                 "group": [
@@ -962,7 +963,7 @@
                   "@orbinum-ceremony/verifier",
                   "@orbinum-ceremony/e2e"
                 ],
-                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+                "message": "client depends only on core."
               },
               {
                 "group": [
@@ -1014,7 +1015,7 @@
                   "@orbinum-ceremony/verifier",
                   "@orbinum-ceremony/e2e"
                 ],
-                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+                "message": "client depends only on core."
               },
               {
                 "group": [
@@ -1064,7 +1065,7 @@
                   "@orbinum-ceremony/verifier",
                   "@orbinum-ceremony/e2e"
                 ],
-                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+                "message": "client depends only on core."
               },
               {
                 "group": [
@@ -1118,7 +1119,7 @@
                   "@orbinum-ceremony/verifier",
                   "@orbinum-ceremony/e2e"
                 ],
-                "message": "client depends only on core (CEREMONY_PLAN §5.1)."
+                "message": "client depends only on core."
               },
               {
                 "group": [
@@ -1145,6 +1146,19 @@
       "files": ["packages/cli/src/**"],
       "rules": {
         "no-await-in-loop": "off"
+      }
+    },
+    {
+      "files": ["packages/*/tests/**"],
+      "rules": {
+        "no-await-in-loop": "off"
+      }
+    },
+    {
+      "files": ["packages/core/src/**", "packages/core/tests/**"],
+      "rules": {
+        "ceremony/header-only-comments": "error",
+        "unicorn/filename-case": ["error", { "case": "kebabCase" }]
       }
     }
   ]

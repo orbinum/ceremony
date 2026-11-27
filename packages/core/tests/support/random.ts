@@ -1,4 +1,7 @@
-/** A seeded PRNG (mulberry32): fuzz runs are reproducible from their seed. */
+/**
+ * Fuzz randomness: a seeded PRNG (mulberry32), so runs are reproducible from their seed; an
+ * integer pick in [0, n); and `ensure`, an invariant that fails the test with its message.
+ */
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -10,10 +13,8 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-/** An integer in [0, n). */
 export const pick = (rand: () => number, n: number) => Math.floor(rand() * n);
 
-/** A fuzz invariant: throws (failing the test) with `message` when `condition` is false. */
 export function ensure(condition: boolean, message: string): void {
   if (!condition) throw new Error(`invariant broken: ${message}`);
 }

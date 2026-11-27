@@ -1,36 +1,43 @@
-// core/ceremony/identity: contributors, client builds, what wallets sign and how it verifies.
-export { asAccount, asStoredSignature, asWalletSignature, evmAccountKey } from "./account";
-export { attestationTypedData, eip712Domain, linkTypedData, type TypedData } from "./eip712";
-export { ethersTypedData } from "./ethers";
+/** Contributors, client builds, what wallets sign and how each signature verifies. */
+export { accountKey } from "./account-key";
+export { asAccount } from "./as-account";
+export { asClientInfo } from "./as-client-info";
+export { asGithubLogin } from "./as-github-login";
+export { asIdentity } from "./as-identity";
+export { asStoredSignature } from "./as-stored-signature";
+export { asWalletSignature } from "./as-wallet-signature";
+export { attestationTypedData } from "./attestation-typed-data";
 export {
-  contributorOf,
-  type LinkedIdentity,
-  linkPayloadOf,
-  type RelinkStanding,
-  relinkRefusal,
-  validateAttestationRequest,
-  validateLinkRequest,
-} from "./linked";
-export { sr25519Message } from "./sr25519";
-export { ORBINUM_SS58_PREFIX, ss58Address, ss58PublicKey } from "./ss58";
+  CONTRIBUTION_METHODS,
+  LOCAL_BUILD,
+  LOCAL_VERIFIER,
+  ORBINUM_SS58_PREFIX,
+  SCHEMES,
+} from "./constants";
+export { contributorOf } from "./contributor-of";
+export { eip712Domain } from "./eip712-domain";
+export { ethersTypedData } from "./ethers-typed-data";
+export { evmAccountKey } from "./evm-account-key";
+export { linkPayloadOf } from "./link-payload-of";
+export { linkTypedData } from "./link-typed-data";
+export { type RelinkStanding, relinkRefusal } from "./relink-refusal";
+export { sr25519Message } from "./sr25519-message";
+export { ss58Address } from "./ss58-address";
+export { ss58PublicKey } from "./ss58-public-key";
 export {
   type AttestationPayload,
   type AttestedContribution,
   type ClientInfo,
-  CONTRIBUTION_METHODS,
   type ContributionMethod,
   type Identity,
+  type LinkedIdentity,
   type LinkPayload,
   type Scheme,
-  SCHEMES,
+  type TypedData,
 } from "./types";
-export {
-  asClientInfo,
-  asGithubLogin,
-  asIdentity,
-  LOCAL_BUILD,
-  LOCAL_VERIFIER,
-  validateAttestationPayload,
-  validateLinkPayload,
-} from "./validate";
-export { accountKey, verifyAttestation, verifyLink } from "./verify";
+export { validateAttestationPayload } from "./validate-attestation-payload";
+export { validateAttestationRequest } from "./validate-attestation-request";
+export { validateLinkPayload } from "./validate-link-payload";
+export { validateLinkRequest } from "./validate-link-request";
+export { verifyAttestation } from "./verify-attestation";
+export { verifyLink } from "./verify-link";

@@ -25,7 +25,6 @@ describe("admission thresholds at their exact boundaries", () => {
   it("admits the exact minimums and refuses one below each", () => {
     expect(check()).toEqual([]);
     expect(check({ public_repos: 0 })).toEqual(["no-public-repos"]);
-    // Followers are not a threshold: an account nobody follows is admitted.
     expect(check({ followers: 0 })).toEqual([]);
     expect(check({ following: 4 })).toEqual(["follows-too-few"]);
   });
@@ -38,7 +37,6 @@ describe("admission thresholds at their exact boundaries", () => {
   });
 
   it("treats exactly 30 days of age as old enough, 30 days minus 1 s as too new", () => {
-    // Independent of the cutoff: a cutoff far in the future.
     const at = (created: number) =>
       githubIneligibility(validateGithubProfile(user({ created_at: iso(created) })), {
         cutoff: NOW + DAY,
@@ -113,7 +111,6 @@ describe("a profile of the wrong shape is refused, never coerced", () => {
   });
 
   it("refuses an impossible calendar date in GitHub's form", () => {
-    // Today `Date` raises the RangeError; a FormatError naming the field is also accepted.
     for (const created_at of ["2011-13-25T18:44:36Z", "2011-01-25T25:44:36Z"]) {
       expect(() => validateGithubProfile(user({ created_at }))).toThrow(
         /github\.created_at|Invalid time value/,

@@ -54,6 +54,15 @@ The strict (non-local) verification tests also need groth16-proofs' `pack-verify
 
 CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `typecheck` and every test with those inputs (the end-to-end ceremony and the strict verification included), plus a blocking `pnpm audit` and a secrets scan, on every pull request into `main` and every push to `main`. That includes the checks that rebuild the r1cs from a circuits clone (`ORBINUM_CIRCUITS_REPO`, read with the `CIRCUITS_READ_TOKEN` secret) and the independent Rust verifier (`ORBINUM_RUST_VERIFIER`); `.github/scripts/fetch-ci-tools.sh` fetches the verifier and circom pinned by SHA-256.
 
+### Code conventions
+
+These rules apply to every `.ts`/`.tsx` file under `packages/*/src` and `packages/*/tests`.
+
+- **One thing per file, named after it in kebab-case.** For example, `canonicalJson` lives in `canonical-json.ts` and `CoordinatorRefusal` in `coordinator-refusal.ts`. Each folder's shared types go in its `types.ts` and its constants in its `constants.ts`. Each error gets its own file. Lint enforces kebab-case (`unicorn/filename-case`).
+- **Barrels only re-export.** Every directory has an `index.ts`, and imports from another directory go through it. Oxlint enforces the layer order of each package (`.oxlintrc.json`).
+- **One comment per file.** It is the `/** … */` header above the imports, which says what the file holds and why. Nothing else is commented except lint directives and `///` references. The `ceremony/header-only-comments` rule in [`scripts/oxlint-ceremony-plugin.mjs`](scripts/oxlint-ceremony-plugin.mjs) enforces this.
+- **Tests live in `tests/`**, mirroring the `src` folders. Attack and fuzz suites end in `.attacks.test.ts` and `.fuzz.test.ts`.
+
 ## Web client
 
 `packages/client` (Vite + React) is served by the coordinator from its own origin. To work on it, start a local ceremony (the e2e stack, with the same inputs as the e2e tests) and the dev server, which sends `/api`, `/auth` and `/artifacts` to that coordinator:

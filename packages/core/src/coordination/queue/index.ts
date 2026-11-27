@@ -1,8 +1,17 @@
-// core/coordination/queue: the session queue as a pure state machine (SPEC §4.1–4.3).
-export { nextDeadline } from "./deadline";
-export { attestStep, clientEventRefusal, OPERATOR_ACTIONS } from "./events";
-export { recordsOfEffects } from "./records";
-export { initialQueue, step } from "./machine";
+/** The session queue as a pure state machine, and its read-only views. */
+export { attestStep } from "./attest-step";
+export { clientEventRefusal } from "./client-event-refusal";
+export { OPERATOR_ACTIONS } from "./constants";
+export { headOfSetup } from "./head-of-setup";
+export { headView } from "./head-view";
+export { initialQueue } from "./initial-queue";
+export { isCurrentVerification } from "./is-current-verification";
+export { nextDeadline } from "./next-deadline";
+export { publicStatusOf } from "./public-status-of";
+export { recordsOfEffects } from "./records-of-effects";
+export { slotView } from "./slot-view";
+export { statusOf } from "./status-of";
+export { step } from "./step";
 export {
   type IdentityStanding,
   type QueueEffect,
@@ -15,11 +24,3 @@ export {
   type SlotCircuit,
   type StepResult,
 } from "./types";
-export {
-  headOfSetup,
-  headView,
-  isCurrentVerification,
-  publicStatusOf,
-  slotView,
-  statusOf,
-} from "./views";

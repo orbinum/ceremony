@@ -1,9 +1,9 @@
 /**
- * A circuit is named by the ceremony, not by this code: `init` takes the circuits and their
- * on-chain ids from the operator and everything else from the announced circuits release, and
- * `genesis/init.json` pins them, in session order. SPEC §2.1.
+ * Circuit constants: the audited circuits repository an announcement names by default, and the
+ * circuits the session and verifier bounds were measured for (circuits v0.17.1: 3 circuits, 52,226
+ * constraints, the largest 34,200), with a margin. A ceremony past that margin must have the active
+ * cap, the snarkjs bounds and the container re-measured first.
  */
-export type CircuitName = string;
-
-/** The audited circuits repository an announcement names by default. SPEC §2.1. */
 export const CIRCUITS_REPO_URL = "https://github.com/orbinum/circuits";
+
+export const MEASURED_CIRCUITS = { maxTotalConstraints: 60_000, maxConstraints: 40_000 } as const;

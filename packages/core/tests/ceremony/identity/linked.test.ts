@@ -1,4 +1,6 @@
-/** Linked identities and the requests that bind or sign with them. SPEC §3.4–3.5. */
+/**
+ * Linked identities and the requests that bind a wallet or sign with it.
+ */
 import { describe, expect, it } from "vitest";
 import {
   contributorOf,

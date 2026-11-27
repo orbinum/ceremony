@@ -1,6 +1,11 @@
 /**
- * Attacks on the SPEC §2.6 final-key checks (re-walk, beacon policy, minimum, δ ≠ γ and δ ≠
- * genesis δ) with hostile variations of the real testnet-rehearsal-2 finals and their vk.json.
+ * Attacks on the final-key checks (re-walk, beacon policy, minimum, δ ≠ γ and δ ≠ genesis δ) with
+ * hostile variations of the real testnet-rehearsal-2 finals and their vk.json (the finished
+ * rehearsal from fetch-test-inputs.sh, or the local one). The genesis has δ = 1, so its vk_delta_2
+ * is γ. Inputs are read in beforeAll because vitest still runs a skipped suite's body. The beacon's
+ * 2^10..2^24 range is enforced on the announcement and beacon record, so here iterations are only
+ * compared with the sealed record; δ's curve membership is left to zkey verification and the Rust
+ * verifier.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -8,7 +13,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { type MpcParams, readMpcParams } from "../../../src/formats/mpc";
 import { checkDelta, checkFinalEntries, type FinalExpectation } from "../../../src/verification";
 
-/** The finished rehearsal with its whole chain (fetch-test-inputs.sh), or the local one. */
 const DIR =
   process.env.ORBINUM_REHEARSAL_DIR ??
   join(import.meta.dirname, "..", "..", "..", "..", "..", "artifacts", "testnet-rehearsal-2");
@@ -17,22 +21,18 @@ const CIRCUITS = ["shield", "unshield", "transfer"] as const;
 
 type Entry = MpcParams["entries"][number];
 
-/** A copy of `entries` with entry `i` patched. */
 const editEntry = (entries: MpcParams["entries"], i: number, patch: Partial<Entry>) => {
   const es = entries.slice();
   es[i] = { ...es.at(i)!, ...patch } as Entry;
   return es;
 };
-/** The field negation of a decimal coordinate. */
 const neg = (s: string) => (BigInt(s) === 0n ? "0" : (Q - BigInt(s)).toString());
 const vkOf = (c: string) =>
   JSON.parse(readFileSync(join(DIR, "final", `${c}.vk.json`), "utf8")) as Record<string, any>;
-/** The genesis has δ = 1: its vk_delta_2 is the G2 generator, i.e. γ. */
 const genesisVk = (c: string) => ({ vk_delta_2: vkOf(c).vk_gamma_2 });
 const vk = () => vkOf("shield");
 
 describe.skipIf(!existsSync(DIR))("final checks on the rehearsal finals", () => {
-  // Read in beforeAll, not while collecting: vitest still runs a skipped suite's body.
   let transcript: { records: Array<Record<string, any>> };
   let init: { circuits: Array<{ name: string; cs_hash: string }> };
   let beacon: Record<string, any>;
@@ -94,7 +94,7 @@ describe.skipIf(!existsSync(DIR))("final checks on the rehearsal finals", () => 
       const es = editEntry(p().entries, 1, { kind: "beacon" });
       expect(checkFinalEntries(withEntries(es), e())).toContain("entry 2 is not a contribution");
     });
-    it("refuses a contribution renamed after it was recorded (KL-7)", () => {
+    it("refuses a contribution renamed after it was recorded", () => {
       const es = editEntry(p().entries, 0, { name: "evil" });
       expect(checkFinalEntries(withEntries(es), e())).toContain(
         "entry 1 is named differently from the transcript",
@@ -140,7 +140,6 @@ describe.skipIf(!existsSync(DIR))("final checks on the rehearsal finals", () => 
       const b = { ...e().beacon, ...over() };
       expect(checkFinalEntries(p(), { ...e(), beacon: b }).length).toBeGreaterThan(0);
     });
-    // The 2^10..2^24 range is enforced on the announcement and beacon record, not here.
     it("compares the beacon's iterations only against the sealed record", () => {
       const last = p().entries.length - 1;
       const es = editEntry(p().entries, last, { numIterationsExp: 25 });
@@ -190,7 +189,6 @@ describe.skipIf(!existsSync(DIR))("final checks on the rehearsal finals", () => 
         "δ = −γ: as forgeable as δ = γ",
       ]);
     });
-    // Curve membership is checked by zkey verification and the Rust verifier.
     it("leaves curve membership of δ to the zkey verification", () => {
       const d = vk().vk_delta_2;
       const off = [d[0], [((BigInt(d[1][0]) + 1n) % Q).toString(), d[1][1]], d[2]];

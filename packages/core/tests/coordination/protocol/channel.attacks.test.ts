@@ -1,6 +1,8 @@
 /**
- * Attacks the coordinator ↔ verifier wire contract (COORDINATOR §5, SPEC §2.5): HMAC canonical
- * form and bounds, the job spec and report validators, `reconcileReport`, and report contents.
+ * Attacks the coordinator ↔ verifier wire contract: HMAC canonical form and bounds, the job spec
+ * and report validators, `reconcileReport`, and report contents. The wire refuses the CLI's local
+ * verifier marker: a record marked simulated would fail every later integrity check on mainnet and
+ * withhold the transcript.
  */
 import { describe, expect, it } from "vitest";
 import { MAX_CONTRIBUTIONS, MAX_JOB_SPEC_BYTES, REQUEST_AUTH } from "../../../src/config";
@@ -34,7 +36,6 @@ const hdr = (s: Record<string, string>) => ({
 const SIGNED = sign();
 const verifyAt = (now: number) =>
   verifyRequest(KEY, CID, "POST", "/verify", "{}", hdr(SIGNED), now);
-/** The message `f` throws, or "" when it does not throw. */
 const thrown = (f: () => unknown): string => {
   try {
     f();
@@ -43,7 +44,6 @@ const thrown = (f: () => unknown): string => {
   }
   return "";
 };
-/** An array of `n` holes. */
 const sparse = (n: number): unknown[] => {
   const a: unknown[] = [];
   a.length = n;
@@ -145,7 +145,6 @@ describe("HMAC canonical form", () => {
         /without a newline, are required/,
       );
     }
-    // A MAC for (POST, "/a", body "b\nc") cannot be re-read as another split.
     const s = sign("POST", "/internal/a", "b\nc");
     expect(verifyRequest(KEY, CID, "POST", "/internal/a\nb", "c", hdr(s), NOW)).toBe(false);
   });
@@ -198,7 +197,6 @@ describe("HMAC canonical form", () => {
       expect(thrown(f)).toMatch(/at least 32 bytes/);
       expect(thrown(f)).not.toContain(short);
     }
-    // Byte length, not character count: 31 ASCII bytes refused, 11 three-byte chars (33) taken.
     expect(() => checkHmacKey("k".repeat(31))).toThrow(/at least 32 bytes/);
     expect(() => checkHmacKey("€".repeat(11))).not.toThrow();
   });
@@ -232,7 +230,7 @@ const spec = (previous: unknown[], index = previous.length + 1): unknown => ({
   genesisSha256: "66".repeat(32),
 });
 
-describe("job spec bounds (KL-41)", () => {
+describe("job spec bounds", () => {
   it("takes MAX_CONTRIBUTIONS worst-case entries within MAX_JOB_SPEC_BYTES, refuses one more", () => {
     const full = Array.from({ length: MAX_CONTRIBUTIONS }, (_, i) => entry(i));
     const text = JSON.stringify(spec(full));
@@ -428,8 +426,6 @@ describe("what leaves the verifier in a report", () => {
 });
 
 describe("version strings a report carries into the transcript", () => {
-  // A record marked simulated would fail every later integrity check on mainnet and withhold
-  // the transcript (KL-31), so the wire refuses the local marker.
   it("refuses a valid report claiming verifierVersion 'cli-local'", () => {
     expect(() => validateReport(valid({ verifierVersion: "cli-local" }))).toThrow(
       /report\.verifierVersion: the local marker/,

@@ -1,4 +1,4 @@
-/** The ceremony's hash functions against known vectors. SPEC §3.3. */
+/** The ceremony's hash functions match their known vectors, and streaming equals one-shot. */
 import { describe, expect, it } from "vitest";
 import {
   blake2b256Hex,

@@ -1,12 +1,10 @@
-// core/ceremony/layout: the published ceremony directory (SPEC §6.1).
-export {
-  CEREMONY_LAYOUT,
-  contentTypeOf,
-  finalCircuitOf,
-  finalFiles,
-  isFinalFileKey,
-  isSetupFileKey,
-  pinnedFiles,
-  setupCircuitOf,
-  setupFiles,
-} from "./layout";
+/** The published ceremony directory: its keys, and which files each stage publishes or pins. */
+export { CEREMONY_LAYOUT } from "./constants";
+export { contentTypeOf } from "./content-type-of";
+export { finalCircuitOf } from "./final-circuit-of";
+export { finalFiles } from "./final-files";
+export { isFinalFileKey } from "./is-final-file-key";
+export { isSetupFileKey } from "./is-setup-file-key";
+export { pinnedFiles } from "./pinned-files";
+export { setupCircuitOf } from "./setup-circuit-of";
+export { setupFiles } from "./setup-files";

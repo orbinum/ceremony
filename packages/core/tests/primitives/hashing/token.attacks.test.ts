@@ -1,17 +1,16 @@
 /**
  * Attacks on signed tokens (session cookie, OAuth state): forged, truncated, re-encoded and
- * oddly-typed input never yields a payload; a correctly MAC'd body is still read strictly.
+ * oddly-typed input never yields a payload; a correctly MAC'd body (built as the key holder
+ * would) is still read strictly.
  */
 import { describe, expect, it } from "vitest";
 import { toBase64url, utf8 } from "../../../src/primitives/encoding";
-import { hmacSha256Hex, keyBytes } from "../../../src/primitives/hashing/mac";
-import { signToken, verifyToken } from "../../../src/primitives/hashing/token";
+import { hmacSha256Hex, keyBytes, signToken, verifyToken } from "../../../src/primitives/hashing";
 
 const KEY = "test-session-key-of-32-bytes-or-more";
 const SCOPE = "session:local";
 const NOW = 1_800_000_000_000;
 
-/** A token over an exact body text, MAC'd as `signToken` would (simulates the key holder). */
 const withBody = (body: string, scope = SCOPE, key = KEY) =>
   `${body}.${hmacSha256Hex(keyBytes(key, "k"), `${scope}.${body}`)}`;
 const b64 = (v: unknown) => toBase64url(utf8(typeof v === "string" ? v : JSON.stringify(v)));
@@ -46,7 +45,6 @@ describe("forged and mangled tokens", () => {
   });
 
   it("refuses a body re-encoded without the key (padding, standard alphabet, trailing bits)", () => {
-    // The standard alphabet only differs when the body has a `-` or `_`; force one in.
     const std = `${body.replaceAll("-", "+").replaceAll("_", "/")}+`;
     for (const b of [`${body}=`, `${body}==`, std, `${body}A`, body.toLowerCase()]) {
       expect(b).not.toBe(body);

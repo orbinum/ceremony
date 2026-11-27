@@ -1,6 +1,6 @@
 /**
- * Attacks wallet link and attestation signatures and their validators (SPEC §3.3–3.9):
- * cross-domain replay, malleated or misspelled signatures, account spellings and hostile payloads.
+ * Attacks wallet link and attestation signatures and their validators: cross-domain replay,
+ * malleated or misspelled signatures, account spellings and hostile payloads.
  */
 import { Keyring } from "@polkadot/keyring";
 import type { KeyringPair } from "@polkadot/keyring/types";
@@ -82,7 +82,6 @@ describe("EIP-712 domain and primary type", () => {
   it("refuses a signature made for another ceremony (salt and payload)", () => {
     const sigOther = linkSig(evm, link(evm.address, { ceremony_id: "unit-test-2" }));
     expect(verifyLink("eip712", p, sigOther)).toBe(false);
-    // Same payload ceremony_id but domain salt of another ceremony.
     const [, types, message] = ethersTypedData(linkTypedData(p));
     const sig = evm.signingKey.sign(
       TypedDataEncoder.hash(eip712Domain("unit-test-2"), types, message),
@@ -103,7 +102,7 @@ describe("EIP-712 domain and primary type", () => {
 
   it("never recovers the zero address (garbage signature for account 0x0)", () => {
     const zero = link(`0x${"00".repeat(20)}`);
-    expect(accountKey("eip712", zero.account)).toBe(`0x${"00".repeat(20)}`); // accepted shape
+    expect(accountKey("eip712", zero.account)).toBe(`0x${"00".repeat(20)}`);
     for (const s of [`0x${"00".repeat(65)}`, `0x${"00".repeat(64)}1b`, `0x${"ff".repeat(65)}`]) {
       expect(verifyLink("eip712", zero, s)).toBe(false);
     }
@@ -122,10 +121,8 @@ describe("EIP-712 signature spellings", () => {
     expect(verifyLink("eip712", p, `0x${body}${(v - 27).toString(16).padStart(2, "0")}`)).toBe(
       true,
     );
-    // The other parity recovers another key: refused.
     const flipped = v === 27 ? "1c" : "1b";
     expect(verifyLink("eip712", p, `0x${body}${flipped}`)).toBe(false);
-    // v out of range.
     expect(verifyLink("eip712", p, `0x${body}1d`)).toBe(false);
     expect(verifyLink("eip712", p, `0x${body}02`)).toBe(false);
   });
@@ -152,7 +149,6 @@ describe("EIP-712 signature spellings", () => {
       /longer than 132/,
     );
     expect(() => asWalletSignature("11".repeat(65), "s", "eip712")).toThrow(/does not match/);
-    // The stored form is bare lowercase hex.
     expect(() => asStoredSignature(`0x${"11".repeat(65)}`, "s", "eip712")).toThrow(
       /longer than 130/,
     );
@@ -222,7 +218,7 @@ describe("payload validators", () => {
       "octocat ",
       " octocat",
       "octo cat",
-      "octoсat", // Cyrillic es
+      "octoсat",
       "octocat\n",
       "octocat​",
       "-octocat",
@@ -284,7 +280,6 @@ describe("payload validators", () => {
         "eip712",
       ),
     ).toThrow(/unexpected field "extra"/);
-    // An EVM account under an sr25519 attestation.
     expect(() => validateAttestationPayload(a, "sr25519")).toThrow(/attestation\.account: /);
   });
 });
@@ -312,7 +307,6 @@ describe("link and attestation checks against the session", () => {
   });
 
   it("refuses an attestation whose account is another spelling of the linked one", () => {
-    // Same wallet, other case: refused by a strict string compare.
     const a = attestation(evm.address.toLowerCase());
     expect(
       checkAttestation(a, { ceremonyId: "unit-test-1", githubId: 7, account: evm.address }, []),
@@ -352,8 +346,6 @@ describe("sr25519 signatures", () => {
   it("refuses ed25519 and ecdsa signatures by an address of the same key bytes", () => {
     const pe = link(ed.address);
     expect(verifyLink("sr25519", pe, signSr(ed, sr25519Message("link", pe)))).toBe(false);
-    // ECDSA: the account is blake2(33-byte key), a valid SS58 shape; the 65-byte signature is
-    // outside sr25519's size and does not verify as sr25519.
     expect(accountKey("sr25519", ecdsa.address)).not.toBeNull();
     const pe2 = link(ecdsa.address);
     const ecSig = signSr(ecdsa, sr25519Message("link", pe2));

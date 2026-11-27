@@ -1,3 +1,4 @@
-// core/ceremony/transcript/validate: record and document schemas.
-export { validateFinalRecord, validateTranscript } from "./document";
-export { validateRecord } from "./records";
+/** Strict schemas of transcript records, final records and the whole document. */
+export { validateFinalRecord } from "./validate-final-record";
+export { validateRecord } from "./validate-record";
+export { validateTranscript } from "./validate-transcript";

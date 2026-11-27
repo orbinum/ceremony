@@ -1,2 +1,2 @@
-// core/coordination/publish: what the coordinator publishes after each change (SPEC §6.1).
-export { publicFilesOf } from "./files";
+/** What the coordinator publishes after each change. */
+export { publicFilesOf } from "./public-files-of";

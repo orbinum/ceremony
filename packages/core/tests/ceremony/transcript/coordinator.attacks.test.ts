@@ -1,6 +1,7 @@
 /**
  * Attacks core's transcript checks, as `verify` runs them, with transcripts a malicious
- * coordinator writes (SPEC §6.3–6.4, §7).
+ * coordinator writes. A contributor wallet the coordinator runs itself is indistinguishable from any
+ * other, and allowed.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -36,7 +37,6 @@ import {
 
 const CLIENT = { name: "client", version: "1.0.0", commit: "abc1234" };
 
-/** A beacon for the announced round (the support announcement's round is not 1000: re-label). */
 const ANN = { ...ANNOUNCEMENT, beacon: { ...ANNOUNCEMENT.beacon, round: 1000 } };
 const chain = (records: readonly TranscriptRecord[]) => chainFrom(records, chainGenesis(ID, ANN));
 const beacon = (round = R1000, sealedAt = "2026-10-10T00:00:00.000Z") =>
@@ -127,8 +127,7 @@ describe("a malicious coordinator's transcript", () => {
     );
   });
 
-  it("counts the coordinator's own validly linked contributions (KL-5)", () => {
-    // Contributor 9 stands for a coordinator-run wallet: indistinguishable, and allowed.
+  it("counts the coordinator's own validly linked contributions", () => {
     const own = contribution(2, 2, OPEN + 120_000, contributor(9));
     expect(failing([contribution(1), own, beacon()])).toEqual([]);
   });

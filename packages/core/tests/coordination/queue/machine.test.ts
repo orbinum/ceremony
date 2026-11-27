@@ -1,4 +1,4 @@
-/** The queue state machine: states, timers, deadlines applied before every event. SPEC §4.2–4.3. */
+/** The queue state machine: states, timers, deadlines applied before every event. */
 import { describe, expect, it } from "vitest";
 import {
   initialQueue,
@@ -16,7 +16,6 @@ const OPEN = 1_000_000;
 const CLOSE = OPEN + 24 * 60 * MIN;
 const [ALICE, BOB, CAROL] = [1, 2, 3];
 
-/** An open ceremony; `t` is the clock. */
 function opened(): { s: QueueState; t: number } {
   const r = step(
     initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES),
@@ -26,7 +25,6 @@ function opened(): { s: QueueState; t: number } {
   return { s: r.state, t: OPEN };
 }
 
-/** A `verified` event may omit `seq`/`attempt`: they default to the upload in flight. */
 type TestEvent =
   | QueueEvent
   | {
@@ -41,7 +39,6 @@ function fill(s: QueueState, e: TestEvent): QueueEvent {
   return { ...e, seq: s.slot?.seq ?? 0, attempt: entry?.uploads ?? 0 };
 }
 
-/** Applies events in order; every one must be accepted. Returns the state and all effects. */
 function run(s: QueueState, t: number, ...events: TestEvent[]) {
   const effects = [];
   for (const e of events) {
@@ -58,7 +55,6 @@ const refusal = (s: QueueState, e: TestEvent, t: number) => {
   return r.ok ? null : r.refusal;
 };
 
-/** ALICE holds a claimed slot at `t`. */
 function claimed() {
   const { s, t } = opened();
   return {
@@ -67,7 +63,6 @@ function claimed() {
   };
 }
 
-/** ALICE claims a slot `before` ms ahead of the close; the alarm never fires after that. */
 function claimedBeforeClose(before: number) {
   const { s } = opened();
   const t = CLOSE - before;
@@ -112,7 +107,7 @@ describe("a late alarm: every deadline applies before the event", () => {
   });
 });
 
-describe("ceremony states (SPEC §4.3)", () => {
+describe("ceremony states", () => {
   it("opens and closes on schedule, with a state record each time", () => {
     const s0 = initialQueue({ openAt: OPEN, closeAt: CLOSE }, CIRCUIT_NAMES);
     expect(step(s0, { type: "tick" }, OPEN - 1).state.phase).toBe("SCHEDULED");
@@ -142,7 +137,7 @@ describe("ceremony states (SPEC §4.3)", () => {
   });
 });
 
-describe("queue and slot (SPEC §4.1–4.2)", () => {
+describe("queue and slot", () => {
   it("grants the slot to the first in line, one at a time", () => {
     const { s, t } = opened();
     const r = run(s, t, { type: "join", githubId: ALICE }, { type: "join", githubId: BOB });
@@ -201,7 +196,6 @@ describe("queue and slot (SPEC §4.1–4.2)", () => {
     for (let m = 1; m <= 18; m++) s = run(s, t + m * MIN, { type: "heartbeat", githubId: ALICE }).s;
     t += 18 * MIN;
     s = run(s, t, { type: "uploaded", githubId: ALICE, circuit: "shield" }).s;
-    // 4 min of verification do not count.
     t += 4 * MIN;
     s = run(s, t, { type: "verified", circuit: "shield", outcome: "valid" }).s;
     expect(step(s, { type: "tick" }, t + 1 * MIN).state.slot?.githubId).toBe(ALICE);
@@ -265,11 +259,10 @@ describe("queue and slot (SPEC §4.1–4.2)", () => {
   });
 });
 
-/** ALICE uploads her first circuit. */
 const upload = (s: QueueState, t: number) =>
   run(s, t, { type: "uploaded", githubId: ALICE, circuit: "shield" }).s;
 
-describe("verification outcomes (SPEC §2.5 contract)", () => {
+describe("verification outcomes", () => {
   it("allows one retry after `rejected`, then skips the circuit", () => {
     const { s, t } = claimed();
     const once = run(upload(s, t), t, {
@@ -311,7 +304,6 @@ describe("verification outcomes (SPEC §2.5 contract)", () => {
   it("gives the attempt back on `ambiguous`, but only up to the session's infra bound", () => {
     let { s, t } = claimed();
     s = run(upload(s, t), t, { type: "verified", circuit: "shield", outcome: "ambiguous" }).s;
-    // The attempt is given back, and the upload keeps its own id.
     expect(s.slot?.circuits[0]).toEqual({
       circuit: "shield",
       status: "todo",
@@ -319,7 +311,6 @@ describe("verification outcomes (SPEC §2.5 contract)", () => {
       uploads: 1,
       infra: 1,
     });
-    // The second ends the session, as a second infra would: no endless free re-uploads.
     const r = run(upload(s, t), t, { type: "verified", circuit: "shield", outcome: "ambiguous" });
     expect(r.s.slot).toBeNull();
   });
@@ -329,7 +320,6 @@ describe("verification outcomes (SPEC §2.5 contract)", () => {
     s = run(upload(s, t), t, { type: "verified", circuit: "shield", outcome: "infra" }).s;
     expect([s.phase, s.pausedBy]).toEqual(["PAUSED", "verifier"]);
     expect(s.slot?.runningSince).toBeNull();
-    // Hours later, still paused: nothing expires.
     expect(step(s, { type: "tick" }, t + 3 * 60 * MIN).state.slot?.githubId).toBe(ALICE);
     s = run(s, t + 3 * 60 * MIN, { type: "resume" }).s;
     expect(s.phase).toBe("OPEN");

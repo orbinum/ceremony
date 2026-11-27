@@ -1,4 +1,6 @@
-/** The hash chain rooted in the announcement, and records validated before chaining. SPEC §6.3. */
+/**
+ * The hash chain rooted in the announcement, and records validated before chaining.
+ */
 import { describe, expect, it } from "vitest";
 import { FormatError } from "../../../src/primitives/errors";
 import { sha256Hex } from "../../../src/primitives/hashing";

@@ -1,6 +1,5 @@
 /**
- * The frozen setup: canonical pinned texts, consistent with each other and the config. SPEC
- * §6.1–6.2.
+ * The frozen setup: canonical pinned texts, consistent with each other and the config.
  */
 import { describe, expect, it } from "vitest";
 import { genesisOf, parseSetup, sameSetup, scheduleOf } from "../../../src/ceremony/setup";
@@ -12,7 +11,7 @@ import { ANNOUNCEMENT, FULL_INIT, ID, INIT_TEXT, SETUP_INPUT } from "../../suppo
 
 const input = SETUP_INPUT;
 
-describe("parseSetup (SPEC §6.1–6.2)", () => {
+describe("parseSetup", () => {
   it("accepts the published pair and roots the chain in it", () => {
     const s = parseSetup(input, ID);
     expect(s.init).toEqual(FULL_INIT);
@@ -58,7 +57,6 @@ describe("parseSetup (SPEC §6.1–6.2)", () => {
   });
 });
 
-/** The support ceremony (shield only) announced on `network`. */
 const partial = (network: "local" | "testnet") => ({
   announcement: serializeJson({ ...ANNOUNCEMENT, network }),
   init: INIT_TEXT,

@@ -1,12 +1,15 @@
-/** Byte surgery on real iden3 files, to build malformed inputs from honest ones. */
+/**
+ * Byte surgery on real iden3 files, to build malformed inputs from honest ones: split a binfile
+ * into its parts, join parts back without checks (so invalid files can be written too), replace one
+ * section's data, locate an MPC entry's fields for in-place edits, and convert little-endian
+ * 256-bit field elements.
+ */
 
-/** One section of a parsed file: its type and a copy of its data. */
 export interface RawSection {
   type: number;
   data: Uint8Array;
 }
 
-/** Splits an iden3 binfile into magic, version and sections, in file order. */
 export function splitBinfile(bytes: Uint8Array): {
   magic: string;
   version: number;
@@ -29,7 +32,6 @@ export function splitBinfile(bytes: Uint8Array): {
   };
 }
 
-/** Writes a binfile from its parts (no checks: the point is to write invalid ones too). */
 export function joinBinfile(
   magic: string,
   version: number,
@@ -51,7 +53,6 @@ export function joinBinfile(
   return out;
 }
 
-/** The file with section `type`'s data replaced by `edit(data)` (sizes follow). */
 export function editSection(
   bytes: Uint8Array,
   type: number,
@@ -65,10 +66,9 @@ export function editSection(
   );
 }
 
-/** Byte offsets inside the zkey MPC section (10) of entry `i` (0-based), for in-place edits. */
 export function mpcEntryOffsets(section: Uint8Array, i: number) {
   const view = new DataView(section.buffer, section.byteOffset, section.byteLength);
-  let pos = 64 + 4; // csHash, count
+  let pos = 64 + 4;
   for (let k = 0; ; k++) {
     const entry = pos;
     const type = entry + 3 * 64 + 128 + 64;
@@ -80,7 +80,6 @@ export function mpcEntryOffsets(section: Uint8Array, i: number) {
   }
 }
 
-/** Little-endian 256-bit integer helpers for field elements. */
 export const leToBig = (b: Uint8Array) => b.reduceRight((v, x) => (v << 8n) | BigInt(x), 0n);
 export function bigToLe(v: bigint, out: Uint8Array): void {
   for (let i = 0; i < out.length; i++) {

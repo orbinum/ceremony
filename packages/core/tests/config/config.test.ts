@@ -1,4 +1,8 @@
-/** The pinned configuration is self-consistent. SPEC §1–2, §4.2, §5. */
+/**
+ * The pinned configuration is self-consistent: the ptau and drand pins are well formed, the
+ * verifier's bound and report fit inside the verify deadline, and beacons fall after the last
+ * possible acceptance.
+ */
 import { describe, expect, it } from "vitest";
 import {
   DRAND,
