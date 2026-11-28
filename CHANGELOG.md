@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-28
+
+### Changed
+
+- The testnet deployment moves to `orbinum-testnet-public-1`, the public test ceremony: open
+  admission, contributions from 2026-12-02T00:00Z to 2026-12-05T00:00Z, at least 15 per circuit,
+  sealed with drand quicknet round 34543012 (2026-12-05T01:00Z). The deployment is pinned to its
+  announcement (`ANNOUNCEMENT_SHA256` 5e7b4d4e…a7117). The finalized `orbinum-testnet-private-1`
+  stays published under `/archive/orbinum-testnet-private-1`.
+
 ## [0.7.0] - 2026-11-27
 
 ### Changed

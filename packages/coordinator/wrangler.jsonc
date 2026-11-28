@@ -126,12 +126,12 @@
         { "binding": "PRIVATE", "bucket_name": "orbinum-ceremony-testnet-private" },
       ],
       "vars": {
-        "CEREMONY_ID": "orbinum-testnet-private-1",
+        "CEREMONY_ID": "orbinum-testnet-public-1",
         "ENVIRONMENT": "testnet",
         "GITHUB_CLIENT_ID": "Ov23li2sBLCtW89N1Mth",
         "VERIFIER_URL": "",
         "COORDINATOR_URL": "https://ceremony.testnet.orbinum.network",
-        "ANNOUNCEMENT_SHA256": "",
+        "ANNOUNCEMENT_SHA256": "5e7b4d4ea9d362f32ce115ddbb3b69f7edfd59752324425310ec69d0743a7117",
         "ACCESS_TEAM_DOMAIN": "https://orbinum.cloudflareaccess.com",
         "ACCESS_AUD": "28660a96a902d23d7173df1e6399799abbd96f945f6bf3cda7feb46c59dc5a80",
         // The CLI's service token (ceremony-testnet-operator) and one operator's browser login.
