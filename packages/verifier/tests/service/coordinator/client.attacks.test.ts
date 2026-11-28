@@ -57,10 +57,9 @@ describe("coordinator client vs a misbehaving coordinator", () => {
     let elsewhere = 0;
     const other = createServer((_, res) => ((elsewhere += 1), res.end("x")));
     await new Promise<void>((r) => other.listen(0, "127.0.0.1", r));
+    const location = `http://127.0.0.1:${(other.address() as AddressInfo).port}/x`;
     handler = (_, res) => {
-      res.writeHead(302, {
-        location: `http://127.0.0.1:${(other.address() as AddressInfo).port}/x`,
-      });
+      res.writeHead(302, { location });
       res.end();
     };
     try {
